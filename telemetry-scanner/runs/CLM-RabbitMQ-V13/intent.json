@@ -1,0 +1,43 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "AddRabbitMQInstrumentation"
+  },
+  "semantic_description": "Add OpenTelemetry RabbitMQ instrumentation to the clm-web service so that RabbitMQ spans with key messaging attributes appear in Jaeger traces.",
+  "search_keywords": [
+    "RabbitMQ",
+    "AddRabbitMQInstrumentation",
+    "OpenTelemetry.Instrumentation.RabbitMQ",
+    "TracerProviderBuilder",
+    "Jaeger",
+    "clm-web",
+    "messaging.system",
+    "messaging.rabbitmq.routing_key",
+    "CorrelationToken"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "CREATE",
+    "attributes_to_add": [
+      {
+        "name": "messaging.system",
+        "value_source": "the literal string 'rabbitmq'"
+      },
+      {
+        "name": "messaging.destination",
+        "value_source": "the queue name variable used when publishing"
+      },
+      {
+        "name": "messaging.destination_kind",
+        "value_source": "the literal string 'queue'"
+      },
+      {
+        "name": "messaging.operation",
+        "value_source": "the runtime value indicating the RabbitMQ operation (e.g., 'send' or 'receive')"
+      }
+    ],
+    "new_span_name": "rabbitmq.publish",
+    "new_metric_details": null
+  }
+}

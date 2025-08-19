@@ -1,0 +1,26 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": null,
+  "semantic_description": "Ensure database spans in CLM Jaeger traces include the called stored procedure name as a span attribute so the span row can be displayed as \"(dbname sprocname)\".",
+  "search_keywords": [
+    "sproc",
+    "stored procedure",
+    "db.operation",
+    "SpanAttribute",
+    "Jaeger",
+    "CLM"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.operation",
+        "value_source": "the name of the stored procedure being executed at runtime"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

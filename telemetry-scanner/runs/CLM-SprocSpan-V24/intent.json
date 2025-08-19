@@ -1,0 +1,29 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "AddSqlClientInstrumentation"
+  },
+  "semantic_description": "Enable inclusion of each executed database stored-procedure name as a span attribute so that CLM and eSign Jaeger traces display both the database and the specific sproc invoked.",
+  "search_keywords": [
+    "AddSqlClientInstrumentation",
+    "DbCommandInstrumentationOptions",
+    "SetDbStatementForStoredProcedure",
+    "db.operation",
+    "SpanAttribute",
+    "sprocname",
+    "Jaeger"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.operation",
+        "value_source": "the stored procedure name obtained from SqlCommand.CommandText when CommandType is StoredProcedure"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

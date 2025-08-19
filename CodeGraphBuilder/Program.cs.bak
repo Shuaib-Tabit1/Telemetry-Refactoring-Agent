@@ -1,0 +1,289 @@
+﻿using System.CommandLine;
+using System.Text.Json;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.MSBuild;
+
+// ------------------------------------------------------------------
+// STEP 1: DEFINE THE DATA MODEL FOR OUR GRAPH
+// ------------------------------------------------------------------
+
+public enum SymbolKind { Class, Interface, Method }
+public enum RelationshipKind { InheritsFrom, Implements, Calls }
+
+/// <summary>
+/// Represents a relationship between two code symbols.
+/// </summary>
+public record SymbolRelationship(string TargetSymbolFullName, RelationshipKind Kind);
+
+/// <summary>
+/// Represents a single symbol (class, method, etc.) found in the codebase.
+/// </summary>
+public record CodeSymbol(
+    string FullName,
+    SymbolKind Kind,
+    string FilePath,
+    int LineNumber,
+    List<SymbolRelationship> Relationships
+);
+
+/// <summary>
+/// The top-level object that holds the entire code graph.
+/// </summary>
+public record CodeGraph(List<CodeSymbol> Symbols);
+
+
+// ------------------------------------------------------------------
+// STEP 2: SET UP THE APPLICATION'S COMMAND-LINE INTERFACE
+// ------------------------------------------------------------------
+
+class Program
+{
+    static async Task<int> Main(string[] args)
+    {
+        var repoPathOption = new Option<FileInfo>(
+            name: "--repo-path",
+            description: "The path to the .sln file to analyze.");
+        repoPathOption.AddAlias("-r");
+        repoPathOption.IsRequired = true;
+
+        var outputFileOption = new Option<FileInfo>(
+            name: "--output-file",
+            description: "The path to save the output graph JSON file.",
+            getDefaultValue: () => new FileInfo("codegraph.json"));
+
+        var indexCommand = new Command("index", "Builds the code graph for a repository.");
+        indexCommand.Add(repoPathOption);
+        indexCommand.Add(outputFileOption);
+
+        var rootCommand = new RootCommand("C# Code Graph Builder");
+        rootCommand.Add(indexCommand);
+
+        indexCommand.SetHandler(async (FileInfo repoPath, FileInfo outputFile) =>
+        {
+            await BuildGraph(repoPath.FullName, outputFile.FullName);
+        }, repoPathOption, outputFileOption);
+
+        return await rootCommand.InvokeAsync(args);
+    }
+
+    // ------------------------------------------------------------------
+    // STEP 3: DEFINE THE CORE LOGIC
+    // ------------------------------------------------------------------
+
+    private static async Task BuildGraph(string solutionPath, string outputPath)
+    {
+        Console.Error.WriteLine($"Starting to build code graph for solution: {solutionPath}");
+
+        // Initialize the MSBuild workspace to load the solution
+        using var workspace = MSBuildWorkspace.Create();
+        var solution = await workspace.OpenSolutionAsync(solutionPath);
+        
+        if (workspace.Diagnostics.Any())
+        {
+            foreach (var diagnostic in workspace.Diagnostics)
+            {
+                Console.Error.WriteLine($"Workspace diagnostic: {diagnostic.Message}");
+            }
+        }
+
+        // Keep track of all the symbols we find
+        var codeSymbols = new List<CodeSymbol>();
+        var symbolCompilations = new Dictionary<Project, Compilation>();
+
+        // Process each project in the solution
+        foreach (var project in solution.Projects)
+        {
+            Console.Error.WriteLine($"Processing project: {project.Name}");
+            
+            // Skip if the project can't be compiled
+            var compilation = await project.GetCompilationAsync();
+            if (compilation == null)
+            {
+                Console.Error.WriteLine($"  Skipping project {project.Name} - could not get compilation");
+                continue;
+            }
+            
+            symbolCompilations[project] = compilation;
+            
+            // Get all syntax trees in the project
+            foreach (var document in project.Documents)
+            {
+                var syntaxTree = await document.GetSyntaxTreeAsync();
+                if (syntaxTree == null) continue;
+                
+                var semanticModel = compilation.GetSemanticModel(syntaxTree);
+                var root = await syntaxTree.GetRootAsync();
+                
+                // Find all class declarations
+                ProcessClassesAndInterfaces(root, semanticModel, document.FilePath, codeSymbols);
+            }
+        }
+        
+        // Process relationships between symbols after we've collected all symbols
+        foreach (var project in solution.Projects)
+        {
+            if (!symbolCompilations.TryGetValue(project, out var compilation))
+                continue;
+                
+            foreach (var document in project.Documents)
+            {
+                var syntaxTree = await document.GetSyntaxTreeAsync();
+                if (syntaxTree == null) continue;
+                
+                var semanticModel = compilation.GetSemanticModel(syntaxTree);
+                var root = await syntaxTree.GetRootAsync();
+                
+                // Find relationships between symbols
+                ProcessRelationships(root, semanticModel, codeSymbols);
+            }
+        }
+        
+        // Create and save the final graph
+        var codeGraph = new CodeGraph(codeSymbols);
+        var jsonOutput = JsonSerializer.Serialize(codeGraph, new JsonSerializerOptions { WriteIndented = true });
+        await File.WriteAllTextAsync(outputPath, jsonOutput);
+        
+        Console.Error.WriteLine($"Code graph with {codeSymbols.Count} symbols saved to: {outputPath}");
+    }
+    
+    // ------------------------------------------------------------------
+    // STEP 4: SYMBOL DISCOVERY METHODS
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Process all class and interface declarations in the syntax tree
+    /// </summary>
+    private static void ProcessClassesAndInterfaces(SyntaxNode root, SemanticModel semanticModel, 
+                                                    string? filePath, List<CodeSymbol> symbols)
+    {
+        // Process classes
+        foreach (var classDecl in root.DescendantNodes().OfType<ClassDeclarationSyntax>())
+        {
+            var symbol = semanticModel.GetDeclaredSymbol(classDecl);
+            if (symbol == null) continue;
+
+            var location = classDecl.Identifier.GetLocation();
+            var lineSpan = location.GetLineSpan();
+            var lineNumber = lineSpan.StartLinePosition.Line + 1; // 1-based line number
+
+            // Create a new code symbol for this class
+            var codeSymbol = new CodeSymbol(
+                FullName: symbol.ToDisplayString(),
+                Kind: SymbolKind.Class,
+                FilePath: filePath ?? "unknown",
+                LineNumber: lineNumber,
+                Relationships: new List<SymbolRelationship>()
+            );
+            
+            symbols.Add(codeSymbol);
+            
+            // Process methods inside the class
+            foreach (var methodDecl in classDecl.DescendantNodes().OfType<MethodDeclarationSyntax>())
+            {
+                var methodSymbol = semanticModel.GetDeclaredSymbol(methodDecl);
+                if (methodSymbol == null) continue;
+                
+                var methodLocation = methodDecl.Identifier.GetLocation();
+                var methodLineSpan = methodLocation.GetLineSpan();
+                var methodLineNumber = methodLineSpan.StartLinePosition.Line + 1;
+                
+                // Create a symbol for the method
+                var methodCodeSymbol = new CodeSymbol(
+                    FullName: methodSymbol.ToDisplayString(),
+                    Kind: SymbolKind.Method,
+                    FilePath: filePath ?? "unknown",
+                    LineNumber: methodLineNumber,
+                    Relationships: new List<SymbolRelationship>()
+                );
+                
+                symbols.Add(methodCodeSymbol);
+            }
+        }
+        
+        // Process interfaces
+        foreach (var interfaceDecl in root.DescendantNodes().OfType<InterfaceDeclarationSyntax>())
+        {
+            var symbol = semanticModel.GetDeclaredSymbol(interfaceDecl);
+            if (symbol == null) continue;
+            
+            var location = interfaceDecl.Identifier.GetLocation();
+            var lineSpan = location.GetLineSpan();
+            var lineNumber = lineSpan.StartLinePosition.Line + 1;
+            
+            // Create a new code symbol for this interface
+            var codeSymbol = new CodeSymbol(
+                FullName: symbol.ToDisplayString(),
+                Kind: SymbolKind.Interface,
+                FilePath: filePath ?? "unknown",
+                LineNumber: lineNumber,
+                Relationships: new List<SymbolRelationship>()
+            );
+            
+            symbols.Add(codeSymbol);
+        }
+    }
+    
+    /// <summary>
+    /// Process relationships between symbols (inheritance, implementation, method calls)
+    /// </summary>
+    private static void ProcessRelationships(SyntaxNode root, SemanticModel semanticModel, 
+                                            List<CodeSymbol> symbols)
+    {
+        // Process class inheritance and interface implementation
+        foreach (var classDecl in root.DescendantNodes().OfType<ClassDeclarationSyntax>())
+        {
+            var classSymbol = semanticModel.GetDeclaredSymbol(classDecl);
+            if (classSymbol == null) continue;
+            
+            var classFullName = classSymbol.ToDisplayString();
+            var classCodeSymbol = symbols.FirstOrDefault(s => s.FullName == classFullName);
+            if (classCodeSymbol == null) continue;
+            
+            // Check base class (inheritance)
+            if (classSymbol.BaseType != null && !classSymbol.BaseType.Name.Equals("Object"))
+            {
+                classCodeSymbol.Relationships.Add(new SymbolRelationship(
+                    classSymbol.BaseType.ToDisplayString(),
+                    RelationshipKind.InheritsFrom
+                ));
+            }
+            
+            // Check implemented interfaces
+            foreach (var iface in classSymbol.Interfaces)
+            {
+                classCodeSymbol.Relationships.Add(new SymbolRelationship(
+                    iface.ToDisplayString(),
+                    RelationshipKind.Implements
+                ));
+            }
+        }
+        
+        // Process method calls
+        foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
+        {
+            var symbolInfo = semanticModel.GetSymbolInfo(invocation);
+            if (symbolInfo.Symbol == null || !(symbolInfo.Symbol is IMethodSymbol)) continue;
+            
+            // Find the containing method
+            var methodDecl = invocation.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
+            if (methodDecl == null) continue;
+            
+            var callingMethodSymbol = semanticModel.GetDeclaredSymbol(methodDecl);
+            if (callingMethodSymbol == null) continue;
+            
+            // Find the symbol for the caller in our list
+            var callerFullName = callingMethodSymbol.ToDisplayString();
+            var callerSymbol = symbols.FirstOrDefault(s => s.FullName == callerFullName);
+            if (callerSymbol == null) continue;
+            
+            // Add relationship for method calls
+            var targetMethod = (IMethodSymbol)symbolInfo.Symbol;
+            callerSymbol.Relationships.Add(new SymbolRelationship(
+                targetMethod.ToDisplayString(),
+                RelationshipKind.Calls
+            ));
+        }
+    }
+}

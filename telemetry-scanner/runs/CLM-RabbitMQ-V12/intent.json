@@ -1,0 +1,38 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "BasicPublish"
+  },
+  "semantic_description": "Add OpenTelemetry instrumentation for RabbitMQ publish and consume operations so that related spans with standard messaging attributes appear in Jaeger traces.",
+  "search_keywords": [
+    "RabbitMQ",
+    "BasicPublish",
+    "BasicConsume",
+    "IModel",
+    "messaging.system",
+    "OpenTelemetry",
+    "Jaeger",
+    "Dynatrace"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "CREATE",
+    "attributes_to_add": [
+      {
+        "name": "messaging.system",
+        "value_source": "the literal string 'rabbitmq'"
+      },
+      {
+        "name": "messaging.destination",
+        "value_source": "the 'queueName' variable passed to BasicPublish or BasicConsume"
+      },
+      {
+        "name": "messaging.operation",
+        "value_source": "the literal string 'publish' or 'receive' depending on the call site"
+      }
+    ],
+    "new_span_name": "RabbitMQ publish",
+    "new_metric_details": null
+  }
+}

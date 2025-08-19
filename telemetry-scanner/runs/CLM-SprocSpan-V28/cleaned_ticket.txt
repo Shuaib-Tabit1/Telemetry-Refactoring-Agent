@@ -1,0 +1,9 @@
+Title: Database Stored Procedure name is missing in Span Attribute
+
+Components: Other
+
+Description:
+Sproc is not showing in Span Attribute for CLM Jaeger Traces. Per discussion with @Yong.Cha , he can add that to span row name as (dbname sprocname) once sprocname shows in SpanAttribute
+CLM Jaeger Trace [
+
+eSign Jaeger Trace: [

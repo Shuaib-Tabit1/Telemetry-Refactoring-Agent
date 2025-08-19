@@ -1,0 +1,26 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "semantic_description": "Database stored procedure call spans in CLM Jaeger traces",
+  "search_keywords": [
+    "CLM",
+    "Jaeger",
+    "SpanAttribute",
+    "sproc",
+    "SqlCommand",
+    "Execute",
+    "OpenTelemetry"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.sproc",
+        "value_source": "the stored procedure name from the SqlCommand.CommandText property"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

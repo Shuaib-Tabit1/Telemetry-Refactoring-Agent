@@ -1,0 +1,31 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": null,
+  "semantic_description": "Ensure that each database client span records the database name and stored procedure name as OpenTelemetry span attributes so they appear in Jaeger traces.",
+  "search_keywords": [
+    "db.operation",
+    "db.name",
+    "sprocname",
+    "Jaeger",
+    "SetTag",
+    "SetAttribute",
+    "AddSqlClientInstrumentation"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.name",
+        "value_source": "the variable holding the current database name (e.g., 'dbname')"
+      },
+      {
+        "name": "db.operation",
+        "value_source": "the stored procedure name variable 'sprocname'"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

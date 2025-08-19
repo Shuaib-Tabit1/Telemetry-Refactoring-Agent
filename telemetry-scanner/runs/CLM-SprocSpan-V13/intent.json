@@ -1,0 +1,32 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": null,
+  "semantic_description": "Add the executed stored-procedure name as an attribute on database spans so that Jaeger traces show (dbname sprocname) in the row name.",
+  "search_keywords": [
+    "stored procedure",
+    "sproc",
+    "db.statement",
+    "db.sql.procedure",
+    "Span.SetTag",
+    "ExecuteReader",
+    "SqlCommand",
+    "OpenTelemetry"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": "Microsoft.Data.SqlClient Execute",
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.sql.procedure",
+        "value_source": "the value of SqlCommand.CommandText when CommandType == CommandType.StoredProcedure"
+      },
+      {
+        "name": "db.name",
+        "value_source": "the database name extracted from SqlConnection.Database"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

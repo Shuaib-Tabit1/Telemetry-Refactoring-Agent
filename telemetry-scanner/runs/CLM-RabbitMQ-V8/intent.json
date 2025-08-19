@@ -1,0 +1,44 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "AddRabbitMQClientInstrumentation"
+  },
+  "semantic_description": "Ensure RabbitMQ client operations are fully instrumented and enriched with standard OpenTelemetry messaging attributes so that their spans appear in Jaeger traces with complete metadata.",
+  "search_keywords": [
+    "RabbitMQ",
+    "RabbitMQ.Client",
+    "MassTransit",
+    "AddRabbitMQClientInstrumentation",
+    "BasicPublish",
+    "BasicConsume",
+    "messaging.system",
+    "messaging.rabbitmq.routing_key",
+    "messaging.destination",
+    "messaging.destination_kind"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": "RabbitMQ publish",
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "messaging.system",
+        "value_source": "the literal string 'rabbitmq'"
+      },
+      {
+        "name": "messaging.destination",
+        "value_source": "the queue name passed to BasicPublish or BasicConsume"
+      },
+      {
+        "name": "messaging.destination_kind",
+        "value_source": "the literal string 'queue'"
+      },
+      {
+        "name": "messaging.rabbitmq.routing_key",
+        "value_source": "the routing key argument in BasicPublish"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

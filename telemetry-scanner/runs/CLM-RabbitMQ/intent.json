@@ -1,0 +1,35 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "AddRabbitMQInstrumentation"
+  },
+  "semantic_description": "The code path in the CLM web application that publishes and consumes messages through RabbitMQ, currently missing from distributed traces.",
+  "search_keywords": [
+    "RabbitMQ",
+    "AddRabbitMQInstrumentation",
+    "PublishAsync",
+    "BasicPublish",
+    "IModel.BasicPublish"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "CREATE",
+    "attributes_to_add": [
+      {
+        "name": "messaging.system",
+        "value_source": "the literal string 'rabbitmq'"
+      },
+      {
+        "name": "messaging.destination",
+        "value_source": "the queue or exchange name variable in scope (e.g., 'queueName' or 'exchange')"
+      },
+      {
+        "name": "messaging.rabbitmq.routing_key",
+        "value_source": "the 'routingKey' variable passed to BasicPublish"
+      }
+    ],
+    "new_span_name": "rabbitmq.publish",
+    "new_metric_details": null
+  }
+}

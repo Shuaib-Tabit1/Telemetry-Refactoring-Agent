@@ -1,0 +1,40 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "AddRabbitMQClientInstrumentation"
+  },
+  "semantic_description": "Add OpenTelemetry RabbitMQ client instrumentation and key span attributes so that RabbitMQ publish/consume operations appear in Jaeger traces.",
+  "search_keywords": [
+    "RabbitMQ",
+    "Jaeger",
+    "AddRabbitMQClientInstrumentation",
+    "messaging.system",
+    "messaging.rabbitmq.routing_key",
+    "CorrelationToken"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "CREATE",
+    "attributes_to_add": [
+      {
+        "name": "messaging.system",
+        "value_source": "the literal string 'rabbitmq'"
+      },
+      {
+        "name": "messaging.destination",
+        "value_source": "the variable 'exchangeName' or queue name used when publishing/consuming"
+      },
+      {
+        "name": "messaging.rabbitmq.routing_key",
+        "value_source": "the variable 'routingKey' supplied to the publish call"
+      },
+      {
+        "name": "messaging.conversation_id",
+        "value_source": "the message header value of 'CorrelationToken' from RequestEvents"
+      }
+    ],
+    "new_span_name": "rabbitmq.publish",
+    "new_metric_details": null
+  }
+}

@@ -1,0 +1,409 @@
+```diff
+diff --git a/src/Tests/RestrictedWorkerTests.cs b/src/Tests/RestrictedWorkerTests.cs
+index e69de29..abcdef1 100644
+--- a/src/Tests/RestrictedWorkerTests.cs
++++ b/src/Tests/RestrictedWorkerTests.cs
+@@
+-   [Theory]
++   [Span("RestrictedWorkerTests", TagName = "sprocname", TagValue = "TestCalcSecondsUntilNextStart")]
++   [Theory]
+    [InlineData("2016/05/06 00:03:23", 333, 17, 6, 333)]
+@@
+-   [Theory]
++   [Span("RestrictedWorkerTests", TagName = "sprocname", TagValue = "TestUnrestrictedWeekendsCalcSecondsUntilNextStart")]
++   [Theory]
+    [InlineData("2016/05/13 10:00", 300, 10, 8, 300)]
+@@
+-   [Theory]
++   [Span("RestrictedWorkerTests", TagName = "sprocname", TagValue = "TestIsWorkDay")]
++   [Theory]
+    [InlineData("2016/05/06 12:59:25", "0,1,2,3,4,5,6", true)]
+@@
+-#if NET
+-   [Fact]
++   #if NET
++   [Span("RestrictedWorkerTests", TagName = "sprocname", TagValue = "TestTimeZoneInfoConvert")]
++   [Fact]
+    public void TestTimeZoneInfoConvert()
+@@
+diff --git a/src/Tests/TestDummyServicedComponent.cs b/src/Tests/TestDummyServicedComponent.cs
+index e69de29..abcdef2 100644
+--- a/src/Tests/TestDummyServicedComponent.cs
++++ b/src/Tests/TestDummyServicedComponent.cs
+@@ internal sealed class TestDummyServicedComponent : IServicedComponent
+-   public void Run() => throw new System.NotImplementedException();
++   [SpanAttribute(sprocname = "TestDummyServicedComponent.Run")]
++   public void Run() => throw new System.NotImplementedException();
+@@ internal sealed class TestDummyServicedComponent : IServicedComponent
+-   public void RunHealthCheck() => throw new System.NotImplementedException();
++   [SpanAttribute(sprocname = "TestDummyServicedComponent.RunHealthCheck")]
++   public void RunHealthCheck() => throw new System.NotImplementedException();
+@@ internal sealed class TestDummyServicedComponent : IServicedComponent
+-   public void Stop() => throw new System.NotImplementedException();
++   [SpanAttribute(sprocname = "TestDummyServicedComponent.Stop")]
++   public void Stop() => throw new System.NotImplementedException();
+diff --git a/src/Tests/BasicDirectoryCleanupWorkerTests.cs b/src/Tests/BasicDirectoryCleanupWorkerTests.cs
+index e69de29..abcdef3 100644
+--- a/src/Tests/BasicDirectoryCleanupWorkerTests.cs
++++ b/src/Tests/BasicDirectoryCleanupWorkerTests.cs
+@@ public void TestCleanupBasedOnThreshold(bool useFolderCleanup, string targetDirectory, int staleThresholdMinutes, bool expectedWrittenResult, bool expectedEmptyResult)
+-       //Initial Setup
++       //Initial Setup
++       using var span = Tracer.StartSpan("TestCleanupBasedOnThreshold").SetTag("sprocname", targetDirectory);
+diff --git a/src/Tests/TestsInit.cs b/src/Tests/TestsInit.cs
+index e69de29..abcdef4 100644
+--- a/src/Tests/TestsInit.cs
++++ b/src/Tests/TestsInit.cs
+@@ public TestsInit()
+-    XmlConfigurator.ConfigureAndWatch(logConfigFileInfo);
+-    _log.Info("Logging started");
++    using var span = tracer.StartActiveSpan("TestsInit.Initialization");
++    span.SetAttribute("sprocname", "TestsInit");
++    XmlConfigurator.ConfigureAndWatch(logConfigFileInfo);
++    _log.Info("Logging started");
++    span.End();
+diff --git a/src/Tests/LogOutputTester.cs b/src/Tests/LogOutputTester.cs
+index e69de29..abcdef5 100644
+--- a/src/Tests/LogOutputTester.cs
++++ b/src/Tests/LogOutputTester.cs
+@@ public LogOutputTester(ITestOutputHelper output)
+-    log4net.Config.XmlConfigurator.Configure();
++    using var span = Tracer.Current.StartActiveSpan("LogOutputTester.Init");
++    span.SetAttribute("sprocname", "LogOutputTester");
++    log4net.Config.XmlConfigurator.Configure();
+diff --git a/src/ServiceFramework.AspNetCore.Tests/Startup.cs b/src/ServiceFramework.AspNetCore.Tests/Startup.cs
+index e69de29..abcdef6 100644
+--- a/src/ServiceFramework.AspNetCore.Tests/Startup.cs
++++ b/src/ServiceFramework.AspNetCore.Tests/Startup.cs
+@@ public void ConfigureServices(IServiceCollection services)
+-       services.AddLogging(lb => lb.AddXunitOutput(
++       services.AddLogging(lb => lb.AddXunitOutput(
+             options => options.TimestampFormat = "yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fffffff'Z'"))
++            // ensure each test span includes sprocname
++            .AddTag("sprocname", /* your test span name here */);
+diff --git a/src/ServiceFramework.Extensions/ScmWebApplication.cs b/src/ServiceFramework.Extensions/ScmWebApplication.cs
+index e69de29..abcdef7 100644
+--- a/src/ServiceFramework.Extensions/ScmWebApplication.cs
++++ b/src/ServiceFramework.Extensions/ScmWebApplication.cs
+@@ public static WebApplicationBuilder CreateScmService(WebApplicationOptions options)
+-       return WebApplication.CreateBuilder(options);
++       // example: add a span for service startup
++       using var span = TracerProvider.Default.GetTracer("ServiceFramework").StartActiveSpan("CreateScmService", out var builderSpan);
++       builderSpan.SetAttribute("sprocname", "CreateScmService");
++       return WebApplication.CreateBuilder(options);
+diff --git a/src/ServiceFramework/AbstractServiceBufferedWorker.cs b/src/ServiceFramework/AbstractServiceBufferedWorker.cs
+index e69de29..abcdef8 100644
+--- a/src/ServiceFramework/AbstractServiceBufferedWorker.cs
++++ b/src/ServiceFramework/AbstractServiceBufferedWorker.cs
+@@ public sealed override void Run()
+-            while (_component.Running && ((task = _workQueue.GetNextTask()) != null) )
++            while (_component.Running && ((task = _workQueue.GetNextTask()) != null) )
+             {
++                var currentSpan = Telemetry.Tracing.Span.Current;
++                currentSpan?.SetAttribute("sprocname", task.GetType().Name);
+@@
+diff --git a/src/ServiceFramework/ScmServicedComponent.cs b/src/ServiceFramework/ScmServicedComponent.cs
+index e69de29..abcdef9 100644
+--- a/src/ServiceFramework/ScmServicedComponent.cs
++++ b/src/ServiceFramework/ScmServicedComponent.cs
+@@ public void Run()
+-       _log.InfoNoPII($"This is {System.Diagnostics.Process.GetCurrentProcess().ProcessName} {GetType().Assembly.GetName().Version} © SpringCM {DateTime.UtcNow:yyyy}.");
++       using (var scope = GlobalTracer.Instance.BuildSpan("ScmServicedComponent.Run").StartActive(finishSpanOnDispose: true))
++       {
++           scope.Span.SetTag("sprocname", "ScmServicedComponent.Run");
++           _log.InfoNoPII($"This is {System.Diagnostics.Process.GetCurrentProcess().ProcessName} {GetType().Assembly.GetName().Version} © SpringCM {DateTime.UtcNow:yyyy}.");
++       }
+@@ public void Stop()
+-       _log.WarnNoPII("Stopping service.");
++       using var span = GlobalTracer.Instance.BuildSpan("ScmServicedComponent.Stop").StartActive(finishSpanOnDispose: true);
++       span.Span.SetTag("sprocname", "ScmServicedComponent.Stop");
++       _log.WarnNoPII("Stopping service.");
+diff --git a/src/ServiceFramework/BasicDirectoryCleanupWorker.cs b/src/ServiceFramework/BasicDirectoryCleanupWorker.cs
+index e69de29..abcdefa 100644
+--- a/src/ServiceFramework/BasicDirectoryCleanupWorker.cs
++++ b/src/ServiceFramework/BasicDirectoryCleanupWorker.cs
+@@ public override void Run()
+-        try
++        using var span = Tracer.CurrentSpan.StartChild("BasicDirectoryCleanupWorker.Run");
++        span.SetAttribute("sprocname", WorkerName);
++        try
+@@
+diff --git a/src/ServiceFramework/DelegateServiceWorker.cs b/src/ServiceFramework/DelegateServiceWorker.cs
+index e69de29..abcdefb 100644
+--- a/src/ServiceFramework/DelegateServiceWorker.cs
++++ b/src/ServiceFramework/DelegateServiceWorker.cs
+@@ public override void Run() {
+-   _runDelegate();
++   using(var span = Telemetry.Tracing.Span.CurrentTracer.StartActiveSpan("DelegateServiceWorker.Run", out var s))
++   {
++       s.SetAttribute("sprocname", _name);
++       _runDelegate();
++   }
+diff --git a/src/ServiceFramework/BaseServiceRequestEventLogger.cs b/src/ServiceFramework/BaseServiceRequestEventLogger.cs
+index e69de29..abcdefc 100644
+--- a/src/ServiceFramework/BaseServiceRequestEventLogger.cs
++++ b/src/ServiceFramework/BaseServiceRequestEventLogger.cs
+@@ protected BaseServiceRequestEventLogger(Guid? correlationToken, string action)
+-   Action = action;
++   // tag span with stored procedure name
++   Span.SetAttribute("sprocname", action);
++   Action = action;
+diff --git a/src/ServiceFramework/AbstractServiceSubscriberWorker.cs b/src/ServiceFramework/AbstractServiceSubscriberWorker.cs
+index e69de29..abcdefd 100644
+--- a/src/ServiceFramework/AbstractServiceSubscriberWorker.cs
++++ b/src/ServiceFramework/AbstractServiceSubscriberWorker.cs
+@@ public override void Run()
+-        WaitHandle.Reset();
++        using var span = Telemetry.Tracing.Span.CurrentTracer.StartActiveSpan("AbstractServiceSubscriberWorker.Run", out var ss);
++        ss.SetAttribute("sprocname", ActiveSubscription?.Id);
++        WaitHandle.Reset();
+@@
+-        using (ActiveSubscription = ConsumeSubscription(SubscriberContext))
++        using (ActiveSubscription = ConsumeSubscription(SubscriberContext))
+         {
++            ss.SetAttribute("sprocname", ActiveSubscription.Id);
+             _log.InfoNoPII($"Started consuming on subscription {ActiveSubscription.Id}.");
+diff --git a/src/ServiceFramework/BufferedWorkQueue.cs b/src/ServiceFramework/BufferedWorkQueue.cs
+index e69de29..abcdefe 100644
+--- a/src/ServiceFramework/BufferedWorkQueue.cs
++++ b/src/ServiceFramework/BufferedWorkQueue.cs
+@@ public object GetNextTask()
+-                    RetrieverMethod(taskQueue);
++                    using var span = Telemetry.Tracing.Span.CurrentTracer.BuildSpan("BufferedWorkQueue.GetNextTask").Start();
++                    span.SetTag("sprocname", "<YourStoredProcName>");
++                    RetrieverMethod(taskQueue);
+diff --git a/src/ServiceFramework/TaskResultEnum.cs b/src/ServiceFramework/TaskResultEnum.cs
+index e69de29..abcdeff 100644
+--- a/src/ServiceFramework/TaskResultEnum.cs
++++ b/src/ServiceFramework/TaskResultEnum.cs
+@@
++// When starting any stored-proc related span, ensure you set sprocname:
++// span.SetAttribute("sprocname", storedProcedureName);
+diff --git a/src/ServiceFramework.Testing/ScmUnitTestHostLifetimeFixture.cs b/src/ServiceFramework.Testing/ScmUnitTestHostLifetimeFixture.cs
+index e69de29..abcd001 100644
+--- a/src/ServiceFramework.Testing/ScmUnitTestHostLifetimeFixture.cs
++++ b/src/ServiceFramework.Testing/ScmUnitTestHostLifetimeFixture.cs
+@@ public async Task DisposeAsync()
+-   if (_host != null)
++   using var span = tracer.StartActiveSpan("ScmUnitTestHostLifetimeFixture.DisposeAsync");
++   span.SetAttribute("sprocname", "ScmUnitTestHostLifetimeFixture.DisposeAsync");
++   if (_host != null)
+diff --git a/src/ServiceFramework.OpenTelemetry/HostedServices/ScmCoreInstrumentationLifetimeHostedService.cs b/src/ServiceFramework.OpenTelemetry/HostedServices/ScmCoreInstrumentationLifetimeHostedService.cs
+index e69de29..abcd002 100644
+--- a/src/ServiceFramework.OpenTelemetry/HostedServices/ScmCoreInstrumentationLifetimeHostedService.cs
++++ b/src/ServiceFramework.OpenTelemetry/HostedServices/ScmCoreInstrumentationLifetimeHostedService.cs
+@@ public Task StartingAsync(CancellationToken cancellationToken)
+-       _logger.LogInformation("ScmCoreInstrumentation lifetime starting");
++       using var span = tracer.StartActiveSpan("ScmCoreInstrumentationLifetimeHostedService.StartingAsync");
++       span.SetAttribute("sprocname", "ScmCoreInstrumentationLifetimeHostedService.StartingAsync");
++       _logger.LogInformation("ScmCoreInstrumentation lifetime starting");
+diff --git a/src/ServiceFramework.OpenTelemetry/Extensions/ScmCoreInstrumentationServiceCollectionExtensions.cs b/src/ServiceFramework.OpenTelemetry/Extensions/ScmCoreInstrumentationServiceCollectionExtensions.cs
+index e69de29..abcd003 100644
+--- a/src/ServiceFramework.OpenTelemetry/Extensions/ScmCoreInstrumentationServiceCollectionExtensions.cs
++++ b/src/ServiceFramework.OpenTelemetry/Extensions/ScmCoreInstrumentationServiceCollectionExtensions.cs
+@@ configureTracer: options =>
+-               options.AddScmCassandraPersistenceInstrumentation();
++               options.AddScmCassandraPersistenceInstrumentation();
++               // Add processor to tag sprocname on persistence spans
++               options.AddProcessor(new SimpleSpanProcessor(new AttributeAddingSpanExporter(span =>
++               {
++                   var sproc = /* derive stored proc name */;
++                   span.SetAttribute("sprocname", sproc);
++               })));
+diff --git a/src/ServiceFramework.OpenTelemetry/obj/Debug/net48/.NETFramework,Version=v4.8.AssemblyAttributes.cs b/src/ServiceFramework.OpenTelemetry/obj/Debug/net48/.NETFramework,Version=v4.8.AssemblyAttributes.cs
+index e69de29..abcd004 100644
+--- a/src/ServiceFramework.OpenTelemetry/obj/Debug/net48/.NETFramework,Version=v4.8.AssemblyAttributes.cs
++++ b/src/ServiceFramework.OpenTelemetry/obj/Debug/net48/.NETFramework,Version=v4.8.AssemblyAttributes.cs
+@@
++// Ensure any custom span exporter sets sprocname:
++// span.SetAttribute("sprocname", sprocName);
+diff --git a/src/ServiceFramework/StartupFilters/ThreadPoolConfigurationStartupFilter.cs b/src/ServiceFramework/StartupFilters/ThreadPoolConfigurationStartupFilter.cs
+index e69de29..abcd005 100644
+--- a/src/ServiceFramework/StartupFilters/ThreadPoolConfigurationStartupFilter.cs
++++ b/src/ServiceFramework/StartupFilters/ThreadPoolConfigurationStartupFilter.cs
+@@ private void Configure()
+-       ThreadPool.GetMinThreads(out var currentMinWorkerThreads, out var currentMinIoThreads);
++       using var activity = Tracer.StartActivity("ThreadPool.Configure");
++       activity?.SetTag("sprocname", "ThreadPool.Configure");
++       ThreadPool.GetMinThreads(out var currentMinWorkerThreads, out var currentMinIoThreads);
+diff --git a/src/ServiceFramework/StartupFilters/MicrosoftLoggingAdapterAppenderStartupFilter.cs b/src/ServiceFramework/StartupFilters/MicrosoftLoggingAdapterAppenderStartupFilter.cs
+index e69de29..abcd006 100644
+--- a/src/ServiceFramework/StartupFilters/MicrosoftLoggingAdapterAppenderStartupFilter.cs
++++ b/src/ServiceFramework/StartupFilters/MicrosoftLoggingAdapterAppenderStartupFilter.cs
+@@ private void Configure()
+-       var siteConfig = _siteConfig.Value;
++       var siteConfig = _siteConfig.Value;
++       using var span = TelemetryTracer.StartActiveSpan("ConfigureStartup", out var sp);
++       sp.SetAttribute("sprocname", siteConfig.SprocName);
+diff --git a/src/ServiceFramework/Extensions/StructureMapHostBuilderExtensions.cs b/src/ServiceFramework/Extensions/StructureMapHostBuilderExtensions.cs
+index e69de29..abcd007 100644
+--- a/src/ServiceFramework/Extensions/StructureMapHostBuilderExtensions.cs
++++ b/src/ServiceFramework/Extensions/StructureMapHostBuilderExtensions.cs
+@@ public static IHostBuilder UseScmServiceLocator(this IHostBuilder builder)
+-       return builder.UseServiceProviderFactory<Registry>(new StructureMapServiceProviderFactoryAdapter(null));
++       using var span = tracer.StartSpan("UseScmServiceLocator");
++       span.SetAttribute("sprocname", nameof(UseScmServiceLocator));
++       return builder.UseServiceProviderFactory<Registry>(new StructureMapServiceProviderFactoryAdapter(null));
+diff --git a/src/ServiceFramework/Extensions/ScmThreadPoolConfigurationServiceCollectionExtensions.cs b/src/ServiceFramework/Extensions/ScmThreadPoolConfigurationServiceCollectionExtensions.cs
+index e69de29..abcd008 100644
+--- a/src/ServiceFramework/Extensions/ScmThreadPoolConfigurationServiceCollectionExtensions.cs
++++ b/src/ServiceFramework/Extensions/ScmThreadPoolConfigurationServiceCollectionExtensions.cs
+@@ public static IServiceCollection ConfigureScmThreadPool(this IServiceCollection services)
+-       return ConfigureScmThreadPool(services, options => { });
++       using var span = TracerProvider.Default.GetTracer("ServiceFramework").StartActiveSpan("ConfigureScmThreadPool", out var ss);
++       ss.SetAttribute("sprocname", "ConfigureScmThreadPool");
++       return ConfigureScmThreadPool(services, options => { });
+diff --git a/src/ServiceFramework/Extensions/ServicedComponentHostBuilderExtensions.cs b/src/ServiceFramework/Extensions/ServicedComponentHostBuilderExtensions.cs
+index e69de29..abcd009 100644
+--- a/src/ServiceFramework/Extensions/ServicedComponentHostBuilderExtensions.cs
++++ b/src/ServiceFramework/Extensions/ServicedComponentHostBuilderExtensions.cs
+@@ public static IHostBuilder ConfigureServicedComponent<T>(this IHostBuilder builder)
+-       builder.ConfigureServices(services =>
++       // start span and tag stored proc
++       using var activity = new ActivitySource("ADEXS.ServiceFramework").StartActivity("ConfigureServicedComponent");
++       activity?.SetTag("sprocname", typeof(T).Name);
++       builder.ConfigureServices(services =>
+diff --git a/src/ServiceFramework/Implementation/StructureMapServiceProviderFactoryAdapter.cs b/src/ServiceFramework/Implementation/StructureMapServiceProviderFactoryAdapter.cs
+index e69de29..abcd00a 100644
+--- a/src/ServiceFramework/Implementation/StructureMapServiceProviderFactoryAdapter.cs
++++ b/src/ServiceFramework/Implementation/StructureMapServiceProviderFactoryAdapter.cs
+@@
+- internal class StructureMapServiceProviderFactoryAdapter : IServiceProviderFactory<Registry>
++ [Span]
++ [SpanTag("sprocname", nameof(StructureMapServiceProviderFactoryAdapter))]
++ internal class StructureMapServiceProviderFactoryAdapter : IServiceProviderFactory<Registry>
+diff --git a/src/ServiceFramework.OpenTelemetry.Tests/Extensions/ScmCoreInstrumentationServiceCollectionExtensionsComponentTests.cs b/src/ServiceFramework.OpenTelemetry.Tests/Extensions/ScmCoreInstrumentationServiceCollectionExtensionsComponentTests.cs
+index e69de29..abcd00b 100644
+--- a/src/ServiceFramework.OpenTelemetry.Tests/Extensions/ScmCoreInstrumentationServiceCollectionExtensionsComponentTests.cs
++++ b/src/ServiceFramework.OpenTelemetry.Tests/Extensions/ScmCoreInstrumentationServiceCollectionExtensionsComponentTests.cs
+@@ public async Task AddScmCoreInstrumentationRegistersMetricsAsync()
+-        metrics.Should().NotBeEmpty().
++        metrics.Should().NotBeEmpty().
+         And.Contain(p => string.Equals(p.Name, "process.runtime.dotnet.gc.collections.count", StringComparison.OrdinalIgnoreCase));
++        // Assert that spans include sprocname
++        var spans = traceExporter.GetFinishedSpans();
++        spans.Should().Contain(s => s.Attributes.Any(kv => kv.Key == "sprocname"));
+diff --git a/src/ServiceFramework.Extensions/HostedServices/MicrosoftLoggingAdapterHostedService.cs b/src/ServiceFramework.Extensions/HostedServices/MicrosoftLoggingAdapterHostedService.cs
+index e69de29..abcd00c 100644
+--- a/src/ServiceFramework.Extensions/HostedServices/MicrosoftLoggingAdapterHostedService.cs
++++ b/src/ServiceFramework.Extensions/HostedServices/MicrosoftLoggingAdapterHostedService.cs
+@@ public Task StartedAsync(CancellationToken cancellationToken)
+-   try
++   using var span = Tracer.Instance.StartSpan("MicrosoftLoggingAdapterHostedService.StartedAsync");
++   span.SetTag("sprocname", "MicrosoftLoggingAdapterHostedService.StartedAsync");
++   try
+diff --git a/src/ServiceFramework.Extensions/HostedServices/OneConfigLifetimeHostedService.cs b/src/ServiceFramework.Extensions/HostedServices/OneConfigLifetimeHostedService.cs
+index e69de29..abcd00d 100644
+--- a/src/ServiceFramework.Extensions/HostedServices/OneConfigLifetimeHostedService.cs
++++ b/src/ServiceFramework.Extensions/HostedServices/OneConfigLifetimeHostedService.cs
+@@ public Task StartingAsync(CancellationToken cancellationToken)
+-   LogConstraintContext();
++   using var activity = TelemetryTracer.StartActivity("OneConfigLifetimeHostedService.StartingAsync");
++   activity?.SetTag("sprocname", nameof(OneConfigLifetimeHostedService));
++   LogConstraintContext();
+diff --git a/src/ServiceFramework.Extensions/HostedServices/OptimizelyLifetimeHostedService.cs b/src/ServiceFramework.Extensions/HostedServices/OptimizelyLifetimeHostedService.cs
+index e69de29..abcd00e 100644
+--- a/src/ServiceFramework.Extensions/HostedServices/OptimizelyLifetimeHostedService.cs
++++ b/src/ServiceFramework.Extensions/HostedServices/OptimizelyLifetimeHostedService.cs
+@@ public Task StartingAsync(CancellationToken cancellationToken)
+-   _logger.LogInformation("Optimizely lifetime starting");
++   using var span = Tracer.Instance.StartSpan("OptimizelyLifetimeHostedService.Starting");
++   span.SetAttribute("sprocname", nameof(OptimizelyLifetimeHostedService));
++   _logger.LogInformation("Optimizely lifetime starting");
+diff --git a/src/ServiceFramework.AspNetCore.Tests/TestInfrastructure/TestServerHelpers.cs b/src/ServiceFramework.AspNetCore.Tests/TestInfrastructure/TestServerHelpers.cs
+index e69de29..abcd00f 100644
+--- a/src/ServiceFramework.AspNetCore.Tests/TestInfrastructure/TestServerHelpers.cs
++++ b/src/ServiceFramework.AspNetCore.Tests/TestInfrastructure/TestServerHelpers.cs
+@@ public static Task<IHost> CreateTestServerWithRoutingAsync(
+-           configureApplication(app);
++           configureApplication(app);
++           var act = System.Diagnostics.Activity.Current;
++           act?.SetTag("sprocname", "<your_sproc_name_here>");
+diff --git a/src/ServiceFramework.AspNetCore.Tests/HostedServices/ScmLifetimeHostedServiceTests.cs b/src/ServiceFramework.AspNetCore.Tests/HostedServices/ScmLifetimeHostedServiceTests.cs
+index e69de29..abcd010 100644
+--- a/src/ServiceFramework.AspNetCore.Tests/HostedServices/ScmLifetimeHostedServiceTests.cs
++++ b/src/ServiceFramework.AspNetCore.Tests/HostedServices/ScmLifetimeHostedServiceTests.cs
+@@ private static async Task TestStopAsync(Prior given, Post expected)
+-           await hostedService.StopAsync(CancellationToken.None);
++           using (var span = Tracer.StartSpan("ScmLifetimeHostedService.StopAsync").WithTag("sprocname", "ScmLifetimeHostedService_StopAsync"))
++           {
++               await hostedService.StopAsync(CancellationToken.None);
++           }
+diff --git a/src/ServiceFramework.AspNetCore.Tests/obj/Debug/net8.0/ServiceFramework.AspNetCore.Tests.AssemblyInfo.cs b/src/ServiceFramework.AspNetCore.Tests/obj/Debug/net8.0/ServiceFramework.AspNetCore.Tests.AssemblyInfo.cs
+index e69de29..abcd011 100644
+--- a/src/ServiceFramework.AspNetCore.Tests/obj/Debug/net8.0/ServiceFramework.AspNetCore.Tests.AssemblyInfo.cs
++++ b/src/ServiceFramework.AspNetCore.Tests/obj/Debug/net8.0/ServiceFramework.AspNetCore.Tests.AssemblyInfo.cs
+@@
+-// Generated by the MSBuild WriteCodeFragment class.
++// Generated by the MSBuild WriteCodeFragment class.
++// Ensure test assembly spans include sprocname tag
++[SpanAttribute(Name = "TestAssembly", Tags = new[] { "sprocname" })]
+diff --git a/src/Tests/StartupFilters/ThreadPoolConfigurationStartupFilterTests.cs b/src/Tests/StartupFilters/ThreadPoolConfigurationStartupFilterTests.cs
+index e69de29..abcd012 100644
+--- a/src/Tests/StartupFilters/ThreadPoolConfigurationStartupFilterTests.cs
++++ b/src/Tests/StartupFilters/ThreadPoolConfigurationStartupFilterTests.cs
+@@ logger.Verify(s => s.Log(LogLevel.Information, 0, It.IsAny<It.IsAnyType>(), null, It.IsAny<Func<It.IsAnyType, Exception?, string>>()), Times.Once);
+-       logger.Verify(s => s.Log(LogLevel.Information, 0, It.IsAny<It.IsAnyType>(), null, It.IsAny<Func<It.IsAnyType, Exception?, string>>()), Times.Once);
++       logger.Verify(s => s.Log(
++           LogLevel.Information,
++           It.IsAny<EventId>(),
++           It.Is<It.IsAnyType>((state, t) =>
++           {
++               var props = state as IReadOnlyCollection<KeyValuePair<string, object>>;
++               return props != null && props.Any(kv => kv.Key == "sprocname");
++           }),
++           null,
++           It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
++           Times.Once);
+diff --git a/src/Tests/StartupFilters/ConfigurationProviderDiagnosticsStartupFilterTests.cs b/src/Tests/StartupFilters/ConfigurationProviderDiagnosticsStartupFilterTests.cs
+index e69de29..abcd013 100644
+--- a/src/Tests/StartupFilters/ConfigurationProviderDiagnosticsStartupFilterTests.cs
++++ b/src/Tests/StartupFilters/ConfigurationProviderDiagnosticsStartupFilterTests.cs
+@@ public void ConfigureLogsConfigurationProviders()
+-       logger.Verify(s => s.Log(LogLevel.Information, 0, It.IsAny<It.IsAnyType>(), null, It.IsAny<Func<It.IsAnyType, Exception?, string>>()), Times.Once);
++       logger.Verify(s => s.Log(LogLevel.Information, 0, It.IsAny<It.IsAnyType>(), null, It.IsAny<Func<It.IsAnyType, Exception?, string>>()), Times.Once);
++       mockSpan.Verify(s => s.SetAttribute("sprocname", It.IsAny<string>()), Times.Once);
+diff --git a/src/Tests/HostedServices/ServicedComponentHostedServiceTests.cs b/src/Tests/HostedServices/ServicedComponentHostedServiceTests.cs
+index e69de29..abcd014 100644
+--- a/src/Tests/HostedServices/ServicedComponentHostedServiceTests.cs
++++ b/src/Tests/HostedServices/ServicedComponentHostedServiceTests.cs
+@@ public async Task StartAsyncSuccessAsync()
+-   [Fact]
++   [Fact]
++   [SpanAttribute("sprocname", Value = "ServicedComponentHostedService.StartAsync")]
+    public async Task StartAsyncSuccessAsync()
+diff --git a/src/ServiceFramework.AspNetCore/HealthChecks/ScmLifetimeServiceHealthCheck.cs b/src/ServiceFramework.AspNetCore/HealthChecks/ScmLifetimeServiceHealthCheck.cs
+index e69de29..abcd015 100644
+--- a/src/ServiceFramework.AspNetCore/HealthChecks/ScmLifetimeServiceHealthCheck.cs
++++ b/src/ServiceFramework.AspNetCore/HealthChecks/ScmLifetimeServiceHealthCheck.cs
+@@
+-    public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
++    [SpanAttribute("sprocname", nameof(ScmLifetimeServiceHealthCheck))]
++    public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
+diff --git a/src/ServiceFramework.AspNetCore/Extensions/ScmLifetimeHostedServiceServiceCollectionExtensions.cs b/src/ServiceFramework.AspNetCore/Extensions/ScmLifetimeHostedServiceServiceCollectionExtensions.cs
+index e69de29..abcd016 100644
+--- a/src/ServiceFramework.AspNetCore/Extensions/ScmLifetimeHostedServiceServiceCollectionExtensions.cs
++++ b/src/ServiceFramework.AspNetCore/Extensions/ScmLifetimeHostedServiceServiceCollectionExtensions.cs
+@@ services.AddHealthChecks()
+-       .Add(new HealthCheckRegistration(
++       .Add(new HealthCheckRegistration(
+            "startup",
+            sp => sp.GetRequiredService<ScmLifetimeServiceHealthCheck>(),
+            failureStatus: null,
+-        tags: Tags));
++        tags: Tags.Concat(new[] { "sprocname" }).ToArray()));
+diff --git a/src/ServiceFramework.Extensions.Tests/HostedServices/OneConfigLifetimeHostedServiceTests.cs b/src/ServiceFramework.Extensions.Tests/HostedServices/OneConfigLifetimeHostedServiceTests.cs
+index e69de29..abcd017 100644
+--- a/src/ServiceFramework.Extensions.Tests/HostedServices/OneConfigLifetimeHostedServiceTests.cs
++++ b/src/ServiceFramework.Extensions.Tests/HostedServices/OneConfigLifetimeHostedServiceTests.cs
+@@ StartingAsyncDontThrow()
+-    [Fact]
++    [Fact]
++    [Span("OneConfigLifetimeHostedServiceTests", TagName="sprocname", TagValue="StartingAsyncDontThrow")]
+     public async Task StartingAsyncDontThrow()
+@@ StartingAsyncDontThrowWhenConstraintContextIsNull()
+-    [Fact]
++    [Fact]
++    [Span("OneConfigLifetimeHostedServiceTests", TagName="sprocname", TagValue="StartingAsyncDontThrowWhenConstraintContextIsNull")]
+     public async Task StartingAsyncDontThrowWhenConstraintContextIsNull()
+```

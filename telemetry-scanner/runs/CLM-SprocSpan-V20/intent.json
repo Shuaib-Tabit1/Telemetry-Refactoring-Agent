@@ -1,0 +1,32 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "AddSqlClientInstrumentation"
+  },
+  "semantic_description": "Capture the executed stored procedure name as an OpenTelemetry span attribute so it appears in CLM Jaeger traces.",
+  "search_keywords": [
+    "AddSqlClientInstrumentation",
+    "SqlClientInstrumentationOptions",
+    "SetDbStatementForStoredProcedure",
+    "db.operation",
+    "span.SetTag",
+    "StoredProcedure"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.operation",
+        "value_source": "the name of the invoked stored procedure from SqlCommand.CommandText when CommandType is StoredProcedure"
+      },
+      {
+        "name": "db.name",
+        "value_source": "SqlConnection.Database for the current SQL connection"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

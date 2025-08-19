@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodeGraphBuilder", "CodeGraphBuilder.csproj", "{EE337D22-8715-B87F-2766-496E257C367C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{EE337D22-8715-B87F-2766-496E257C367C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EE337D22-8715-B87F-2766-496E257C367C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EE337D22-8715-B87F-2766-496E257C367C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EE337D22-8715-B87F-2766-496E257C367C}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {F67FABA5-8F7C-48A8-888A-64C31D7A3122}
+	EndGlobalSection
+EndGlobal

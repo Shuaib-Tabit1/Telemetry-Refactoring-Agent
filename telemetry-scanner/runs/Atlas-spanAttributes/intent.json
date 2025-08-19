@@ -1,0 +1,29 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "semantic_description": "The ASP.NET request handling for /clm/Documents/BrowseDocuments.aspx (CLM web) that issues 302 redirects",
+  "search_keywords": [
+    "OtlpSpanEvents",
+    "HTTP_REFERER",
+    "HTTP_RESPONSE_REDIRECT_LOCATION",
+    "BrowseDocuments",
+    "clm-web",
+    "HTTP 302"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "HTTP_REFERER",
+        "value_source": "the incoming HTTP request header 'Referer'"
+      },
+      {
+        "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+        "value_source": "the 'Location' header set on the outgoing 302 HTTP response"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

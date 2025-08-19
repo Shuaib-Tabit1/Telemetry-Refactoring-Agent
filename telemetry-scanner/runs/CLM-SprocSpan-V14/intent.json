@@ -1,0 +1,30 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": null,
+  "semantic_description": "Database stored-procedure executions in CLM/eSign services are missing the stored-procedure name on their SQL client spans.",
+  "search_keywords": [
+    "stored procedure",
+    "sprocname",
+    "SqlCommand",
+    "CommandType.StoredProcedure",
+    "db.operation",
+    "SqlClientInstrumentation"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.operation",
+        "value_source": "the stored procedure name contained in SqlCommand.CommandText when CommandType == CommandType.StoredProcedure"
+      },
+      {
+        "name": "db.name",
+        "value_source": "the database name from the current SQL connection string"
+      }
+    ],
+    "new_span_name": "",
+    "new_metric_details": {}
+  }
+}

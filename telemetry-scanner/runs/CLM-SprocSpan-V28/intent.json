@@ -1,0 +1,30 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": null,
+  "semantic_description": "Add the stored-procedure name as an OpenTelemetry span attribute so it appears in CLM Jaeger traces and can later be incorporated into the span name alongside the database name.",
+  "search_keywords": [
+    "SpanAttribute",
+    "db.operation",
+    "SqlCommand",
+    "CommandText",
+    "AddSqlClientInstrumentation",
+    "CLM",
+    "eSign",
+    "sprocname",
+    "Jaeger",
+    "OpenTelemetry"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.operation",
+        "value_source": "the stored procedure name contained in the SqlCommand.CommandText variable"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

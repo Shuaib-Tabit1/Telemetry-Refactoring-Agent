@@ -1,0 +1,344 @@
+[
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/Tests/RestrictedWorkerTests.cs",
+    "start": 1,
+    "end": 110,
+    "issue": "missing_span_attribute",
+    "details": "Test methods invoke business logic but are not annotated with a SpanAttribute including the required 'sprocname' tag for tracing",
+    "confidence": 0.85,
+    "mini_diff": "```diff\n@@\n-[Theory]\n+[Span(\"RestrictedWorkerTests\", TagName = \"sprocname\", TagValue = \"CalcSecondsUntilNextStart\")]\n+[Theory]\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/Tests/TestDummyServicedComponent.cs",
+    "start": 1,
+    "end": 19,
+    "issue": "missing_tag",
+    "details": "The class methods lack required SpanAttribute with the 'sprocname' tag for telemetry spans. Each instrumented method should include a SpanAttribute specifying 'sprocname'.",
+    "confidence": 0.8,
+    "mini_diff": "```diff\n@@ internal sealed class TestDummyServicedComponent : IServicedComponent\n-   public void Run() => throw new System.NotImplementedException();\n+   [SpanAttribute(sprocname = \"TestDummyServicedComponent.Run\")]\n+   public void Run() => throw new System.NotImplementedException();\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/Tests/BasicDirectoryCleanupWorkerTests.cs",
+    "start": 1,
+    "end": 83,
+    "issue": "missing_tag",
+    "details": "No spans are instrumented with the required 'sprocname' tag for telemetry tracing.",
+    "confidence": 0.8,
+    "mini_diff": "```diff\n--- before\n+++ after\n@@ public void TestCleanupBasedOnThreshold(bool useFolderCleanup, string targetDirectory, int staleThresholdMinutes, bool expectedWrittenResult, bool expectedEmptyResult)\n-       //Initial Setup\n+       //Initial Setup\n+       using var span = Tracer.StartSpan(\"TestCleanupBasedOnThreshold\").SetTag(\"sprocname\", targetDirectory);\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/Tests/TestsInit.cs",
+    "start": 1,
+    "end": 31,
+    "issue": "missing_tag",
+    "details": "No telemetry span is created or annotated with the required 'sprocname' attribute. Each initialization should start a span and set the 'sprocname' tag.",
+    "confidence": 0.8,
+    "mini_diff": "```diff\n public TestsInit()\n {\n     XmlConfigurator.ConfigureAndWatch(logConfigFileInfo);\n-    _log.Info(\"Logging started\");\n+    using var span = tracer.StartActiveSpan(\"TestsInit.Initialization\");\n+    span.SetAttribute(\"sprocname\", \"TestsInit\");\n+    _log.Info(\"Logging started\");\n+    span.End();\n }\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/Tests/LogOutputTester.cs",
+    "start": 1,
+    "end": 36,
+    "issue": "missing_span_attribute",
+    "details": "No telemetry span or span attribute 'sprocname' is emitted in this logging setup\u2014tests should annotate spans with the required 'sprocname' tag.",
+    "confidence": 0.7,
+    "mini_diff": "```diff\n public LogOutputTester(ITestOutputHelper output)\n {\n-    log4net.Config.XmlConfigurator.Configure();\n+    // start a span and add the required 'sprocname' attribute\n+    using var span = Tracer.Current.StartActiveSpan(\"LogOutputTester.Init\");\n+    span.SetAttribute(\"sprocname\", \"LogOutputTester\");\n+    log4net.Config.XmlConfigurator.Configure();\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.AspNetCore.Tests/Startup.cs",
+    "start": 1,
+    "end": 19,
+    "issue": "missing_tag",
+    "details": "No span instrumentation includes the required 'sprocname' attribute for tracing stored procedure executions.",
+    "confidence": 0.8,
+    "mini_diff": "```diff\n public void ConfigureServices(IServiceCollection services)\n {\n-    services.AddLogging(lb => lb.AddXunitOutput(\n-        options => options.TimestampFormat = \"yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fffffff'Z'\"));\n+    services.AddLogging(lb => lb.AddXunitOutput(\n+        options => options.TimestampFormat = \"yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fffffff'Z'\"))\n+        // TODO: ensure every DB span includes the 'sprocname' tag\n+        .AddTag(\"sprocname\", /* your stored procedure name variable */);\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.Extensions/ScmWebApplication.cs",
+    "start": 1,
+    "end": 76,
+    "issue": "missing_tag",
+    "details": "No telemetry spans include the required tag 'sprocname'.",
+    "confidence": 0.8,
+    "mini_diff": "```diff\n+ // Example of adding the missing tag to a span\n+ tracer.StartActiveSpan(\"operation-name\", span =>\n+ {\n+     span.SetAttribute(\"sprocname\", \"<stored_procedure_name>\");\n+     // ...\n+ });\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/AbstractServiceBufferedWorker.cs",
+    "start": 1,
+    "end": 68,
+    "issue": "missing_span_attribute",
+    "details": "The required span attribute 'sprocname' is not being set on the current span, which is necessary for downstream trace analysis.",
+    "confidence": 0.8,
+    "mini_diff": "```diff\n--- before\n+++ after\n@@ public sealed override void Run()\n-            while (_component.Running && ((task = _workQueue.GetNextTask()) != null) )\n+            while (_component.Running && ((task = _workQueue.GetNextTask()) != null) )\n+            {\n+                // Ensure the stored procedure name is tagged on the span for traceability\n+                var currentSpan = Telemetry.Tracing.Span.Current;\n+                currentSpan?.SetAttribute(\"sprocname\", task.GetType().Name);\n+            }\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/ScmServicedComponent.cs",
+    "start": 1,
+    "end": 300,
+    "issue": "missing_tag",
+    "details": "Tracing spans in this component are not annotated with the required 'sprocname' tag.",
+    "confidence": 0.85,
+    "mini_diff": "```diff\n@@ public void Run()\n-   _log.InfoNoPII($\"This is {System.Diagnostics.Process.GetCurrentProcess().ProcessName} {GetType().Assembly.GetName().Version} \u00a9 SpringCM {DateTime.UtcNow:yyyy}.\");\n+   // start a span for the service run and tag it with the stored procedure name\n+   using (var scope = GlobalTracer.Instance.BuildSpan(\"ScmServicedComponent.Run\").StartActive(finishSpanOnDispose: true))\n+   {\n+       scope.Span.SetTag(\"sprocname\", \"<stored_procedure_name>\");\n+       _log.InfoNoPII($\"This is {System.Diagnostics.Process.GetCurrentProcess().ProcessName} {GetType().Assembly.GetName().Version} \u00a9 SpringCM {DateTime.UtcNow:yyyy}.\");\n+   }\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/BasicDirectoryCleanupWorker.cs",
+    "start": 1,
+    "end": 129,
+    "issue": "missing_tag",
+    "details": "Tracing spans lack the required 'sprocname' attribute; no span instrumentation is present for Jaeger/CLM telemetry.",
+    "confidence": 0.8,
+    "mini_diff": "```diff\n--- a/BasicDirectoryCleanupWorker.cs\n+++ b/BasicDirectoryCleanupWorker.cs\n@@ public override void Run()\n-        try\n+        // start a tracing span and set required 'sprocname' attribute\n+        using var span = Tracer.CurrentSpan.StartChild(\"BasicDirectoryCleanupWorker.Run\");\n+        span.SetAttribute(\"sprocname\", WorkerName);\n+        try\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/DelegateServiceWorker.cs",
+    "start": 1,
+    "end": 37,
+    "issue": "missing_tag",
+    "details": "Telemetry spans are not instrumented with the required 'sprocname' tag",
+    "confidence": 0.78,
+    "mini_diff": "```diff\n public override void Run() {\n-   _runDelegate();\n+   using(var span = Tracer.Current.StartActiveSpan(\"DelegateServiceWorker.Run\")) {\n+       span.SetAttribute(\"sprocname\", _name);\n+       _runDelegate();\n+   }\n }\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/BaseServiceRequestEventLogger.cs",
+    "start": 1,
+    "end": 19,
+    "issue": "missing_span_attribute",
+    "details": "Span is missing the required 'sprocname' tag for tracing stored procedure name.",
+    "confidence": 0.8,
+    "mini_diff": "```diff\n protected BaseServiceRequestEventLogger(Guid? correlationToken, string action)\n-   : base(null == correlationToken || correlationToken == Guid.Empty ? Guid.NewGuid() : correlationToken, action)\n+   : base(null == correlationToken || correlationToken == Guid.Empty ? Guid.NewGuid() : correlationToken, action)\n {\n+    // Ensure span has the stored procedure name tag\n+    Span.SetAttribute(\"sprocname\", action);\n     Action = action;\n }\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/AbstractServiceSubscriberWorker.cs",
+    "start": 1,
+    "end": 179,
+    "issue": "missing_span_attribute",
+    "details": "Telemetry spans in this worker are not tagged with the required 'sprocname' attribute for tracing stored-procedure names.",
+    "confidence": 0.7,
+    "mini_diff": "```diff\n public override void Run()\n {\n-    WaitHandle.Reset();\n+    // Start a tracing span and tag it with the stored procedure name\n+    using (var span = Tracer.StartSpan(\"RunSubscription\", tags: new Dictionary<string, string> { { \"sprocname\", ActiveSubscription?.Id } }))\n+    {\n+        WaitHandle.Reset();\n         SubscriberContext = InitializeSubscriber();\n\n         using (ActiveSubscription = ConsumeSubscription(SubscriberContext))\n         {\n@@\n             _log.InfoNoPII($\"Started consuming on subscription {ActiveSubscription.Id}.\");\n             WaitHandle.WaitOne();\n             _log.InfoNoPII($\"Closing out subscription {ActiveSubscription.Id}.\");\n         }\n\n         ActiveSubscription = null;\n+    }\n }\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/BufferedWorkQueue.cs",
+    "start": 1,
+    "end": 108,
+    "issue": "missing_tag",
+    "details": "No telemetry span is tagged with the required 'sprocname' attribute to identify the database stored procedure in traces.",
+    "confidence": 0.8,
+    "mini_diff": "```diff\n--- BufferedWorkQueue.cs\n+++ BufferedWorkQueue.cs\n@@ public object GetNextTask()\n-                RetrieverMethod(taskQueue);\n+                // start a telemetry span and tag with the stored procedure name\n+                using (var span = Tracer.BuildSpan(\"BufferedWorkQueue.GetNextTask\").Start())\n+                {\n+                    span.SetTag(\"sprocname\", \"<YourStoredProcName>\");\n+                    RetrieverMethod(taskQueue);\n+                }\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/TaskResultEnum.cs",
+    "start": 1,
+    "end": 9,
+    "issue": "missing_tag",
+    "details": "No span in this code includes the required 'sprocname' tag for telemetry tracing.",
+    "confidence": 0.85,
+    "mini_diff": "```diff\n+ // When starting a span for stored procedure operations, ensure you set the sprocname tag\n+ span.SetAttribute(\"sprocname\", storedProcedureName);\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.Testing/ScmUnitTestHostLifetimeFixture.cs",
+    "start": 1,
+    "end": 41,
+    "issue": "missing_tag",
+    "details": "The DisposeAsync method is not instrumented with an OpenTelemetry span and does not set the required span attribute 'sprocname'.",
+    "confidence": 0.85,
+    "mini_diff": "```diff\n@@ public async Task DisposeAsync()\n-   if (_host != null)\n+   using var span = Tracer.StartActiveSpan(\"ScmUnitTestHostLifetimeFixture.DisposeAsync\");\n+   span.SetAttribute(\"sprocname\", \"ScmUnitTestHostLifetimeFixture.DisposeAsync\");\n+   if (_host != null)\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.OpenTelemetry/HostedServices/ScmCoreInstrumentationLifetimeHostedService.cs",
+    "start": 1,
+    "end": 99,
+    "issue": "missing_tag",
+    "details": "No spans include the required attribute 'sprocname'. Any DB or stored\u2010procedure spans must include this tag for proper tracing.",
+    "confidence": 0.8,
+    "mini_diff": "```diff\n+ // When creating a span for a stored procedure call, ensure the sproc name is set\n+ using var span = tracer.StartActiveSpan(\"db.call\", out var s);\n+ span.SetAttribute(\"sprocname\", sprocName);\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.OpenTelemetry/Extensions/ScmCoreInstrumentationServiceCollectionExtensions.cs",
+    "start": 1,
+    "end": 119,
+    "issue": "missing_tag",
+    "details": "Spans produced by the SCM Cassandra persistence instrumentation do not include the required span attribute 'sprocname'.",
+    "confidence": 0.9,
+    "mini_diff": "```diff\n@@ options.ConfigureTracer: options =>\n-               options.AddScmCassandraPersistenceInstrumentation();\n+               options.AddScmCassandraPersistenceInstrumentation();\n+               // Add the required 'sprocname' span attribute\n+               options.AddProcessor(new SimpleSpanProcessor(new AttributeAddingSpanExporter((span) =>\n+               {\n+                   var sprocName = /* logic to extract or derive stored procedure name */;\n+                   span.SetAttribute(\"sprocname\", sprocName);\n+               })));\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.OpenTelemetry/obj/Debug/net48/.NETFramework,Version=v4.8.AssemblyAttributes.cs",
+    "start": 1,
+    "end": 4,
+    "issue": "missing_tag",
+    "details": "Missing required span attribute 'sprocname'.",
+    "confidence": 0.85,
+    "mini_diff": "```diff\n+ span.SetAttribute(\"sprocname\", sprocName);\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/StartupFilters/ThreadPoolConfigurationStartupFilter.cs",
+    "start": 1,
+    "end": 93,
+    "issue": "missing_tag",
+    "details": "Telemetry spans in Configure lack the required \u2018sprocname\u2019 tag.",
+    "confidence": 0.7,
+    "mini_diff": "```diff\n private void Configure()\n {\n-    ThreadPool.GetMinThreads(out var currentMinWorkerThreads, out var currentMinIoThreads);\n+    using var activity = Tracer.StartActivity(\"ThreadPool.Configure\");\n+    activity?.SetTag(\"sprocname\", \"ThreadPool.Configure\");\n+    ThreadPool.GetMinThreads(out var currentMinWorkerThreads, out var currentMinIoThreads);\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/StartupFilters/MicrosoftLoggingAdapterAppenderStartupFilter.cs",
+    "start": 1,
+    "end": 71,
+    "issue": "missing_span_attribute",
+    "details": "No telemetry spans are created with the required 'sprocname' tag",
+    "confidence": 0.8,
+    "mini_diff": "```diff\n--- a/ServiceFramework/StartupFilters/MicrosoftLoggingAdapterAppenderStartupFilter.cs\n+++ b/ServiceFramework/StartupFilters/MicrosoftLoggingAdapterAppenderStartupFilter.cs\n@@ private void Configure()\n-        var siteConfig = _siteConfig.Value;\n+        var siteConfig = _siteConfig.Value;\n+        // Start a span and attach the required 'sprocname' attribute\n+        using var span = TelemetryTracer.StartActiveSpan(\"ConfigureStartup\", out var telemetrySpan);\n+        telemetrySpan.SetAttribute(\"sprocname\", siteConfig.SprocName);\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/Extensions/StructureMapHostBuilderExtensions.cs",
+    "start": 1,
+    "end": 83,
+    "issue": "missing_span",
+    "details": "Telemetry spans are not created for these extension methods; no SpanAttribute or tracer.StartSpan calls are present.",
+    "confidence": 0.9,
+    "mini_diff": "```diff\n@@ public static IHostBuilder UseScmServiceLocator(this IHostBuilder builder)\n-         public static IHostBuilder UseScmServiceLocator(this IHostBuilder builder)\n-         {\n-             return builder.UseServiceProviderFactory<Registry>(new StructureMapServiceProviderFactoryAdapter(null));\n-         }\n+         public static IHostBuilder UseScmServiceLocator(this IHostBuilder builder)\n+         {\n+             using var span = tracer.StartSpan(\"UseScmServiceLocator\");\n+             span.SetAttribute(\"sprocname\", nameof(UseScmServiceLocator));\n+             return builder.UseServiceProviderFactory<Registry>(new StructureMapServiceProviderFactoryAdapter(null));\n+         }\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/Extensions/ScmThreadPoolConfigurationServiceCollectionExtensions.cs",
+    "start": 1,
+    "end": 84,
+    "issue": "missing_tag",
+    "details": "Telemetry spans are not instrumented with the required span attribute 'sprocname'.",
+    "confidence": 0.8,
+    "mini_diff": "```diff\n-public static IServiceCollection ConfigureScmThreadPool(this IServiceCollection services)\n+public static IServiceCollection ConfigureScmThreadPool(this IServiceCollection services)\n { \n+    // start telemetry span and add required 'sprocname' attribute\n+    using var span = TracerProvider.Default.GetTracer(\"ServiceFramework\").StartActiveSpan(\"ConfigureScmThreadPool\", out var currentSpan);\n+    currentSpan.SetAttribute(\"sprocname\", \"ConfigureScmThreadPool\");\n     return ConfigureScmThreadPool(services, options => { });\n }```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/Extensions/ServicedComponentHostBuilderExtensions.cs",
+    "start": 1,
+    "end": 30,
+    "issue": "missing_span_attribute",
+    "details": "No telemetry span is created in ConfigureServicedComponent, and the required tag 'sprocname' is not set on any span.",
+    "confidence": 0.65,
+    "mini_diff": "```diff\n--- a/ServicedComponentHostBuilderExtensions.cs\n+++ b/ServicedComponentHostBuilderExtensions.cs\n@@\n+using System.Diagnostics;\n namespace ADEXS.ServiceFramework.Extensions\n {\n@@ public static class ServicedComponentHostBuilderExtensions\n {\n     public static IHostBuilder ConfigureServicedComponent<T>(this IHostBuilder builder)\n         where T : class, IServicedComponent\n     {\n+        // Start a telemetry span and tag the stored procedure name\n+        using var activity = new ActivitySource(\"ADEXS.ServiceFramework\").StartActivity(\"ConfigureServicedComponent\");\n+        activity?.SetTag(\"sprocname\", typeof(T).Name);\n         builder.ConfigureServices(services =>\n         {\n             services.AddServicedComponent<T>();\n         });\n\n         return builder;\n     }\n }\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/Implementation/StructureMapServiceProviderFactoryAdapter.cs",
+    "start": 1,
+    "end": 48,
+    "issue": "missing_tag",
+    "details": "No telemetry spans are created or annotated and the required span attribute 'sprocname' is missing.",
+    "confidence": 0.8,
+    "mini_diff": "```diff\n+ using OpenTelemetry.Trace;\n...\n+ [Span]\n+ [SpanTag(\"sprocname\", nameof(StructureMapServiceProviderFactoryAdapter))]\n internal class StructureMapServiceProviderFactoryAdapter : IServiceProviderFactory<Registry>\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.OpenTelemetry.Tests/Extensions/ScmCoreInstrumentationServiceCollectionExtensionsComponentTests.cs",
+    "start": 1,
+    "end": 93,
+    "issue": "missing_tag",
+    "details": "Spans generated by the SCM instrumentation are not being asserted to include the required 'sprocname' span attribute as per telemetry conventions.",
+    "confidence": 0.5,
+    "mini_diff": "```diff\n@@ public async Task AddScmCoreInstrumentationRegistersMetricsAsync()\n-        // Assert\n-        var metrics = metricReader.GetMetrics();\n-        metrics.Should().NotBeEmpty().\n-            And.Contain(p => string.Equals(p.Name, \"process.runtime.dotnet.gc.collections.count\", StringComparison.OrdinalIgnoreCase));\n+        // Assert metrics\n+        var metrics = metricReader.GetMetrics();\n+        metrics.Should().NotBeEmpty().\n+            And.Contain(p => string.Equals(p.Name, \"process.runtime.dotnet.gc.collections.count\", StringComparison.OrdinalIgnoreCase));\n+\n+        // Assert that SCM spans include the required 'sprocname' attribute\n+        var spans = traceExporter.GetFinishedSpans();\n+        spans.Should().NotBeEmpty();\n+        spans.Should().Contain(s => s.Attributes.Any(kv => kv.Key == \"sprocname\" && kv.Value.ToString() == \"expectedStoredProcName\"));\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.Extensions/HostedServices/MicrosoftLoggingAdapterHostedService.cs",
+    "start": 1,
+    "end": 51,
+    "issue": "missing_tag",
+    "details": "No tracing spans are created and the required span attribute 'sprocname' is not set in the StartedAsync method.",
+    "confidence": 0.8,
+    "mini_diff": "```diff\n public Task StartedAsync(CancellationToken cancellationToken)\n {\n+    // start a new span and set required sprocname tag\n+    using var span = Tracer.Instance.StartSpan(\"MicrosoftLoggingAdapterHostedService.StartedAsync\");\n+    span.SetTag(\"sprocname\", \"<YourStoredProcedureName>\");\n     try\n     {\n         _logger.LogInformation(\"Clearing adapter loggers cache\");\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.Extensions/HostedServices/OneConfigLifetimeHostedService.cs",
+    "start": 1,
+    "end": 52,
+    "issue": "missing_tag",
+    "details": "No tracing span is created in StartingAsync and thus the required span attribute 'sprocname' is missing for observability in Jaeger.",
+    "confidence": 0.8,
+    "mini_diff": "```diff\n@@ public Task StartingAsync(CancellationToken cancellationToken)\n-   LogConstraintContext();\n+   // Start a telemetry span and add the required 'sprocname' tag\n+   using var activity = TelemetryTracer.StartActivity(\"OneConfigLifetimeHostedService.StartingAsync\");\n+   activity?.SetTag(\"sprocname\", nameof(OneConfigLifetimeHostedService));\n+   LogConstraintContext();\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.Extensions/HostedServices/OptimizelyLifetimeHostedService.cs",
+    "start": 1,
+    "end": 77,
+    "issue": "missing_tag",
+    "details": "Missing required span attribute 'sprocname' for telemetry instrumentation. Spans should include the 'sprocname' tag.",
+    "confidence": 0.9,
+    "mini_diff": "```diff\n public Task StartingAsync(CancellationToken cancellationToken)\n {\n-    _logger.LogInformation(\"Optimizely lifetime starting\");\n+    using var span = Tracer.Instance.StartSpan(\"OptimizelyLifetimeHostedService.Starting\");\n+    span.SetAttribute(\"sprocname\", nameof(StartingAsync));\n+    _logger.LogInformation(\"Optimizely lifetime starting\");\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.AspNetCore.Tests/TestInfrastructure/TestServerHelpers.cs",
+    "start": 1,
+    "end": 70,
+    "issue": "missing_tag",
+    "details": "Span attribute 'sprocname' is not set on any traced span in this test server helper",
+    "confidence": 0.7,
+    "mini_diff": "```diff\n--- before\n+++ after\n@@ public static Task<IHost> CreateTestServerWithRoutingAsync(\n \t\t\t\tconfigureApplication(app);\n+\n+\t\t\t// ensure sprocname is recorded on the current trace-span for DB calls\n+\t\t\tvar activity = System.Diagnostics.Activity.Current;\n+\t\t\tactivity?.SetTag(\"sprocname\", \"<your_sproc_name_here>\");\n \t\t\tapp\n \t\t\t\t.UseRouting()\n \t\t\t\t.UseEndpoints(endpoints =>\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.AspNetCore.Tests/HostedServices/ScmLifetimeHostedServiceTests.cs",
+    "start": 301,
+    "end": 506,
+    "issue": "missing_span_attribute",
+    "details": "There is no span instrumentation around the StopAsync call (or any other operation) that includes the required tag 'sprocname'.",
+    "confidence": 0.75,
+    "mini_diff": "```diff\n@@ private static async Task TestStopAsync(Prior given, Post expected)\n-           await hostedService.StopAsync(CancellationToken.None);\n+           using (var span = Tracer.StartSpan(\"ScmLifetimeHostedService.StopAsync\")\n+                                   .WithTag(\"sprocname\", \"ScmLifetimeHostedService_StopAsync\"))\n+           {\n+               await hostedService.StopAsync(CancellationToken.None);\n+           }\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.AspNetCore.Tests/obj/Debug/net8.0/ServiceFramework.AspNetCore.Tests.AssemblyInfo.cs",
+    "start": 1,
+    "end": 27,
+    "issue": "missing_tag",
+    "details": "Telemetry span definitions should include the required 'sprocname' tag for stored procedure identification.",
+    "confidence": 0.85,
+    "mini_diff": "```diff\n- // No telemetry spans or SpanAttribute declarations in this auto-generated assembly info.\n+ // Ensure all spans include the required 'sprocname' tag\n+ [SpanAttribute(Name = \"YourOperationName\", Tags = new[] { \"sprocname\" })]\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/Tests/StartupFilters/ThreadPoolConfigurationStartupFilterTests.cs",
+    "start": 1,
+    "end": 61,
+    "issue": "missing_tag",
+    "details": "The test's telemetry (spans/logs) does not include the required span attribute 'sprocname'.",
+    "confidence": 0.3,
+    "mini_diff": "```diff\n@@ public void ConfigureChangesMinThreads(...)\n-\t\tlogger.Verify(s => s.Log(LogLevel.Information, 0, It.IsAny<It.IsAnyType>(), null, It.IsAny<Func<It.IsAnyType, Exception?, string>>()), Times.Once);\n+\t\tlogger.Verify(s => s.Log(\n+\t\t\tLogLevel.Information,\n+\t\t\tIt.IsAny<EventId>(),\n+\t\t\tIt.Is<It.IsAnyType>((state, t) =>\n+\t\t\t{\n+\t\t\t\t// Ensure span attribute 'sprocname' is present in the telemetry state\n+\t\t\t\tvar props = state as IReadOnlyCollection<KeyValuePair<string, object>>;\n+\t\t\t\treturn props != null && props.Any(kv => kv.Key == \"sprocname\");\n+\t\t\t}),\n+\t\t\tnull,\n+\t\t\tIt.IsAny<Func<It.IsAnyType, Exception?, string>>()), Times.Once);\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/Tests/StartupFilters/ConfigurationProviderDiagnosticsStartupFilterTests.cs",
+    "start": 1,
+    "end": 36,
+    "issue": "missing_span_attribute",
+    "details": "The test does not verify that the required span attribute 'sprocname' is set when the startup filter runs. A span should include this tag for downstream tracing.",
+    "confidence": 0.75,
+    "mini_diff": "```diff\n@@ public void ConfigureLogsConfigurationProviders()\n-   // Assert\n-   logger.Verify(s => s.Log(LogLevel.Information, 0, It.IsAny<It.IsAnyType>(), null, It.IsAny<Func<It.IsAnyType, Exception?, string>>()), Times.Once);\n+   // Assert logging behavior\n+   logger.Verify(s => s.Log(LogLevel.Information, 0, It.IsAny<It.IsAnyType>(), null, It.IsAny<Func<It.IsAnyType, Exception?, string>>()), Times.Once);\n+   // Assert that the telemetry span includes the required 'sprocname' attribute\n+   mockSpan.Verify(s => s.SetAttribute(\"sprocname\", It.IsAny<string>()), Times.Once);\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/Tests/HostedServices/ServicedComponentHostedServiceTests.cs",
+    "start": 1,
+    "end": 249,
+    "issue": "missing_span_attribute",
+    "details": "No telemetry spans include the required 'sprocname' tag for tracking database procedure names.",
+    "confidence": 0.85,
+    "mini_diff": "```diff\n+ // Add a span attribute to include the 'sprocname' tag for Jaeger tracing\n+ [SpanAttribute(\"sprocname\", Value = \"YourStoredProcedureName\")]\n public async Task StartAsyncSuccessAsync()\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.AspNetCore/HealthChecks/ScmLifetimeServiceHealthCheck.cs",
+    "start": 1,
+    "end": 28,
+    "issue": "missing_tag",
+    "details": "The CheckHealthAsync method is not instrumented with the required span attribute 'sprocname'.",
+    "confidence": 0.3,
+    "mini_diff": "```diff\n--- a/src/ServiceFramework.AspNetCore/HealthChecks/ScmLifetimeServiceHealthCheck.cs\n+++ b/src/ServiceFramework.AspNetCore/HealthChecks/ScmLifetimeServiceHealthCheck.cs\n@@\n-    public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)\n+    [SpanAttribute(\"sprocname\", nameof(ScmLifetimeServiceHealthCheck))]\n+    public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.AspNetCore/Extensions/ScmLifetimeHostedServiceServiceCollectionExtensions.cs",
+    "start": 1,
+    "end": 55,
+    "issue": "missing_tag",
+    "details": "HealthCheckRegistration is not instrumented with the required span attribute 'sprocname'.",
+    "confidence": 0.85,
+    "mini_diff": "```diff\n services.AddHealthChecks()\n     .Add(new HealthCheckRegistration(\n         \"startup\",\n         sp => sp.GetRequiredService<ScmLifetimeServiceHealthCheck>(),\n         failureStatus: null,\n-        tags: Tags));\n+        tags: Tags.Concat(new[] { \"sprocname\" }).ToArray()));\n```"
+  },
+  {
+    "file": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.Extensions.Tests/HostedServices/OneConfigLifetimeHostedServiceTests.cs",
+    "start": 1,
+    "end": 162,
+    "issue": "missing_span_attribute",
+    "details": "No SpanAttribute is applied to any method or class; missing required tag 'sprocname'",
+    "confidence": 0.6,
+    "mini_diff": "```diff\n@@\n-    [Fact]\n+    [Fact]\n+    [Span(\"StartingAsyncDontThrow\", sprocname: \"OneConfigLifetimeHostedService.StartingAsync\")]\n     public async Task StartingAsyncDontThrow()\n```"
+  }
+]

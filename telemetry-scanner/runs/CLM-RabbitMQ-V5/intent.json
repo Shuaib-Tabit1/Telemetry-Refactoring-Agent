@@ -1,0 +1,42 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": null,
+  "semantic_description": "RabbitMQ message publishing and consuming within the CLM-Web service are not currently represented in Jaeger traces.",
+  "search_keywords": [
+    "RabbitMQ",
+    "RabbitMQ.Client",
+    "IModel.BasicPublish",
+    "BasicConsume",
+    "AddRabbitMQInstrumentation",
+    "MassTransit"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "CREATE",
+    "attributes_to_add": [
+      {
+        "name": "messaging.system",
+        "value_source": "the literal string 'rabbitmq'"
+      },
+      {
+        "name": "messaging.destination",
+        "value_source": "the variable holding the queue or exchange name (e.g., 'exchangeName' or 'queueName')"
+      },
+      {
+        "name": "messaging.destination_kind",
+        "value_source": "the literal string 'queue' or 'exchange', chosen based on whether publishing to a queue or exchange"
+      },
+      {
+        "name": "messaging.operation",
+        "value_source": "the literal string 'publish' for producers or 'consume' for consumers"
+      },
+      {
+        "name": "rabbitmq.routing_key",
+        "value_source": "the variable 'routingKey' passed to BasicPublish / consumer callback"
+      }
+    ],
+    "new_span_name": "RabbitMQ publish",
+    "new_metric_details": null
+  }
+}

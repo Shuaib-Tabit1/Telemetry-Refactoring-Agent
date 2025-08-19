@@ -1,0 +1,31 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": null,
+  "semantic_description": "Database call spans for stored-procedure executions in the CLM/eSign services are missing the stored-procedure name as an attribute.",
+  "search_keywords": [
+    "stored procedure",
+    "SqlCommand",
+    "CommandType.StoredProcedure",
+    "db.operation",
+    "db.statement",
+    "OpenTelemetry",
+    "SqlClientInstrumentation"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.operation",
+        "value_source": "the SqlCommand.CommandText value when CommandType == StoredProcedure"
+      },
+      {
+        "name": "db.name",
+        "value_source": "the current database name retrieved from SqlConnection.Database"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

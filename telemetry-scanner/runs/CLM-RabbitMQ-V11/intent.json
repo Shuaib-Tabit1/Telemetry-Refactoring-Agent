@@ -1,0 +1,51 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "AddRabbitMQInstrumentation"
+  },
+  "semantic_description": "Add OpenTelemetry RabbitMQ instrumentation to the clm-web service so that publish/consume spans appear in Jaeger with the expected messaging.* attributes.",
+  "search_keywords": [
+    "RabbitMQ",
+    "AddRabbitMQInstrumentation",
+    "OpenTelemetry.Instrumentation.RabbitMQ",
+    "BasicPublish",
+    "BasicDeliver",
+    "clm-web",
+    "messaging.system",
+    "messaging.destination",
+    "messaging.operation"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "CREATE",
+    "attributes_to_add": [
+      {
+        "name": "messaging.system",
+        "value_source": "the literal string 'rabbitmq'"
+      },
+      {
+        "name": "messaging.destination_kind",
+        "value_source": "the literal string 'queue'"
+      },
+      {
+        "name": "messaging.destination",
+        "value_source": "the 'exchange' parameter passed to BasicPublish"
+      },
+      {
+        "name": "messaging.rabbitmq.routing_key",
+        "value_source": "the 'routingKey' parameter passed to BasicPublish"
+      },
+      {
+        "name": "messaging.operation",
+        "value_source": "the literal string 'publish' for producer spans and 'receive' for consumer spans"
+      },
+      {
+        "name": "environment",
+        "value_source": "the application configuration value indicating environment (e.g., 'Production')"
+      }
+    ],
+    "new_span_name": "rabbitmq.publish",
+    "new_metric_details": null
+  }
+}

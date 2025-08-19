@@ -1,0 +1,36 @@
+Please look at this Trace I couldn't able to find where this request is redirected to. This is a CLM Demo Trace; Can you please take a look why OtlpSpanEvents do not have span attributes  HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION ?
+Query from OtlpSpanEvents https://kazmon.docusign.net/Kusto?queryId=20250513015129-4146728714337517111
+Query from RequestEvents link here
+As you know that these are very important span attributes for us to assess the impact and for investigation of an issue, could you please ensure these attributes are available in OtlpspanEvents? Thank you!
+
+ 
+
+Query from OtlpSpanEvents
+
+
+
+OtlpSpanEvents
+| where Timestamp between (datetime('2025-05-10T02:55:40.207396Z')..datetime('2025-05-10T08:25:40.207396Z'))
+| where Environment == "Demo"
+//| where url_path contains "/clm/SSO/SSOEndpoint.ashx"
+| where url_path == "/clm/Documents/BrowseDocuments.aspx"
+| where http_status_code > 200
+| limit 100
+ 
+
+Query from RequestEvents
+
+
+
+let _startTime=datetime(2025-05-10T02:55:40.207396Z);
+let _endTime = datetime(2025-05-10T08:25:40.207396Z);
+RequestEvents
+| where Timestamp between (_startTime .. _endTime) and Environment=="Demo"
+| where Application == "clm-web"
+| where HTTP_RESPONSE_STATUS_CODE == "302" and HTTP_RESPONSE_REDIRECT_LOCATION contains "Error"
+| limit 100
+
+
+Acceptance Criteria
+
+HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION should be available as span_attributes 

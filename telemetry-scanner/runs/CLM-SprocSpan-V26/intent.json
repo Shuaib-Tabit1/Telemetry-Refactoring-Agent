@@ -1,0 +1,35 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": null,
+  "semantic_description": "Ensure the stored procedure name is captured as an attribute on database spans so that CLM Jaeger traces display both the database name and the sproc name.",
+  "search_keywords": [
+    "stored procedure",
+    "sprocname",
+    "db.operation",
+    "db.statement",
+    "Activity.SetTag",
+    "SetTag",
+    "SetAttribute",
+    "SqlCommand",
+    "CommandType.StoredProcedure",
+    "CLM",
+    "Jaeger"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.operation",
+        "value_source": "the stored procedure name extracted from SqlCommand.CommandText when CommandType == StoredProcedure"
+      },
+      {
+        "name": "db.name",
+        "value_source": "the database name associated with the current SqlConnection"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

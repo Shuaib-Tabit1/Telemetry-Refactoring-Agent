@@ -1,0 +1,27 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": null,
+  "semantic_description": "Add the executed stored-procedure name as an attribute on database spans in the clm-web service so that Jaeger traces can display both the database and procedure names.",
+  "search_keywords": [
+    "clm-web",
+    "db.procedure",
+    "db.operation",
+    "Activity.SetTag",
+    "AddSqlClientInstrumentation",
+    "CommandType.StoredProcedure",
+    "CommandText"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.procedure",
+        "value_source": "the CommandText property of the SqlCommand when CommandType is StoredProcedure"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

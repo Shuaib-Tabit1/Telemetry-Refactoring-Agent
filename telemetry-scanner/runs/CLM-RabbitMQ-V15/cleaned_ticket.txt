@@ -1,0 +1,24 @@
+Title: Cloud And On-prem] RabbitMQ instrumentation is missing
+
+Description:
+[https://docs.google.com/spreadsheets/d/1N8Y40jKNE3U72-j_0XkN9c6LYrb0XUTb1Q-GlzUalj8/edit?gid=230515902#gid=230515902 
+
+https://docs.google.com/document/d/1m-yHSV5BlMLevwK9JizgWI_zuT7hSY2X8mzZi41GWK0/edit?tab=t.0 
+
+Rabbit MQ Instrumentation is missing as we are not able to see in Jaeger Traces, add RabbitMQ instrumentation so that we can see it in Jaeger Traces
+
+# *Observation:* This is available in On-prem Jaeger Traces but Key Span Attributes are missing
+# DT Trace link: here+
+# Jaeger Trace or Kazmon Query link: here+
+# Jaeger Trace link: here+
+# CorrelationToken from RequestEvents = 75f6c44d-a2b9-4fa0-8ed5-18bd0b0365fb+
+# Jaeger Trace: Link+
+# Sub-components/DownStream Services involved for this Trace
+
+!AD_4nXd7e8DRcZ_1MmfOLBvZnW81_A6hKfSZzet3UhE3mx5SYYAoNmYcxfDWhONbcorJ1Sna1VF3y5ZgpGAuFNb5Od-CeMVdw4xmLL58lQtmqEiZYVZBSricqqHfABu47KnYdd5XBKgVPg_key=yw8bIyorzDj_mY9QMwWATQ|width=1463,height=233!
+
+# Waterfall overview of the Trace in DynaTrace
+
+!AD_4nXfzlzEOtMEfCIPI3Mo-cqMmF-9VxAyQvLBEILkCmZEGi9ciyYKPbTGGS6nitlBE6QPgzjl8Mv3UYuRqQ7DZMyd2nzjwvBGqUmGNjmdpzVRn9q74t9n3224BQEJusFYVQYQZSffD7A_key=yw8bIyorzDj_mY9QMwWATQ|width=1600,height=608!
+
+!AD_4nXcmMLOhyIqvowK7OxiKXhSVMWnbCtX8a9ekfz_Yqkt989XNz5rScgEBYtON4GMpN_9z5SrcM-CVQtBusD5o1AnwG3DaLY_AwIjl8s-CRhau9-CNLGz4d_CcWkR_TJU9V3Hg-gzuwg_key=yw8bIyorzDj_mY9QMwWATQ|width=1600,height=345!

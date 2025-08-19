@@ -1,0 +1,34 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": null,
+  "semantic_description": "Add the stored procedure name (and database name) as OpenTelemetry span attributes for database calls so that downstream systems can include them in the span row name within CLM and eSign Jaeger traces.",
+  "search_keywords": [
+    "sprocname",
+    "stored procedure",
+    "db.operation",
+    "db.name",
+    "Jaeger",
+    "CLM",
+    "eSign",
+    "SqlCommand",
+    "CommandType.StoredProcedure",
+    "AddAttributes"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": "System.Data.SqlClient.Execute",
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.name",
+        "value_source": "the database name variable (e.g., connection.Database)"
+      },
+      {
+        "name": "db.operation",
+        "value_source": "the stored procedure name from the SqlCommand.CommandText when CommandType == StoredProcedure"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

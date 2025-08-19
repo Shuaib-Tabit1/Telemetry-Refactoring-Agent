@@ -1,0 +1,69 @@
+
+using System.Data;
+using System.Data.Common;
+using OpenTelemetry;
+using OpenTelemetry.Trace;
+
+namespace ScmServiceFramework.Telemetry
+{
+    /// <summary>
+    /// Configures OpenTelemetry tracing for the ScmServiceFramework,
+    /// including automatic instrumentation of SQL commands and stored procedures.
+    /// </summary>
+    public static class TelemetrySetup
+    {
+        /// <summary>
+        /// Builds and returns a TracerProvider with:
+        ///  - SqlClient and generic DbCommand instrumentation
+        ///  - Enrichment logic that adds the "db.rpc.object" tag
+        ///    using the stored procedure name from DbCommand.CommandText
+        ///  - Jaeger exporter for sending traces to Jaeger
+        /// </summary>
+        public static TracerProvider ConfigureTracing()
+        {
+            return Sdk.CreateTracerProviderBuilder()
+                // Optionally add your own instrumentation sources
+                .AddSource("ScmServiceFramework")
+                
+                // Instrument System.Data.SqlClient calls
+                .AddSqlClientInstrumentation(options =>
+                {
+                    // We only need CommandText for stored procs,
+                    // so disable full statement capture if desired
+                    options.SetDbStatementForText = false;
+                    
+                    // Enrich the activity with the sproc name
+                    options.EnrichWithDbCommand = (activity, command) =>
+                    {
+                        if (command.CommandType == CommandType.StoredProcedure)
+                        {
+                            activity.SetTag("db.rpc.object", command.CommandText);
+                        }
+                    };
+                })
+
+                // Instrument all DbCommand calls (generic ADO.NET)
+                .AddDbCommandInstrumentation(options =>
+                {
+                    options.Enrich = (activity, eventName, rawObject) =>
+                    {
+                        // The "BeforeExecute" event fires before ExecuteReader/NonQuery/Scalar
+                        if (eventName == "System.Data.Common.DbCommand.BeforeExecute" &&
+                            rawObject is DbCommand command &&
+                            command.CommandType == CommandType.StoredProcedure)
+                        {
+                            activity.SetTag("db.rpc.object", command.CommandText);
+                        }
+                    };
+                })
+
+                // Export traces to Jaeger
+                .AddJaegerExporter(jaegerOptions =>
+                {
+                    jaegerOptions.Endpoint = new Uri("http://localhost:14268/api/traces");
+                })
+
+                .Build();
+        }
+    }
+}

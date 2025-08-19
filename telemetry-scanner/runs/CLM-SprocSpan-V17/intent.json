@@ -1,0 +1,37 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "AddSqlClientInstrumentation"
+  },
+  "semantic_description": "Populate each SQL span with the database name and stored-procedure name so that Jaeger traces show (dbname sprocname) in span details and row names.",
+  "search_keywords": [
+    "AddSqlClientInstrumentation",
+    "SqlClientInstrumentationOptions",
+    "SetDbStatementForText",
+    "Enrich",
+    "SqlConnection",
+    "CommandType.StoredProcedure",
+    "db.name",
+    "db.operation",
+    "db.statement",
+    "clm-web",
+    "sprocname"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.name",
+        "value_source": "SqlConnection.Database property in the active SQL command"
+      },
+      {
+        "name": "db.operation",
+        "value_source": "SqlCommand.CommandText when CommandType == StoredProcedure"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

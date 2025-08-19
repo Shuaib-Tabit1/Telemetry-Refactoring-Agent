@@ -1,0 +1,32 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": null,
+  "semantic_description": "Database calls within the CLM service that execute stored procedures should record the procedure name (and optionally the database name) as span attributes so it appears in Jaeger traces.",
+  "search_keywords": [
+    "stored procedure",
+    "sproc",
+    "SqlCommand",
+    "ExecuteReaderAsync",
+    "ExecuteNonQuery",
+    "db.operation",
+    "db.name",
+    "SpanAttribute"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": "sql.query",
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.operation",
+        "value_source": "the stored procedure name extracted from SqlCommand.CommandText (e.g., 'spGetUserProfile')"
+      },
+      {
+        "name": "db.name",
+        "value_source": "the Database property of the current SqlConnection instance"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

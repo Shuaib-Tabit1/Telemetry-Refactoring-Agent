@@ -1,0 +1,46 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "AddRabbitMqClientInstrumentation"
+  },
+  "semantic_description": "Add proper RabbitMQ OpenTelemetry instrumentation so that publish/consume spans with standard messaging attributes appear in Jaeger for the clm-web service.",
+  "search_keywords": [
+    "RabbitMQ",
+    "AddRabbitMqClientInstrumentation",
+    "AddRabbitMQInstrumentation",
+    "messaging.system",
+    "messaging.destination",
+    "messaging.operation",
+    "ActivitySource",
+    "clm-web",
+    "Jaeger"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "CREATE",
+    "attributes_to_add": [
+      {
+        "name": "messaging.system",
+        "value_source": "the literal string 'rabbitmq'"
+      },
+      {
+        "name": "messaging.destination",
+        "value_source": "the queue or exchange name passed to the RabbitMQ.Client API (e.g., 'queueName' parameter)"
+      },
+      {
+        "name": "messaging.operation",
+        "value_source": "the semantic action being performed, e.g., 'publish' or 'consume', inferred from the RabbitMQ.Client method being invoked"
+      },
+      {
+        "name": "messaging.rabbitmq.routing_key",
+        "value_source": "the routingKey argument used in the basic publish call"
+      },
+      {
+        "name": "correlation_id",
+        "value_source": "the value extracted from the message properties or the CorrelationToken variable in scope"
+      }
+    ],
+    "new_span_name": "RabbitMQ {messaging.operation}"
+  }
+}

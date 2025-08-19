@@ -1,0 +1,30 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "AddSqlClientInstrumentation"
+  },
+  "semantic_description": "Ensure the stored procedure name is captured as an attribute on existing SQL client spans so that Jaeger traces display it as part of the span row name.",
+  "search_keywords": [
+    "AddSqlClientInstrumentation",
+    "SqlClientInstrumentationOptions",
+    "SetDbStatementForStoredProcedure",
+    "activity.SetTag",
+    "db.operation",
+    "stored procedure",
+    "sprocname",
+    "SpanAttribute"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": "SqlClient",
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.operation",
+        "value_source": "the stored procedure name from the SqlCommand being executed"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

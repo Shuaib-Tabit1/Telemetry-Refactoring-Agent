@@ -1,0 +1,26 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "semantic_description": "Database stored procedure execution spans in the CLM service for Jaeger traces",
+  "search_keywords": [
+    "DbCommand",
+    "ExecuteReader",
+    "OpenTelemetry.Instrumentation.SqlClient",
+    "ActivitySource",
+    "Jaeger",
+    "CLM",
+    "sproc"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.sql.procedure",
+        "value_source": "the CommandText property of the DbCommand (the stored procedure name)"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

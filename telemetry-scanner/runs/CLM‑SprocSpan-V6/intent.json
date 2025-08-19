@@ -1,0 +1,27 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "semantic_description": "Database stored procedure call spans in CLM Jaeger Traces need to include the stored procedure name attribute",
+  "search_keywords": [
+    "CLM",
+    "Jaeger",
+    "SpanAttribute",
+    "Sproc",
+    "StoredProcedure",
+    "DbCommand",
+    "OpenTelemetry",
+    "ActivitySource"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.operation",
+        "value_source": "the stored procedure name from DbCommand.CommandText"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

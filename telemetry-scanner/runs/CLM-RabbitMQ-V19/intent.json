@@ -1,0 +1,45 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "AddRabbitMQInstrumentation"
+  },
+  "semantic_description": "Ensure RabbitMQ publish/consume operations are properly instrumented with OpenTelemetry so their spans and key attributes appear in Jaeger traces across both cloud and on-prem environments.",
+  "search_keywords": [
+    "RabbitMQ",
+    "AddRabbitMQInstrumentation",
+    "OpenTelemetry.Instrumentation.RabbitMQ",
+    "messaging.system",
+    "messaging.rabbitmq.routing_key",
+    "CorrelationToken",
+    "Jaeger"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "CREATE",
+    "attributes_to_add": [
+      {
+        "name": "messaging.system",
+        "value_source": "the literal string 'rabbitmq'"
+      },
+      {
+        "name": "messaging.operation",
+        "value_source": "derive from whether the code path is publishing or consuming (e.g., 'publish' or 'consume')"
+      },
+      {
+        "name": "messaging.rabbitmq.routing_key",
+        "value_source": "the 'routingKey' variable passed to the RabbitMQ client"
+      },
+      {
+        "name": "messaging.message_id",
+        "value_source": "the message property 'MessageId' if available"
+      },
+      {
+        "name": "app.correlation_token",
+        "value_source": "the 'CorrelationToken' extracted from RequestEvents or message headers"
+      }
+    ],
+    "new_span_name": "RabbitMQ Publish",
+    "new_metric_details": {}
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "semantic_description": "Database stored procedure execution spans in the CLM service traced by Jaeger",
+  "search_keywords": [
+    "CLM",
+    "Jaeger",
+    "SpanAttribute",
+    "sproc",
+    "SqlClient",
+    "SqlCommand",
+    "stored procedure"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": "SqlClient",
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.statement",
+        "value_source": "the SqlCommand.CommandText property containing the stored procedure name"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

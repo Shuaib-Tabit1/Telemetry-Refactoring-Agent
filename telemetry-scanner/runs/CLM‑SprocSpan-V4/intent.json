@@ -1,0 +1,24 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "semantic_description": "Database call spans for CLM service using stored procedures",
+  "search_keywords": [
+    "CLM",
+    "SqlClient",
+    "StoredProcedure",
+    "Activity",
+    "db.statement",
+    "sprocName",
+    "SpanAttribute"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": "SqlClient.Execute",
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.sql.stored_procedure",
+        "value_source": "the 'sprocName' variable from the SqlCommand"
+      }
+    ]
+  }
+}

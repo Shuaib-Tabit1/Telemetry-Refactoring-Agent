@@ -1,0 +1,167 @@
+using System;
+using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
+
+using ADEXS.Core.Util.Config;
+using ADEXS.Core.Util.Core;
+using ADEXS.FeatureFlags;
+using ADEXS.ServiceFramework.AspNetCore.HealthChecks;
+using ADEXS.ServiceFramework.AspNetCore.Options;
+
+using DocuSign.CLM.Monitoring;
+using DocuSign.OneConfig.Extensions;
+
+using log4net;
+
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Hosting.WindowsServices;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+
+namespace ADEXS.ServiceFramework.AspNetCore.HostedServices;
+
+/// <summary>
+/// Hosted service that runs for the lifetime of the SCM application. Similar to ADEXS.Core.Domain.ScmHttpApplication.
+/// Code redirects log4net logs to standard ILogProvider (cloud only). Then code configures KazMon logging and feature flags.
+/// </summary>
+internal sealed class ScmLifetimeHostedService : IHostedService
+{
+	private readonly IScmLifetimeServiceStatus _scmLifetimeServiceStatus;
+
+	private readonly IWatchedSingletonConfig<ISiteConfig> _siteConfig;
+
+	private readonly IWatchedSingletonConfig<IAppConfig> _appConfig;
+
+	private readonly IOptions<ScmLifetimeHostedServiceOptions> _options;
+
+	private readonly ILogger _logger;
+
+	private bool _isFeatureFlagsEnabled;
+
+	private bool _isFeatureFlagsContextEnabled;
+
+	public ScmLifetimeHostedService(
+		IScmLifetimeServiceStatus scmLifetimeServiceStatus,
+		IWatchedSingletonConfig<ISiteConfig> siteConfig,
+		IWatchedSingletonConfig<IAppConfig> appConfig,
+		IOptions<ScmLifetimeHostedServiceOptions> options,
+		ILogger<ScmLifetimeHostedService> logger)
+	{
+		_scmLifetimeServiceStatus = scmLifetimeServiceStatus;
+		_siteConfig = siteConfig;
+		_appConfig = appConfig;
+		_options = options;
+		_logger = logger;
+	}
+
+	/// <inheritdoc />
+	public Task StartAsync(CancellationToken cancellationToken)
+	{
+		try
+		{
+			var siteConfig = _siteConfig.Value;
+			var appConfig = _appConfig.Value;
+
+			_logger.LogInformation(
+				"Initializing http application on {EnvironmentType} {Environment} environment on {Site} site",
+				siteConfig.EnvironmentType,
+				siteConfig.Environment,
+				siteConfig.Site);
+
+			var application = Environment.GetEnvironmentVariable("MONITORING_SYSTEM_APPLICATION") ?? appConfig.AppName;
+			var site = siteConfig.Site;
+
+			if (_options.Value.KazMonMonitoringEnabled)
+			{
+				var assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
+
+				// Use MSF specific env variable, fallback to app settings.
+				var environment = Environment.GetEnvironmentVariable("MONITORING_SYSTEM_ENVIRONMENT") ?? siteConfig.Environment;
+				var partition = Environment.GetEnvironmentVariable("MONITORING_SYSTEM_PARTITION");
+
+				KazmonMonitoring.InitializeKazmon(
+					applicationName: application,
+					appVersion: assembly.GetName().Version!.ToString(),
+					environmentName: environment,
+					siteName: site,
+					partitionName: partition,
+					shouldEnableKazmon: () => Configuration.GetBooleanAppSetting("KazmonEnableMonitoring", true)
+											  && Configuration.GetBooleanAppSetting($"EnableFeatureFlagsByAppName_{application}", true),
+					shouldEnableSmartMon: () => Configuration.GetBooleanAppSetting("SmartMonEnable", true),
+					shouldEnableLogFileListener: () => Configuration.GetBooleanAppSetting("KazmonEnableLogFileListener", false));
+			}
+
+			_isFeatureFlagsEnabled = Configuration.GetBooleanAppSetting("EnableFeatureFlags", true)
+				&& Configuration.GetBooleanAppSetting($"EnableFeatureFlagsByAppName_{application}", true);
+
+			_isFeatureFlagsContextEnabled = Configuration.GetBooleanAppSetting("UseOneConfigOverDss", false);
+
+			if (_isFeatureFlagsEnabled)
+			{
+				FeatureFlagsBootstrap.Init(site);
+			}
+			else if (_isFeatureFlagsContextEnabled)
+			{
+				FeatureFlagsBootstrap.InitializeContextOnly();
+			}
+
+			_scmLifetimeServiceStatus.IsReady = true;
+
+			_logger.LogInformation("Http application initialized");
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Failed to start http application");
+
+			// https://learn.microsoft.com/en-us/dotnet/core/extensions/windows-service#service-recovery-options-and-net-backgroundservice-instances
+			if (WindowsServiceHelpers.IsWindowsService())
+			{
+				Environment.Exit(1);
+			}
+
+			throw;
+		}
+
+		return Task.CompletedTask;
+	}
+
+	/// <inheritdoc />
+	public Task StopAsync(CancellationToken cancellationToken)
+	{
+		try
+		{
+			_logger.LogInformation("Stopping http application");
+
+			_scmLifetimeServiceStatus.IsReady = false;
+
+			try
+			{
+				LogManager.Shutdown();
+			}
+#pragma warning disable CA1031 // Do not catch general exception types. This is the only way to shutdown log4net.
+			catch (Exception ex)
+#pragma warning restore CA1031 // Do not catch general exception types. This is the only way to shutdown log4net.
+			{
+				_logger.LogError(ex, "Error shutting down log manager");
+			}
+
+			if (_isFeatureFlagsEnabled || _isFeatureFlagsContextEnabled)
+			{
+				FeatureFlagsBootstrap.UnInitialize();
+			}
+
+			if (_options.Value.KazMonMonitoringEnabled)
+			{
+				KazmonMonitoring.ShutdownKazmon();
+			}
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Failed to stop http application");
+			throw;
+		}
+
+		return Task.CompletedTask;
+	}
+}

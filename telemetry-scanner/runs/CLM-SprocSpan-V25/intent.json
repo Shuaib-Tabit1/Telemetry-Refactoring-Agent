@@ -1,0 +1,30 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": null,
+  "semantic_description": "Expose the executed stored procedure name as a span attribute on existing SQL client spans so Jaeger traces display it alongside the database name.",
+  "search_keywords": [
+    "db.operation",
+    "sprocname",
+    "dbname",
+    "SpanAttribute",
+    "System.Data.SqlClient",
+    "CommandType.StoredProcedure",
+    "ExecuteNonQuery",
+    "ExecuteReader",
+    "Jaeger",
+    "OpenTelemetry"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": "System.Data.SqlClient",
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.operation",
+        "value_source": "the stored procedure name extracted from SqlCommand.CommandText when CommandType == StoredProcedure"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

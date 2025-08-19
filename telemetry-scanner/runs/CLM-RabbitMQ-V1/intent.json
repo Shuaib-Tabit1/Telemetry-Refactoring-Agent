@@ -1,0 +1,40 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": null,
+  "semantic_description": "RabbitMQ publish and consume operations in the core message-processing pipeline are not represented in Jaeger, indicating missing OpenTelemetry instrumentation.",
+  "search_keywords": [
+    "RabbitMQ",
+    "OpenTelemetry",
+    "IModel.BasicPublish",
+    "BasicConsume",
+    "Publish",
+    "Consume",
+    "MassTransit",
+    "messaging.system"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "CREATE",
+    "attributes_to_add": [
+      {
+        "name": "messaging.system",
+        "value_source": "the literal string 'rabbitmq'"
+      },
+      {
+        "name": "messaging.destination",
+        "value_source": "the queue name variable (e.g., 'order_queue') available at publish/consume time"
+      },
+      {
+        "name": "messaging.operation",
+        "value_source": "the literal string 'publish' for producer spans and 'receive' for consumer spans"
+      },
+      {
+        "name": "messaging.message_id",
+        "value_source": "the 'BasicProperties.MessageId' field from the RabbitMQ message properties"
+      }
+    ],
+    "new_span_name": "rabbitmq.publish",
+    "new_metric_details": null
+  }
+}

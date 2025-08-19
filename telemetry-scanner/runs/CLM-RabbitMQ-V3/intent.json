@@ -1,0 +1,47 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": null,
+  "semantic_description": "RabbitMQ publish/consume operations inside the CLM-Web service that currently do not appear in Jaeger or lack key span attributes.",
+  "search_keywords": [
+    "RabbitMQ",
+    "IModel",
+    "BasicPublish",
+    "BasicConsume",
+    "IBasicProperties",
+    "routingKey",
+    "queueName"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "CREATE",
+    "attributes_to_add": [
+      {
+        "name": "messaging.system",
+        "value_source": "the literal string 'rabbitmq'"
+      },
+      {
+        "name": "messaging.destination",
+        "value_source": "the variable 'queueName' used when publishing or consuming"
+      },
+      {
+        "name": "messaging.destination_kind",
+        "value_source": "the literal string 'queue'"
+      },
+      {
+        "name": "messaging.rabbitmq.routing_key",
+        "value_source": "the variable 'routingKey' passed to BasicPublish / BasicConsume"
+      },
+      {
+        "name": "messaging.message_id",
+        "value_source": "basicProperties.MessageId (if available) or an equivalent message identifier"
+      },
+      {
+        "name": "messaging.operation",
+        "value_source": "the literal string 'publish' or 'receive', depending on the code path"
+      }
+    ],
+    "new_span_name": "RabbitMQ Operation",
+    "new_metric_details": null
+  }
+}

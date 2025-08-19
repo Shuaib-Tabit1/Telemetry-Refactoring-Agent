@@ -1,0 +1,25 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "semantic_description": "The database stored procedure execution spans in the CLM Jaeger traces are missing the stored procedure name attribute.",
+  "search_keywords": [
+    "Sproc",
+    "CLM",
+    "Jaeger",
+    "SpanAttribute",
+    "DbCommand",
+    "ExecuteStoredProc"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.sql.sproc_name",
+        "value_source": "the stored procedure name from the DbCommand.CommandText"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

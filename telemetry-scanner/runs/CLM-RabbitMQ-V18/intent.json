@@ -1,0 +1,50 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "AddRabbitMQInstrumentation"
+  },
+  "semantic_description": "Implement RabbitMQ OpenTelemetry instrumentation so that publish and consume operations appear in Jaeger traces with the correct messaging span attributes.",
+  "search_keywords": [
+    "RabbitMQ",
+    "AddRabbitMQInstrumentation",
+    "OpenTelemetry.Instrumentation.RabbitMQ",
+    "messaging.system",
+    "messaging.destination",
+    "messaging.rabbitmq.routing_key",
+    "Jaeger",
+    "CorrelationToken"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "CREATE",
+    "attributes_to_add": [
+      {
+        "name": "messaging.system",
+        "value_source": "the literal string 'rabbitmq'"
+      },
+      {
+        "name": "messaging.destination",
+        "value_source": "the variable that holds the queue or exchange name (e.g., 'queueName')"
+      },
+      {
+        "name": "messaging.rabbitmq.routing_key",
+        "value_source": "the variable that holds the routing key (e.g., 'routingKey')"
+      },
+      {
+        "name": "messaging.message_id",
+        "value_source": "the message's ID property from the RabbitMQ message envelope"
+      },
+      {
+        "name": "messaging.operation",
+        "value_source": "the literal string 'send' for publish spans and 'receive' for consume spans"
+      },
+      {
+        "name": "correlation_token",
+        "value_source": "the CorrelationToken extracted from the message headers"
+      }
+    ],
+    "new_span_name": "rabbitmq.publish_consume",
+    "new_metric_details": null
+  }
+}

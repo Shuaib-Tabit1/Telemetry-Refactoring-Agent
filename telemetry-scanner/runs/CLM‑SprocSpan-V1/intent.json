@@ -1,0 +1,23 @@
+{
+  "semantic_description": "The database stored procedure execution spans for CLM Jaeger traces",
+  "search_keywords": [
+    "SqlClientInstrumentation",
+    "DbCommandInstrumentation",
+    "CommandText",
+    "sproc",
+    "CLM",
+    "OpenTelemetry",
+    "SpanAttribute"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.rpc.object",
+        "value_source": "the 'CommandText' property of the executed DbCommand containing the stored procedure name"
+      }
+    ]
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": null,
+  "semantic_description": "Database call spans in the CLM service where SQL stored procedures are executed and need the procedure name exposed as a span attribute.",
+  "search_keywords": [
+    "sproc",
+    "stored procedure",
+    "SpanAttribute",
+    "db.operation",
+    "db.name",
+    "SqlCommand",
+    "ExecuteReader",
+    "Jaeger"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": "SQL Stored Procedure Execute",
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.operation",
+        "value_source": "the SqlCommand.CommandText value when CommandType == StoredProcedure (the stored procedure name)"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

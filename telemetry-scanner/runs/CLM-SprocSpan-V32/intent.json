@@ -1,0 +1,32 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": null,
+  "semantic_description": "Surface the database name and stored-procedure name as OpenTelemetry span attributes so that Jaeger traces display them for CLM and eSign services.",
+  "search_keywords": [
+    "db.operation",
+    "db.name",
+    "SetTag",
+    "SetAttribute",
+    "AddSqlClientInstrumentation",
+    "SqlCommand",
+    "OpenTelemetry",
+    "sprocname"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.operation",
+        "value_source": "the value of the 'storedProcedureName' variable used when invoking the SQL stored procedure"
+      },
+      {
+        "name": "db.name",
+        "value_source": "the value obtained from 'sqlConnection.Database' at the time of the call"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

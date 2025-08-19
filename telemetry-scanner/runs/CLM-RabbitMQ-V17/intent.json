@@ -1,0 +1,40 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "AddRabbitMQInstrumentation"
+  },
+  "semantic_description": "Ensure RabbitMQ producer/consumer operations are correctly instrumented so that full spans with standard messaging attributes appear in Jaeger traces.",
+  "search_keywords": [
+    "RabbitMQ",
+    "AddRabbitMQInstrumentation",
+    "messaging.system",
+    "messaging.destination",
+    "messaging.rabbitmq.routing_key",
+    "Jaeger"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": "rabbitmq.send",
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "messaging.system",
+        "value_source": "the literal string 'rabbitmq'"
+      },
+      {
+        "name": "messaging.destination",
+        "value_source": "the 'queueName' variable in scope"
+      },
+      {
+        "name": "messaging.destination_kind",
+        "value_source": "the literal string 'queue'"
+      },
+      {
+        "name": "messaging.rabbitmq.routing_key",
+        "value_source": "the 'routingKey' variable in scope"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

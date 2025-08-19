@@ -1,0 +1,32 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": null,
+  "semantic_description": "Incoming CLM web requests that get redirected (HTTP 302) from BrowseDocuments.aspx are missing the HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION attributes on their spans.",
+  "search_keywords": [
+    "HTTP_REFERER",
+    "HTTP_RESPONSE_REDIRECT_LOCATION",
+    "OtlpSpanEvents",
+    "RequestEvents",
+    "BrowseDocuments",
+    "clm-web",
+    "http.response.header.location",
+    "http.request.header.referer"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "HTTP_REFERER",
+        "value_source": "HTTP request header 'Referer'"
+      },
+      {
+        "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+        "value_source": "HTTP response header 'Location' when the status code is 302"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

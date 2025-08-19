@@ -1,0 +1,34 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": null,
+  "semantic_description": "HTTP 302 redirect handling in the CLM web application\u2019s /clm/Documents/BrowseDocuments.aspx endpoint lacks the HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION span attributes in OtlpSpanEvents.",
+  "search_keywords": [
+    "HTTP_REFERER",
+    "HTTP_RESPONSE_REDIRECT_LOCATION",
+    "Referer",
+    "Location",
+    "OtlpSpanEvents",
+    "RequestEvents",
+    "clm-web",
+    "BrowseDocuments.aspx",
+    "HTTP 302",
+    "Redirect"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "http.referer",
+        "value_source": "the incoming HTTP request header 'Referer'"
+      },
+      {
+        "name": "http.response_redirect_location",
+        "value_source": "the outgoing HTTP response header 'Location'"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

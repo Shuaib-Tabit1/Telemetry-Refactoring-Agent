@@ -1,0 +1,26 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": null,
+  "semantic_description": "Expose the executed stored procedure name as a span attribute so that database spans in CLM and eSign Jaeger traces can later include the database and sproc name in their span names.",
+  "search_keywords": [
+    "CommandType.StoredProcedure",
+    "SqlCommand",
+    "db.operation",
+    "Activity.SetTag",
+    "AddSqlClientInstrumentation",
+    "Jaeger"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.operation",
+        "value_source": "the SqlCommand.CommandText when CommandType == StoredProcedure"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

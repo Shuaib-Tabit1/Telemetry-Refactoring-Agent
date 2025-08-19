@@ -1,0 +1,45 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "AddRabbitMQClientInstrumentation"
+  },
+  "semantic_description": "Add or enhance RabbitMQ client instrumentation so that Jaeger spans for publish and consume operations include standard OpenTelemetry messaging attributes.",
+  "search_keywords": [
+    "RabbitMQ",
+    "AddRabbitMQClientInstrumentation",
+    "messaging.system",
+    "messaging.destination",
+    "messaging.rabbitmq.routing_key",
+    "Jaeger",
+    "clm-web"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": "RabbitMQ",
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "messaging.system",
+        "value_source": "the literal string 'rabbitmq'"
+      },
+      {
+        "name": "messaging.destination",
+        "value_source": "the queue name variable used when publishing or consuming"
+      },
+      {
+        "name": "messaging.destination_kind",
+        "value_source": "the literal string 'queue'"
+      },
+      {
+        "name": "messaging.rabbitmq.routing_key",
+        "value_source": "the routing key variable in scope"
+      },
+      {
+        "name": "messaging.operation",
+        "value_source": "the literal string 'publish' or 'receive' depending on context"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}
