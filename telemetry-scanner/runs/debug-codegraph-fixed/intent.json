@@ -1,0 +1,36 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "SetTag"
+  },
+  "semantic_description": "Ensure every outbound and inbound HTTP span exported to OtlpSpanEvents contains the HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION attributes so redirects can be traced end-to-end.",
+  "search_keywords": [
+    "OtlpSpanEvents",
+    "HTTP_REFERER",
+    "HTTP_RESPONSE_REDIRECT_LOCATION",
+    "http.referer",
+    "http.response.redirect_location",
+    "RequestEvents",
+    "Activity",
+    "SetTag",
+    "AddHttpClientInstrumentation",
+    "AddAspNetCoreInstrumentation"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "http.referer",
+        "value_source": "HttpRequest.Headers[\"Referer\"]"
+      },
+      {
+        "name": "http.response.redirect_location",
+        "value_source": "HttpResponse.Headers[\"Location\"]"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

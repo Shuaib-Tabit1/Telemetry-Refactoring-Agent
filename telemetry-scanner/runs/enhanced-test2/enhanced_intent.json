@@ -1,0 +1,113 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "Activity.SetTag"
+  },
+  "semantic_description": "Add HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION as attributes on all CLM web request spans so they show up in OtlpSpanEvents.",
+  "search_keywords": [
+    "HTTP_REFERER",
+    "HTTP_RESPONSE_REDIRECT_LOCATION",
+    "span attribute",
+    "Activity.SetTag",
+    "OpenTelemetry"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": "server_request_span",
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "HTTP_REFERER",
+        "value_source": "HTTP request header \"Referer\""
+      },
+      {
+        "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+        "value_source": "HTTP response header \"Location\" for 3xx responses"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": {}
+  },
+  "confidence": "IntentConfidence.HIGH",
+  "operation_type": "OperationType.CROSS_CUTTING",
+  "complexity_score": 6,
+  "estimated_files": 6,
+  "validation_result": "ValidationResult(is_valid=True, confidence=<IntentConfidence.HIGH: 'high'>, issues=[], suggestions=[])",
+  "sub_tasks": [
+    {
+      "order": 1,
+      "name": "Source-code discovery & design",
+      "action": "locate_configuration",
+      "description": "Identify where OpenTelemetry is configured and where HTTP server Activities are currently enriched in clm-web.\n \u2022 Search for \u201cAddOpenTelemetry\u201d, \u201cUseOpenTelemetry\u201d, \u201cActivity.SetTag(\u201d in Startup.cs, Program.cs, and *Extensions.cs.\n \u2022 Confirm whether we already have a custom ActivityEnricher or Middleware (e.g. TracingMiddleware, OpenTelemetryHttpMiddleware).",
+      "expected_files": [
+        "src/clm-web/Startup.cs",
+        "src/clm-web/Observability/TracingExtensions.cs",
+        "src/shared/ActivityEnricher.cs (if exists)"
+      ],
+      "validation_criteria": "Exact location(s) and lifecycle hooks for server request span creation are documented in the ticket wiki."
+    },
+    {
+      "order": 2,
+      "name": "Security & schema pre-checks",
+      "description": "Confirm emitting these headers is allowed.\n \u2022 Review with Infosec/Privacy whether Referer or Location might contain PII.\n \u2022 If needed, define sanitisation (e.g. strip query string after \u2018?\u2019).",
+      "validation_criteria": "Signed-off security comment in ticket or ADR attached."
+    },
+    {
+      "order": 3,
+      "name": "Add new Activity enricher middleware",
+      "action": "implement_changes",
+      "dependencies": [
+        1
+      ],
+      "description": "Create/modify middleware so that it has access to both the request and the final response.\nPseudo-code (.NET 8):\n```\napp.Use(async (ctx, next) =>\n{\n   var act = Activity.Current;\n   // 3.1  Capture Referer immediately\n   var referer = ctx.Request.Headers[\"Referer\"].FirstOrDefault();\n   if (!string.IsNullOrEmpty(referer))\n       act?.SetTag(\"HTTP_REFERER\", referer);\n\n   // 3.2  Capture redirect location after response\n   ctx.Response.OnStarting(() =>\n   {\n       if (ctx.Response.StatusCode >= 300 && ctx.Response.StatusCode < 400)\n       {\n           var loc = ctx.Response.Headers[\"Location\"].FirstOrDefault();\n           if (!string.IsNullOrEmpty(loc))\n               act?.SetTag(\"HTTP_RESPONSE_REDIRECT_LOCATION\", loc);\n       }\n       return Task.CompletedTask;\n   });\n\n   await next();\n});\n```\n\u2022 Add null-safety and sanitisation.\n\u2022 Register earlier than `app.UseRouting()` so the Activity exists.",
+      "validation_criteria": "Both tags appear when running a local Fiddler/Postman redirect test and are visible in OpenTelemetry collector debug exporter."
+    },
+    {
+      "order": 4,
+      "name": "Guardrails & sampling",
+      "description": "Ensure the new tags are not dropped by processors:\n \u2022 Update attribute-filter processor allow-list (if any).\n \u2022 Update span-sampling logic to keep 3xx responses.",
+      "validation_criteria": "Span with new tags successfully forwarded through OTLP exporter in lower env."
+    },
+    {
+      "order": 5,
+      "name": "Update Kusto mapping",
+      "description": "Add columns to OtlpSpanEvents table mapping:\n```\n.alter table OtlpSpanEvents ingest json mapping 'otel_span_mapping' '[ ...\n   {\"column\":\"HTTP_REFERER\", \"path\":\"$.attributes.HTTP_REFERER\", \"datatype\":\"string\"},\n   {\"column\":\"HTTP_RESPONSE_REDIRECT_LOCATION\", \"path\":\"$.attributes.HTTP_RESPONSE_REDIRECT_LOCATION\", \"datatype\":\"string\"}\n]'\n```",
+      "validation_criteria": "Ingest test span via ADX \u201c.ingest inline\u201d and query verifies the two new columns are populated."
+    },
+    {
+      "order": 6,
+      "name": "Automated tests",
+      "description": "Add/extend tests:\n \u2022 Unit test for middleware: mock HttpContext, verify Activity tags.\n \u2022 Integration test using TestServer that issues redirect 302.\n \u2022 Kusto schema test in CI to ensure mapping contains new columns.",
+      "validation_criteria": "CI pipeline green with new tests passing."
+    },
+    {
+      "order": 7,
+      "name": "Deploy to Demo env",
+      "action": "deploy",
+      "description": "Ship feature flag OFF by default \u2192 enable in Demo.\n \u2022 Monitor OTLP exporter logs and Kusto ingestion errors for 24h.\n \u2022 Run the two ticket queries; ensure spans now show both attributes.",
+      "validation_criteria": "Dashboard shows >95% of spans on /clm/Documents/BrowseDocuments.aspx with non-null HTTP_REFERER when header exists."
+    },
+    {
+      "order": 8,
+      "name": "Gradual rollout to Production",
+      "description": "Enable feature flag 25% \u2192 50% \u2192 100% while monitoring ingestion rate and ADX throttling.",
+      "validation_criteria": "No increase in span drop rate or p95 server latency."
+    },
+    {
+      "order": 9,
+      "name": "Documentation & closeout",
+      "description": "Update internal wiki page \u201cCLM Tracing Attributes\u201d.  Post release note in #clm-observability.",
+      "validation_criteria": "Stakeholders confirm visibility; ticket closed."
+    }
+  ],
+  "contextual_hints": [
+    "Finding/creating one central place to enrich the server Activity for ALL web paths",
+    "Capturing HTTP_RESPONSE_REDIRECT_LOCATION only after the response status is known (post-execute hook)",
+    "Ensuring new tags pass through existing OpenTelemetry processors / exporters without being dropped",
+    "Updating unit / integration tests and Kusto schema validation for the added attributes"
+  ],
+  "similar_patterns": [
+    "http-server-span enrichment",
+    "header-to-attribute mapping"
+  ]
+}

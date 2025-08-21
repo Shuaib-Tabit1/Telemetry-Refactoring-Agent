@@ -1,0 +1,35 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "SetTag"
+  },
+  "semantic_description": "Add the HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION headers as attributes on existing HTTP request spans in the CLM web application so redirect flows can be fully traced.",
+  "search_keywords": [
+    "HTTP_REFERER",
+    "HTTP_RESPONSE_REDIRECT_LOCATION",
+    "Request.Headers[\"Referer\"]",
+    "Response.Headers[\"Location\"]",
+    "Activity.SetTag",
+    "ActivitySource",
+    "/clm/Documents/BrowseDocuments.aspx",
+    "/clm/SSO/SSOEndpoint.ashx",
+    "clm-web"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "HTTP_REFERER",
+        "value_source": "HttpContext.Request.Headers[\"Referer\"]"
+      },
+      {
+        "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+        "value_source": "HttpContext.Response.Headers[\"Location\"] when status code is 301, 302, 303, 307, or 308"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

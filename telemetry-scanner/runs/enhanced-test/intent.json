@@ -1,0 +1,33 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": null,
+  "semantic_description": "Ensure that every generated HTTP-related span includes the HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION attributes so downstream investigators can determine request origins and redirect targets.",
+  "search_keywords": [
+    "OtlpSpanEvents",
+    "HTTP_REFERER",
+    "HTTP_RESPONSE_REDIRECT_LOCATION",
+    "Activity",
+    "SetTag",
+    "AddAspNetCoreInstrumentation",
+    "Enrich",
+    "Request.Headers[\"Referer\"]",
+    "Response.Headers[\"Location\"]"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "HTTP_REFERER",
+        "value_source": "the value of Request.Headers[\"Referer\"]"
+      },
+      {
+        "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+        "value_source": "the value of Response.Headers[\"Location\"]"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

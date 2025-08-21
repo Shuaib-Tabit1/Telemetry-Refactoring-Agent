@@ -1,0 +1,34 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "SetTag",
+    "arguments_pattern": "HTTP_REFERER"
+  },
+  "semantic_description": "Ensure all HTTP spans emitted to OtlpSpanEvents include the HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION attributes so redirect chains can be analyzed.",
+  "search_keywords": [
+    "OtlpSpanEvents",
+    "HTTP_REFERER",
+    "HTTP_RESPONSE_REDIRECT_LOCATION",
+    "RequestEvents",
+    "SetTag",
+    "SetAttribute",
+    "AddTag"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "HTTP_REFERER",
+        "value_source": "HTTP request header 'Referer'"
+      },
+      {
+        "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+        "value_source": "HTTP response header 'Location' after a redirect"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

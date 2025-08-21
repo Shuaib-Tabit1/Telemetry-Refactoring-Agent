@@ -5,15 +5,23 @@ Ask the LLM for the full, remediated code file plus an explanation.
 from __future__ import annotations
 import json
 import os
-from typing import Tuple, List, Dict
+from typing import Tuple, List, Dict, Optional
 from pathlib import Path
 from openai import AzureOpenAI
 
-client = AzureOpenAI(
-    api_version="2024-12-01-preview",
-    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-)
+# Lazy initialization of OpenAI client
+_client: Optional[AzureOpenAI] = None
+
+def get_openai_client() -> AzureOpenAI:
+    """Get or create the OpenAI client."""
+    global _client
+    if _client is None:
+        _client = AzureOpenAI(
+            api_version="2024-12-01-preview",
+            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+        )
+    return _client
 
 def compose_patch(intent: dict, file_contexts: List[Dict], model: str = "o3") -> Tuple[str, str]:
     """
@@ -47,7 +55,7 @@ def compose_patch(intent: dict, file_contexts: List[Dict], model: str = "o3") ->
         f"{code_context_str}\n\n"
     )
     
-    response = client.chat.completions.create(
+    response = get_openai_client().chat.completions.create(
         model=model,
         messages=[
             {"role": "system", "content": system_prompt},
@@ -105,7 +113,7 @@ def select_files_for_edit(intent: dict, candidate_contexts: List[Dict], model: s
         "```"
     )
 
-    response = client.chat.completions.create(
+    response = get_openai_client().chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": prompt}]
         # We remove response_format because we now expect a markdown response, not just JSON.

@@ -1,0 +1,32 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": null,
+  "semantic_description": "Ensure that all OTLP span events include the HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION attributes so redirection paths can be traced and investigated.",
+  "search_keywords": [
+    "OtlpSpanEvents",
+    "RequestEvents",
+    "HTTP_REFERER",
+    "HTTP_RESPONSE_REDIRECT_LOCATION",
+    "AddAspNetCoreInstrumentation",
+    "AddHttpClientInstrumentation",
+    "SetTag",
+    "Activity.SetTag"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "http.referer",
+        "value_source": "the 'Referer' header in the incoming HTTP request"
+      },
+      {
+        "name": "http.response.redirect_location",
+        "value_source": "the 'Location' header in the HTTP response"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": null
+  }
+}

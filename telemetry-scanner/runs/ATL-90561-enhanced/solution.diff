@@ -1,0 +1,80 @@
+*** Begin Patch
+*** Update File: ScmHttpApplication.cs
+@@
+ using System.Diagnostics;
++using System.Globalization;
+ 
+ namespace ADEXS.Web
+ {
+     public class ScmHttpApplication : HttpApplication
+     {
++        // --------------------------------------------------------------------
++        //  OpenTelemetry enrichment helpers
++        // --------------------------------------------------------------------
++        //
++        //  We want every server-side HTTP span to contain:
++        //      • http.referer                       – incoming request header
++        //      • http.response.redirect_location    – outgoing response header (only for 3xx)
++        //
++        //  NOTE:
++        //  • Attribute names follow the OpenTelemetry semantic-convention
++        //    (lower-case, dot-separated).
++        //  • We do *not* allocate a new Activity – we only enrich the one that
++        //    ASP.NET instrumentation has already started.
++        //  • Any existing header-scrubbing / PII-redaction still runs further
++        //    downstream because we add raw tags *before* the exporter pipeline
++        //    executes its processors.
++        //
++        // --------------------------------------------------------------------
++
+         protected void Application_BeginRequest(object sender, EventArgs e)
+         {
+             // existing logic …
++
++            // ----------------------------------------------------------------
++            // Enrich span with Referer header
++            // ----------------------------------------------------------------
++            var activity = Activity.Current;
++            if (activity != null)
++            {
++                string referer = Request.Headers["Referer"];
++                if (!string.IsNullOrEmpty(referer))
++                {
++                    // Tag only once to avoid duplicate allocation if other
++                    // libraries try to set the tag later.
++                    if (activity.GetTagItem("http.referer") == null)
++                    {
++                        activity.SetTag("http.referer", referer);
++                    }
++                }
++            }
+         }
+ 
+         protected void Application_EndRequest(object sender, EventArgs e)
+         {
+             // existing logic …
++
++            // ----------------------------------------------------------------
++            // Enrich span with redirect Location (if any)
++            // ----------------------------------------------------------------
++            var activity = Activity.Current;
++            if (activity != null)
++            {
++                int statusCode = Response.StatusCode;
++                if (statusCode >= 300 && statusCode < 400)
++                {
++                    string location = Response.Headers["Location"];
++                    if (!string.IsNullOrEmpty(location))
++                    {
++                        if (activity.GetTagItem("http.response.redirect_location") == null)
++                        {
++                            activity.SetTag("http.response.redirect_location", location);
++                        }
++                    }
++                }
++            }
+         }
+     }
+ }
+*** End Patch
+*** End Patch

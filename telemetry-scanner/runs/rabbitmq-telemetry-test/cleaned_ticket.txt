@@ -1,0 +1,22 @@
+## Telemetry Enhancement Request
+
+**Summary:** Add OpenTelemetry span instrumentation to RabbitMQ message processing
+
+**Description:**
+We need to add telemetry instrumentation to track RabbitMQ message processing performance. Specifically:
+
+1. Create spans for message consumption from RabbitMQ queues
+2. Add attributes for queue name, message size, and processing time
+3. Ensure proper error handling and span completion
+
+**Acceptance Criteria:**
+- [ ] Add span creation when consuming messages from RabbitMQ
+- [ ] Include messaging.system = "rabbitmq" attribute
+- [ ] Include messaging.destination = queue name
+- [ ] Include message size as custom attribute
+- [ ] Properly handle exceptions in telemetry code
+
+**Technical Notes:**
+- Look for RabbitMQ consumer classes
+- Use OpenTelemetry ActivitySource for span creation
+- Follow semantic conventions for messaging systems

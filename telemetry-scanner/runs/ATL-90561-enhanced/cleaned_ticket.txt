@@ -1,0 +1,9 @@
+Title: [Cloud And On-prem] OtlpspanEvents do not have span attributes  HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION
+
+Components: Telemetry Infrastructure
+
+Description:
+Please look at this Trace I couldn't able to find where this request is redirected to. This is a CLM Demo Trace; Can you please take a look why OtlpSpanEvents do not have span attributes  HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION ?
+Query from OtlpSpanEvents 
+Query from RequestEvents link here
+As you know that these are very important span attributes for us to assess the impact and for investigation of an issue, could you please ensure these attributes are available in OtlpspanEvents? Thank youimage-20250513-205615.png|width=1710,height=767,alt="image-20250513-205615.png"!

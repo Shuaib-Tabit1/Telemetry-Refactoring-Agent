@@ -76,17 +76,18 @@ class Program
 
     static async Task<int> Main(string[] args)
     {
-        // --- CHANGE: Renamed and updated the option to accept multiple project paths ---
-        var projectPathsOption = new Option<string[]>(
-            name: "--project-paths",
-            description: "A list of all the .csproj files to include in the analysis.")
-            { IsRequired = true, Arity = ArgumentArity.OneOrMore };
+        // Option for the index command
+        var projectsFileOption = new Option<FileInfo>(
+            name: "--projects-file",
+            description: "A text file containing the full paths to .csproj files, one per line.")
+            { IsRequired = true };
 
         var outputFileOption = new Option<FileInfo>(
             name: "--output-file",
             description: "The path to save the output graph JSON file.",
             getDefaultValue: () => new FileInfo("codegraph.json"));
         
+        // Options for the query command
         var graphFileOption = new Option<FileInfo>(
             name: "--graph-file",
             description: "Path to the pre-built codegraph.json file.")
@@ -97,12 +98,12 @@ class Program
             description: "A list of seed file paths to start the graph traversal from.")
             { IsRequired = true, Arity = ArgumentArity.OneOrMore };
 
-        var indexCommand = new Command("index", "Builds a unified code graph for a list of projects.")
+        // Define the 'index' and 'query' commands
+        var indexCommand = new Command("index", "Builds a unified code graph from a list of projects in a file.")
         {
-            projectPathsOption,
+            projectsFileOption,
             outputFileOption
         };
-        
         var queryCommand = new Command("query", "Queries the code graph to find related files.")
         {
             graphFileOption,
@@ -113,10 +114,10 @@ class Program
         rootCommand.AddCommand(indexCommand);
         rootCommand.AddCommand(queryCommand);
 
-        indexCommand.SetHandler(async (projectPaths, outputFile) =>
+        indexCommand.SetHandler(async (projectsFile, outputFile) =>
         {
-            await BuildGraph(projectPaths, outputFile.FullName);
-        }, projectPathsOption, outputFileOption);
+            await BuildGraph(projectsFile.FullName, outputFile.FullName);
+        }, projectsFileOption, outputFileOption);
         
         queryCommand.SetHandler(async (graphFile, seedFiles) =>
         {
@@ -126,12 +127,14 @@ class Program
         return await rootCommand.InvokeAsync(args);
     }
 
+
     // ------------------------------------------------------------------
     //  DEFINE THE CORE LOGIC
     // ------------------------------------------------------------------
 
-   private static async Task BuildGraph(string[] projectPaths, string outputPath)
+   private static async Task BuildGraph(string projectsFilePath, string outputPath)
     {
+        var projectPaths = await File.ReadAllLinesAsync(projectsFilePath);
         Console.Error.WriteLine($"Starting to build code graph for {projectPaths.Length} projects...");
 
         var codeSymbols = new Dictionary<string, CodeSymbol>();

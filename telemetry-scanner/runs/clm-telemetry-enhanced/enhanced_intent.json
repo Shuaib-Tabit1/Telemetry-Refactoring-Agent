@@ -1,0 +1,168 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "SetTag"
+  },
+  "semantic_description": "Add the missing HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION attributes to outgoing OpenTelemetry spans for CLM web redirects.",
+  "search_keywords": [
+    "HTTP_REFERER",
+    "HTTP_RESPONSE_REDIRECT_LOCATION",
+    "OtlpSpanEvents",
+    "SetTag",
+    "OpenTelemetry"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "HTTP_REFERER",
+        "value_source": "request_header"
+      },
+      {
+        "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+        "value_source": "response_header"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": {}
+  },
+  "confidence": "IntentConfidence.HIGH",
+  "operation_type": "OperationType.MULTI_FILE",
+  "complexity_score": 5,
+  "estimated_files": 6,
+  "validation_result": "ValidationResult(is_valid=True, confidence=<IntentConfidence.HIGH: 'high'>, issues=[], suggestions=[])",
+  "sub_tasks": [
+    {
+      "order": 1,
+      "name": "Discovery / code-base grep",
+      "action": "locate_configuration",
+      "description": "Identify the exact place where server spans are started (AspNetCoreInstrumentation, custom middleware, or helper classes).  \u279c  grep -R \"OpenTelemetry\" \"SetTag(\" \"AddAspNetCoreInstrumentation\"",
+      "expected_files": [
+        "Startup.cs / Program.cs",
+        "OpenTelemetryConfigExtensions.cs",
+        "RequestTrackingMiddleware.cs",
+        "Enrichers/HttpSpanEnricher.cs"
+      ],
+      "validation_criteria": "Span enrichment code path that runs for all HTTP 2xx/3xx/4xx responses is clearly documented."
+    },
+    {
+      "order": 2,
+      "name": "Design capture strategy",
+      "action": "design_notes",
+      "description": "Decide *where* to capture request.Header[\"Referer\"] and response.Headers[\"Location\"] so the parent span is still active (before `await _next(context)` completes).  Document handling of null / empty values and trimming of PII.",
+      "dependencies": [
+        1
+      ],
+      "validation_criteria": "Short design doc reviewed in #telemetry-design Slack; security sign-off recorded."
+    },
+    {
+      "order": 3,
+      "name": "Implement span enrichment",
+      "action": "implement_changes",
+      "description": "Modify or create a `RedirectHeaderEnricher` that hooks into Activity/ActivityEnrichment callbacks.\n\u2022 On request start: if `context.Request.Headers.ContainsKey(\"Referer\")` \u2192 `activity.SetTag(\"HTTP_REFERER\", value)`.\n\u2022 On response completed (or within middleware after `_next`): if `context.Response.StatusCode == 302 || 301` AND header `Location` exists \u2192 `activity.SetTag(\"HTTP_RESPONSE_REDIRECT_LOCATION\", value)`.",
+      "dependencies": [
+        2
+      ],
+      "expected_files_modified": [
+        "RequestTrackingMiddleware.cs",
+        "Enrichers/HttpSpanEnricher.cs"
+      ],
+      "validation_criteria": "Dotnet build passes; new tags visible in a local OTLP collector using OTLP console exporter."
+    },
+    {
+      "order": 4,
+      "name": "Unit tests",
+      "action": "add_tests",
+      "description": "Add or extend unit tests to assert that the enricher populates tags.\n\u2022 Simulate request with `Referer` header.\n\u2022 Simulate 302 response with `Location` header.",
+      "dependencies": [
+        3
+      ],
+      "expected_files_added": [
+        "Enrichers/HttpSpanEnricherTests.cs"
+      ],
+      "validation_criteria": "`dotnet test` \u2713 and coverage >= 80 % for new code."
+    },
+    {
+      "order": 5,
+      "name": "Integration test in Dev environment",
+      "action": "integration_test",
+      "description": "Deploy branch to DEV slot, generate sample redirect traffic, query `OtlpSpanEvents` to verify attributes appear.",
+      "dependencies": [
+        4
+      ],
+      "environments": [
+        "DEV"
+      ],
+      "validation_criteria": "Kusto query returns at least one span with both attributes non-null."
+    },
+    {
+      "order": 6,
+      "name": "Feature flag + config bump",
+      "action": "add_feature_flag",
+      "description": "Guard change behind app setting `Otel:CaptureRedirectHeaders=true` for safe rollback.",
+      "dependencies": [
+        3
+      ],
+      "validation_criteria": "Turning flag off in DEV suppresses the attributes."
+    },
+    {
+      "order": 7,
+      "name": "PR review & security review",
+      "action": "code_review",
+      "description": "Open PR with tag `observability`, add security reviewers to confirm headers are not classified as PII.",
+      "dependencies": [
+        3,
+        4,
+        6
+      ],
+      "validation_criteria": "All reviewers approve, risk label set to `low`."
+    },
+    {
+      "order": 8,
+      "name": "Staged rollout",
+      "action": "deploy",
+      "description": "Merge to main, deploy progressively:\n\u2022 Demo \u2192 25 % traffic for 1 h \u2192 100 %.\n\u2022 Stage \u2192 100 %.\n\u2022 Prod region by region (US-East, US-West, EU).",
+      "dependencies": [
+        7
+      ],
+      "environments": [
+        "DEMO",
+        "STAGE",
+        "PROD"
+      ],
+      "validation_criteria": "No increase in latency or error rate > 0.1 %.  Attributes visible in each region."
+    },
+    {
+      "order": 9,
+      "name": "Dashboard & alert update",
+      "action": "update_dashboards",
+      "description": "Add new columns to redirect dashboard and update Kusto saved queries.",
+      "dependencies": [
+        8
+      ],
+      "validation_criteria": "Dashboards render without errors; attribute selector lists both new tags."
+    },
+    {
+      "order": 10,
+      "name": "Post-deployment verification & sign-off",
+      "action": "post_verify",
+      "description": "24 h after prod rollout, run automated Kusto check to confirm >95 % of redirect spans contain both attributes.  Publish summary in Confluence.",
+      "dependencies": [
+        8
+      ],
+      "validation_criteria": "Report shows target coverage and zero regressions.  Ticket moved to DONE."
+    }
+  ],
+  "contextual_hints": [
+    "Locate the exact middleware / OTel span creation point for both normal and redirect paths",
+    "Capture response header (HTTP_RESPONSE_REDIRECT_LOCATION) before it is sent while the span is still active",
+    "Propagate new attributes through any custom span enrichment wrappers to the Otlp exporter",
+    "Update / create tests and Kusto dashboards that consume the new columns"
+  ],
+  "similar_patterns": [
+    "missing_span_attributes",
+    "http_redirect_handling"
+  ]
+}

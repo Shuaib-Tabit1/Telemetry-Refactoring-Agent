@@ -6,12 +6,23 @@ machine‑readable “intent” JSON spec the rest of the pipeline can use.
 """
 
 import json
+import os
+from typing import Optional
 from openai import AzureOpenAI
 
+# Lazy initialization of OpenAI client
+_client: Optional[AzureOpenAI] = None
 
-client = AzureOpenAI(
-    api_version="2024-12-01-preview"
-)
+def get_openai_client() -> AzureOpenAI:
+    """Get or create the OpenAI client."""
+    global _client
+    if _client is None:
+        _client = AzureOpenAI(
+            api_key=os.environ.get("AZURE_OPENAI_API_KEY", "your-api-key-here"),
+            azure_endpoint=os.environ.get("AZURE_OPENAI_ENDPOINT", "your-endpoint-here"),
+            api_version="2024-12-01-preview"
+        )
+    return _client
 
 # _SYSTEM = """
 # You are an expert in OpenTelemetry and C#. Your task is to analyze a Jira ticket and convert it into a highly detailed and structured JSON 'intent' that will drive an automated code remediation system.
@@ -76,7 +87,7 @@ def extract_intent(ticket_text: str) -> dict:
         "Return valid JSON only."
     )
 
-    response = client.chat.completions.create(
+    response = get_openai_client().chat.completions.create(
         model="o3",          
         messages=[{"role": "user", "content": prompt}],
         response_format={"type": "json_object"}

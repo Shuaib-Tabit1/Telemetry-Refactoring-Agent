@@ -1,0 +1,42 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "BasicConsume"
+  },
+  "semantic_description": "Instrument RabbitMQ message consumption with OpenTelemetry spans that record queue name, message size, and processing time.",
+  "search_keywords": [
+    "RabbitMQ",
+    "BasicConsume",
+    "EventingBasicConsumer",
+    "ActivitySource",
+    "messaging.system",
+    "messaging.destination",
+    "messaging.message_payload_size_bytes",
+    "processing_time_ms"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "CREATE",
+    "attributes_to_add": [
+      {
+        "name": "messaging.system",
+        "value_source": "the literal string 'rabbitmq'"
+      },
+      {
+        "name": "messaging.destination",
+        "value_source": "the queue name variable passed to BasicConsume"
+      },
+      {
+        "name": "messaging.message_payload_size_bytes",
+        "value_source": "the length in bytes of the consumed message body"
+      },
+      {
+        "name": "messaging.processing_time_ms",
+        "value_source": "elapsed milliseconds measured via a Stopwatch surrounding message handler execution"
+      }
+    ],
+    "new_span_name": "rabbitmq.consume",
+    "new_metric_details": null
+  }
+}

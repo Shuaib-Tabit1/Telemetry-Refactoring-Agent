@@ -1,0 +1,265 @@
+2025-08-21 13:23:32,784 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: mps
+2025-08-21 13:23:32,785 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-08-21 13:25:33,874 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: mps
+2025-08-21 13:25:33,874 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-08-21 13:26:33,346 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: mps
+2025-08-21 13:26:33,346 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-08-21 13:26:57,741 - scanner.pipeline_orchestrator - INFO - Stage fetch_ticket: Starting (attempt 1)
+2025-08-21 13:26:57,742 - scanner.pipeline_orchestrator - INFO - Stage fetch_ticket: Completed in 0.00s
+2025-08-21 13:26:57,742 - scanner.pipeline_orchestrator - INFO - Stage extract_intent: Starting (attempt 1)
+2025-08-21 13:27:08,547 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 13:27:15,104 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 13:27:33,602 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 13:27:33,607 - scanner.pipeline_orchestrator - INFO - Stage extract_intent: Completed in 35.86s
+2025-08-21 13:27:33,608 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Starting (attempt 1)
+2025-08-21 13:27:33,786 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Completed in 0.18s
+2025-08-21 13:27:33,786 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 1)
+2025-08-21 13:27:33,786 - scanner.pipeline_orchestrator - WARNING - Stage intelligent_search: Attempt 1 failed: 'IntelligentSearchEngine' object has no attribute 'discover_relevant_code'
+2025-08-21 13:27:34,787 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 2)
+2025-08-21 13:27:34,788 - scanner.pipeline_orchestrator - WARNING - Stage intelligent_search: Attempt 2 failed: 'IntelligentSearchEngine' object has no attribute 'discover_relevant_code'
+2025-08-21 13:27:36,789 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 3)
+2025-08-21 13:27:36,790 - scanner.pipeline_orchestrator - WARNING - Stage intelligent_search: Attempt 3 failed: 'IntelligentSearchEngine' object has no attribute 'discover_relevant_code'
+2025-08-21 13:27:40,791 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 4)
+2025-08-21 13:27:40,795 - scanner.pipeline_orchestrator - WARNING - Stage intelligent_search: Attempt 4 failed: 'IntelligentSearchEngine' object has no attribute 'discover_relevant_code'
+2025-08-21 13:28:19,424 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: mps
+2025-08-21 13:28:19,424 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-08-21 13:28:43,978 - scanner.pipeline_orchestrator - INFO - Stage fetch_ticket: Cache hit
+2025-08-21 13:28:43,979 - scanner.pipeline_orchestrator - INFO - Stage extract_intent: Cache hit
+2025-08-21 13:31:04,722 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: mps
+2025-08-21 13:31:04,722 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-08-21 13:31:29,170 - scanner.pipeline_orchestrator - INFO - Stage fetch_ticket: Starting (attempt 1)
+2025-08-21 13:31:29,171 - scanner.pipeline_orchestrator - INFO - Stage fetch_ticket: Completed in 0.00s
+2025-08-21 13:31:29,171 - scanner.pipeline_orchestrator - INFO - Stage extract_intent: Starting (attempt 1)
+2025-08-21 13:31:38,951 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 13:31:44,328 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 13:32:01,109 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 13:32:01,114 - scanner.pipeline_orchestrator - INFO - Stage extract_intent: Completed in 31.94s
+2025-08-21 13:32:01,116 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Starting (attempt 1)
+2025-08-21 13:32:01,284 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Completed in 0.17s
+2025-08-21 13:32:01,284 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 1)
+2025-08-21 13:32:01,284 - scanner.pipeline_orchestrator - WARNING - Stage intelligent_search: Attempt 1 failed: 'EnhancedIntent' object has no attribute 'get'
+2025-08-21 13:32:02,285 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 2)
+2025-08-21 13:32:02,286 - scanner.pipeline_orchestrator - WARNING - Stage intelligent_search: Attempt 2 failed: 'EnhancedIntent' object has no attribute 'get'
+2025-08-21 13:32:04,286 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 3)
+2025-08-21 13:32:04,288 - scanner.pipeline_orchestrator - WARNING - Stage intelligent_search: Attempt 3 failed: 'EnhancedIntent' object has no attribute 'get'
+2025-08-21 13:32:08,289 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 4)
+2025-08-21 13:32:08,290 - scanner.pipeline_orchestrator - WARNING - Stage intelligent_search: Attempt 4 failed: 'EnhancedIntent' object has no attribute 'get'
+2025-08-21 13:32:41,651 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: mps
+2025-08-21 13:32:41,652 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-08-21 13:33:04,959 - scanner.pipeline_orchestrator - INFO - Stage fetch_ticket: Starting (attempt 1)
+2025-08-21 13:33:04,959 - scanner.pipeline_orchestrator - INFO - Stage fetch_ticket: Completed in 0.00s
+2025-08-21 13:33:04,959 - scanner.pipeline_orchestrator - INFO - Stage extract_intent: Starting (attempt 1)
+2025-08-21 13:33:15,105 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 13:33:21,943 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 13:33:41,321 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 13:33:41,325 - scanner.pipeline_orchestrator - INFO - Stage extract_intent: Completed in 36.37s
+2025-08-21 13:33:41,327 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Starting (attempt 1)
+2025-08-21 13:33:41,495 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Completed in 0.17s
+2025-08-21 13:33:41,495 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 1)
+2025-08-21 13:34:23,117 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Completed in 41.62s
+2025-08-21 13:34:23,118 - scanner.pipeline_orchestrator - INFO - Stage analyze_architecture: Starting (attempt 1)
+2025-08-21 13:34:23,119 - scanner.pipeline_orchestrator - WARNING - Stage analyze_architecture: Attempt 1 failed: 'AdvancedCodeGraphAnalyzer' object has no attribute 'analyze_code_architecture'
+2025-08-21 13:34:24,120 - scanner.pipeline_orchestrator - INFO - Stage analyze_architecture: Starting (attempt 2)
+2025-08-21 13:34:24,122 - scanner.pipeline_orchestrator - WARNING - Stage analyze_architecture: Attempt 2 failed: 'AdvancedCodeGraphAnalyzer' object has no attribute 'analyze_code_architecture'
+2025-08-21 13:34:26,124 - scanner.pipeline_orchestrator - INFO - Stage analyze_architecture: Starting (attempt 3)
+2025-08-21 13:34:26,125 - scanner.pipeline_orchestrator - WARNING - Stage analyze_architecture: Attempt 3 failed: 'AdvancedCodeGraphAnalyzer' object has no attribute 'analyze_code_architecture'
+2025-08-21 13:34:30,127 - scanner.pipeline_orchestrator - INFO - Stage analyze_architecture: Starting (attempt 4)
+2025-08-21 13:34:30,128 - scanner.pipeline_orchestrator - WARNING - Stage analyze_architecture: Attempt 4 failed: 'AdvancedCodeGraphAnalyzer' object has no attribute 'analyze_code_architecture'
+2025-08-21 13:35:13,866 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: mps
+2025-08-21 13:35:13,867 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-08-21 13:35:39,621 - scanner.pipeline_orchestrator - INFO - Stage fetch_ticket: Starting (attempt 1)
+2025-08-21 13:35:39,622 - scanner.pipeline_orchestrator - INFO - Stage fetch_ticket: Completed in 0.00s
+2025-08-21 13:35:39,622 - scanner.pipeline_orchestrator - INFO - Stage extract_intent: Starting (attempt 1)
+2025-08-21 13:35:50,274 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 13:35:58,349 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 13:35:58,352 - scanner.pipeline_orchestrator - INFO - Stage extract_intent: Completed in 18.73s
+2025-08-21 13:35:58,355 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Starting (attempt 1)
+2025-08-21 13:35:58,508 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Completed in 0.15s
+2025-08-21 13:35:58,508 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 1)
+2025-08-21 13:36:39,855 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Completed in 41.35s
+2025-08-21 13:36:39,856 - scanner.pipeline_orchestrator - INFO - Stage analyze_architecture: Starting (attempt 1)
+2025-08-21 13:40:54,620 - scanner.pipeline_orchestrator - WARNING - Stage analyze_architecture: Attempt 1 failed: 'SearchResult' object is not subscriptable
+2025-08-21 13:40:55,622 - scanner.pipeline_orchestrator - INFO - Stage analyze_architecture: Starting (attempt 2)
+2025-08-21 13:44:57,343 - scanner.pipeline_orchestrator - WARNING - Stage analyze_architecture: Attempt 2 failed: 'SearchResult' object is not subscriptable
+2025-08-21 13:44:59,345 - scanner.pipeline_orchestrator - INFO - Stage analyze_architecture: Starting (attempt 3)
+2025-08-21 13:49:02,826 - scanner.pipeline_orchestrator - WARNING - Stage analyze_architecture: Attempt 3 failed: 'SearchResult' object is not subscriptable
+2025-08-21 13:49:06,827 - scanner.pipeline_orchestrator - INFO - Stage analyze_architecture: Starting (attempt 4)
+2025-08-21 13:53:27,030 - scanner.pipeline_orchestrator - WARNING - Stage analyze_architecture: Attempt 4 failed: 'SearchResult' object is not subscriptable
+2025-08-21 13:54:34,643 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: mps
+2025-08-21 13:54:34,643 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-08-21 13:54:59,511 - scanner.pipeline_orchestrator - INFO - Stage fetch_ticket: Starting (attempt 1)
+2025-08-21 13:54:59,512 - scanner.pipeline_orchestrator - INFO - Stage fetch_ticket: Completed in 0.00s
+2025-08-21 13:54:59,512 - scanner.pipeline_orchestrator - INFO - Stage extract_intent: Starting (attempt 1)
+2025-08-21 13:55:06,842 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 13:55:32,956 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 13:55:47,963 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 13:55:47,967 - scanner.pipeline_orchestrator - INFO - Stage extract_intent: Completed in 48.45s
+2025-08-21 13:55:47,970 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Starting (attempt 1)
+2025-08-21 13:55:48,129 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Completed in 0.16s
+2025-08-21 13:55:48,129 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 1)
+2025-08-21 13:56:29,559 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Completed in 41.43s
+2025-08-21 13:56:29,560 - scanner.pipeline_orchestrator - INFO - Stage analyze_architecture: Starting (attempt 1)
+2025-08-21 14:00:48,334 - scanner.pipeline_orchestrator - INFO - Stage analyze_architecture: Completed in 258.77s
+2025-08-21 14:00:48,336 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 1)
+2025-08-21 14:00:48,336 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 1 failed: 'AdvancedLLMReasoner' object has no attribute 'generate_solution_with_reasoning'
+2025-08-21 14:00:49,337 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 2)
+2025-08-21 14:00:49,339 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 2 failed: 'AdvancedLLMReasoner' object has no attribute 'generate_solution_with_reasoning'
+2025-08-21 14:00:51,341 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 3)
+2025-08-21 14:00:51,342 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 3 failed: 'AdvancedLLMReasoner' object has no attribute 'generate_solution_with_reasoning'
+2025-08-21 14:00:55,344 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 4)
+2025-08-21 14:00:55,346 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 4 failed: 'AdvancedLLMReasoner' object has no attribute 'generate_solution_with_reasoning'
+2025-08-21 14:05:21,357 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: mps
+2025-08-21 14:05:21,357 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-08-21 14:05:46,566 - scanner.pipeline_orchestrator - INFO - Stage fetch_ticket: Starting (attempt 1)
+2025-08-21 14:05:46,566 - scanner.pipeline_orchestrator - INFO - Stage fetch_ticket: Completed in 0.00s
+2025-08-21 14:05:46,566 - scanner.pipeline_orchestrator - INFO - Stage extract_intent: Starting (attempt 1)
+2025-08-21 14:05:58,776 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 14:06:05,921 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 14:06:28,372 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 14:06:28,376 - scanner.pipeline_orchestrator - INFO - Stage extract_intent: Completed in 41.81s
+2025-08-21 14:06:28,378 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Starting (attempt 1)
+2025-08-21 14:06:28,535 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Completed in 0.16s
+2025-08-21 14:06:28,535 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 1)
+2025-08-21 14:07:09,961 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Completed in 41.43s
+2025-08-21 14:07:09,961 - scanner.pipeline_orchestrator - INFO - Stage analyze_architecture: Starting (attempt 1)
+2025-08-21 14:10:54,993 - scanner.pipeline_orchestrator - INFO - Stage analyze_architecture: Completed in 225.03s
+2025-08-21 14:10:54,994 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 1)
+2025-08-21 14:10:54,999 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 1 failed: ReasoningStep.__init__() got an unexpected keyword argument 'step_type'
+2025-08-21 14:10:56,000 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 2)
+2025-08-21 14:10:56,006 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 2 failed: ReasoningStep.__init__() got an unexpected keyword argument 'step_type'
+2025-08-21 14:10:58,008 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 3)
+2025-08-21 14:10:58,015 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 3 failed: ReasoningStep.__init__() got an unexpected keyword argument 'step_type'
+2025-08-21 14:11:02,018 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 4)
+2025-08-21 14:11:02,024 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 4 failed: ReasoningStep.__init__() got an unexpected keyword argument 'step_type'
+2025-08-21 14:13:32,241 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: mps
+2025-08-21 14:13:32,241 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-08-21 14:13:57,078 - scanner.pipeline_orchestrator - INFO - Stage fetch_ticket: Starting (attempt 1)
+2025-08-21 14:13:57,078 - scanner.pipeline_orchestrator - INFO - Stage fetch_ticket: Completed in 0.00s
+2025-08-21 14:13:57,079 - scanner.pipeline_orchestrator - INFO - Stage extract_intent: Starting (attempt 1)
+2025-08-21 14:14:07,072 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 14:14:13,952 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 14:14:57,404 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 14:14:57,406 - scanner.pipeline_orchestrator - INFO - Stage extract_intent: Completed in 60.33s
+2025-08-21 14:14:57,408 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Starting (attempt 1)
+2025-08-21 14:14:57,558 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Completed in 0.15s
+2025-08-21 14:14:57,558 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 1)
+2025-08-21 14:15:37,829 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Completed in 40.27s
+2025-08-21 14:15:37,830 - scanner.pipeline_orchestrator - INFO - Stage analyze_architecture: Starting (attempt 1)
+2025-08-21 14:19:22,736 - scanner.pipeline_orchestrator - INFO - Stage analyze_architecture: Completed in 224.91s
+2025-08-21 14:19:22,737 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 1)
+2025-08-21 14:19:22,741 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 1 failed: Object of type IntentConfidence is not JSON serializable
+2025-08-21 14:19:23,743 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 2)
+2025-08-21 14:19:23,746 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 2 failed: Object of type IntentConfidence is not JSON serializable
+2025-08-21 14:19:25,749 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 3)
+2025-08-21 14:19:25,755 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 3 failed: Object of type IntentConfidence is not JSON serializable
+2025-08-21 14:19:29,757 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 4)
+2025-08-21 14:19:29,759 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 4 failed: Object of type IntentConfidence is not JSON serializable
+2025-08-21 14:20:19,413 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: mps
+2025-08-21 14:20:19,413 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-08-21 14:20:44,836 - scanner.pipeline_orchestrator - INFO - Stage fetch_ticket: Starting (attempt 1)
+2025-08-21 14:20:44,836 - scanner.pipeline_orchestrator - INFO - Stage fetch_ticket: Completed in 0.00s
+2025-08-21 14:20:44,836 - scanner.pipeline_orchestrator - INFO - Stage extract_intent: Starting (attempt 1)
+2025-08-21 14:20:54,865 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 14:20:59,992 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 14:21:31,908 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 14:21:31,911 - scanner.pipeline_orchestrator - INFO - Stage extract_intent: Completed in 47.07s
+2025-08-21 14:21:31,913 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Starting (attempt 1)
+2025-08-21 14:21:32,062 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Completed in 0.15s
+2025-08-21 14:21:32,062 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 1)
+2025-08-21 14:22:12,437 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Completed in 40.38s
+2025-08-21 14:22:12,438 - scanner.pipeline_orchestrator - INFO - Stage analyze_architecture: Starting (attempt 1)
+2025-08-21 14:26:13,539 - scanner.pipeline_orchestrator - INFO - Stage analyze_architecture: Completed in 241.10s
+2025-08-21 14:26:13,540 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 1)
+2025-08-21 14:26:13,545 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 1 failed: Object of type ValidationResult is not JSON serializable
+2025-08-21 14:26:14,547 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 2)
+2025-08-21 14:26:14,551 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 2 failed: Object of type ValidationResult is not JSON serializable
+2025-08-21 14:26:16,553 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 3)
+2025-08-21 14:26:16,559 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 3 failed: Object of type ValidationResult is not JSON serializable
+2025-08-21 14:26:20,560 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 4)
+2025-08-21 14:26:20,564 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 4 failed: Object of type ValidationResult is not JSON serializable
+2025-08-21 14:31:10,608 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: mps
+2025-08-21 14:31:10,609 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-08-21 14:31:34,572 - scanner.pipeline_orchestrator - INFO - Stage fetch_ticket: Starting (attempt 1)
+2025-08-21 14:31:34,573 - scanner.pipeline_orchestrator - INFO - Stage fetch_ticket: Completed in 0.00s
+2025-08-21 14:31:34,573 - scanner.pipeline_orchestrator - INFO - Stage extract_intent: Starting (attempt 1)
+2025-08-21 14:31:42,920 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 14:31:48,615 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 14:32:07,376 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 14:32:07,378 - scanner.pipeline_orchestrator - INFO - Stage extract_intent: Completed in 32.81s
+2025-08-21 14:32:07,381 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Starting (attempt 1)
+2025-08-21 14:32:07,539 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Completed in 0.16s
+2025-08-21 14:32:07,539 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 1)
+2025-08-21 14:32:48,827 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Completed in 41.29s
+2025-08-21 14:32:48,827 - scanner.pipeline_orchestrator - INFO - Stage analyze_architecture: Starting (attempt 1)
+2025-08-21 14:36:43,703 - scanner.pipeline_orchestrator - INFO - Stage analyze_architecture: Completed in 234.88s
+2025-08-21 14:36:43,704 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 1)
+2025-08-21 14:36:43,709 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 1 failed: Object of type ValidationResult is not JSON serializable
+2025-08-21 14:36:44,710 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 2)
+2025-08-21 14:36:44,713 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 2 failed: Object of type ValidationResult is not JSON serializable
+2025-08-21 14:36:46,714 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 3)
+2025-08-21 14:36:46,720 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 3 failed: Object of type ValidationResult is not JSON serializable
+2025-08-21 14:36:50,723 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 4)
+2025-08-21 14:36:50,727 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 4 failed: Object of type ValidationResult is not JSON serializable
+2025-08-21 14:41:21,786 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: mps
+2025-08-21 14:41:21,787 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-08-21 14:41:47,020 - scanner.pipeline_orchestrator - INFO - Stage fetch_ticket: Starting (attempt 1)
+2025-08-21 14:41:47,020 - scanner.pipeline_orchestrator - INFO - Stage fetch_ticket: Completed in 0.00s
+2025-08-21 14:41:47,020 - scanner.pipeline_orchestrator - INFO - Stage extract_intent: Starting (attempt 1)
+2025-08-21 14:42:03,274 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 14:42:09,506 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 14:42:33,783 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 14:42:33,788 - scanner.pipeline_orchestrator - INFO - Stage extract_intent: Completed in 46.77s
+2025-08-21 14:42:33,791 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Starting (attempt 1)
+2025-08-21 14:42:33,942 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Completed in 0.15s
+2025-08-21 14:42:33,942 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 1)
+2025-08-21 14:43:14,489 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Completed in 40.55s
+2025-08-21 14:43:14,489 - scanner.pipeline_orchestrator - INFO - Stage analyze_architecture: Starting (attempt 1)
+2025-08-21 14:46:57,583 - scanner.pipeline_orchestrator - INFO - Stage analyze_architecture: Completed in 223.09s
+2025-08-21 14:46:57,584 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 1)
+2025-08-21 14:46:57,587 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 1 failed: Object of type ValidationResult is not JSON serializable
+2025-08-21 14:46:58,589 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 2)
+2025-08-21 14:46:58,595 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 2 failed: Object of type ValidationResult is not JSON serializable
+2025-08-21 14:47:00,597 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 3)
+2025-08-21 14:47:00,603 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 3 failed: Object of type ValidationResult is not JSON serializable
+2025-08-21 14:47:04,605 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 4)
+2025-08-21 14:47:04,610 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 4 failed: Object of type ValidationResult is not JSON serializable
+2025-08-21 14:49:16,455 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: mps
+2025-08-21 14:49:16,455 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-08-21 14:49:40,926 - scanner.pipeline_orchestrator - INFO - Stage fetch_ticket: Starting (attempt 1)
+2025-08-21 14:49:40,927 - scanner.pipeline_orchestrator - INFO - Stage fetch_ticket: Completed in 0.00s
+2025-08-21 14:49:40,927 - scanner.pipeline_orchestrator - INFO - Stage extract_intent: Starting (attempt 1)
+2025-08-21 14:49:48,594 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 14:49:54,566 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 14:50:17,500 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 14:50:17,500 - scanner.pipeline_orchestrator - INFO - Stage extract_intent: Completed in 36.57s
+2025-08-21 14:50:17,501 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Starting (attempt 1)
+2025-08-21 14:50:17,639 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Completed in 0.14s
+2025-08-21 14:50:17,639 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 1)
+2025-08-21 14:50:59,318 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Completed in 41.68s
+2025-08-21 14:50:59,318 - scanner.pipeline_orchestrator - INFO - Stage analyze_architecture: Starting (attempt 1)
+2025-08-21 14:54:45,432 - scanner.pipeline_orchestrator - INFO - Stage analyze_architecture: Completed in 226.11s
+2025-08-21 14:54:45,434 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 1)
+2025-08-21 14:54:45,436 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 1 failed: scanner.advanced_llm_reasoning.safe_json_dumps() got multiple values for keyword argument 'default'
+2025-08-21 14:54:46,438 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 2)
+2025-08-21 14:54:46,445 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 2 failed: scanner.advanced_llm_reasoning.safe_json_dumps() got multiple values for keyword argument 'default'
+2025-08-21 14:54:48,447 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 3)
+2025-08-21 14:54:48,453 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 3 failed: scanner.advanced_llm_reasoning.safe_json_dumps() got multiple values for keyword argument 'default'
+2025-08-21 14:54:52,455 - scanner.pipeline_orchestrator - INFO - Stage generate_solution: Starting (attempt 4)
+2025-08-21 14:54:52,461 - scanner.pipeline_orchestrator - WARNING - Stage generate_solution: Attempt 4 failed: scanner.advanced_llm_reasoning.safe_json_dumps() got multiple values for keyword argument 'default'
+2025-08-21 15:44:32,010 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: mps
+2025-08-21 15:44:32,010 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-08-21 15:44:34,576 - scanner.pipeline_orchestrator - INFO - Stage fetch_ticket: Starting (attempt 1)
+2025-08-21 15:44:34,577 - scanner.pipeline_orchestrator - INFO - Stage fetch_ticket: Completed in 0.00s
+2025-08-21 15:44:34,577 - scanner.pipeline_orchestrator - INFO - Stage extract_intent: Starting (attempt 1)
+2025-08-21 15:44:42,619 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 15:44:47,820 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 15:45:18,663 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-21 15:45:18,666 - scanner.pipeline_orchestrator - INFO - Stage extract_intent: Completed in 44.09s
+2025-08-21 15:45:18,669 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Starting (attempt 1)
+2025-08-21 15:45:18,670 - scanner.pipeline_orchestrator - WARNING - Stage build_graph: Attempt 1 failed: No projects found in dirs.proj
+2025-08-21 15:45:19,671 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Starting (attempt 2)
+2025-08-21 15:45:19,673 - scanner.pipeline_orchestrator - WARNING - Stage build_graph: Attempt 2 failed: No projects found in dirs.proj
+2025-08-21 15:45:21,675 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Starting (attempt 3)
+2025-08-21 15:45:21,677 - scanner.pipeline_orchestrator - WARNING - Stage build_graph: Attempt 3 failed: No projects found in dirs.proj
+2025-08-21 15:45:25,679 - scanner.pipeline_orchestrator - INFO - Stage build_graph: Starting (attempt 4)
+2025-08-21 15:45:25,681 - scanner.pipeline_orchestrator - WARNING - Stage build_graph: Attempt 4 failed: No projects found in dirs.proj

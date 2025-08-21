@@ -1,0 +1,171 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "SetAttribute"
+  },
+  "semantic_description": "Add the HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION attributes to outgoing CLM-web spans so they appear in OtlpSpanEvents.",
+  "search_keywords": [
+    "HTTP_REFERER",
+    "HTTP_RESPONSE_REDIRECT_LOCATION",
+    "OtlpSpanEvents",
+    "SetAttribute",
+    "OpenTelemetry"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "HTTP_REFERER",
+        "value_source": "HTTP request header / context"
+      },
+      {
+        "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+        "value_source": "HTTP response header"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": {}
+  },
+  "confidence": "IntentConfidence.HIGH",
+  "operation_type": "OperationType.MULTI_FILE",
+  "complexity_score": 5,
+  "estimated_files": 3,
+  "validation_result": "ValidationResult(is_valid=True, confidence=<IntentConfidence.HIGH: 'high'>, issues=[], suggestions=[])",
+  "sub_tasks": [
+    {
+      "order": 1,
+      "name": "Scope & Ownership Confirmation",
+      "action": "kickoff",
+      "description": "Confirm that the change is limited to CLM-web (only) and that adding these headers does not violate any security or privacy guideline.  File an ADO work-item for Security/Privacy review if needed.",
+      "validation_criteria": [
+        "Security/Privacy sign-off recorded (or N/A).",
+        "Agreement that only CLM-web spans will be enriched."
+      ]
+    },
+    {
+      "order": 2,
+      "name": "Locate Existing OTEL Wiring",
+      "action": "locate_configuration",
+      "description": "Search for the OpenTelemetry registration in the CLM-web solution.",
+      "search_keywords": [
+        "OpenTelemetry",
+        "AddOpenTelemetry",
+        "ActivitySource",
+        "TracerProviderBuilder",
+        "Enrich"
+      ],
+      "expected_files": [
+        "Startup.cs / Program.cs (depending on .NET version)",
+        "Telemetry/TelemetryExtensions.cs",
+        "Telemetry/OpenTelemetryConfig.cs"
+      ],
+      "validation_criteria": "Files that build the TracerProvider are identified and checked into this ticket as \u2018touch-points\u2019."
+    },
+    {
+      "order": 3,
+      "name": "Select Injection Point",
+      "action": "design",
+      "description": "Choose the most sustainable place to attach the enrichment logic.\nOption A (preferred): Use builder.AddAspNetCoreInstrumentation(options => options.Enrich = \u2026)\nOption B:  Add a custom AspNetCore middleware that captures headers and sets Activity.Current?.SetTag().",
+      "dependencies": [
+        2
+      ],
+      "validation_criteria": "Code comment (or ADR) explains which option was chosen and why."
+    },
+    {
+      "order": 4,
+      "name": "Implement Attribute Enricher",
+      "action": "implement_changes",
+      "description": "Add code that reads\n  \u2022 HTTP_REFERER from HttpContext.Request.Headers[\"Referer\"],\n  \u2022 HTTP_RESPONSE_REDIRECT_LOCATION from HttpContext.Response.Headers[\"Location\"] (only if status code 3xx).\nand calls Activity.SetTag(\"HTTP_REFERER\", value) / SetTag(\"HTTP_RESPONSE_REDIRECT_LOCATION\", value).  Guard with null/empty checks and restrict to CLM-web requests (e.g., Activity.Source.Name == \"clm-web\" or path prefix).",
+      "dependencies": [
+        3
+      ],
+      "expected_files_modified": [
+        "Telemetry/TelemetryExtensions.cs",
+        "Telemetry/OpenTelemetryConfig.cs",
+        "Telemetry/RedirectEnricher.cs (new)"
+      ],
+      "validation_criteria": [
+        "dotnet build succeeds.",
+        "Span attributes appear in unit/integration test (see next step)."
+      ]
+    },
+    {
+      "order": 5,
+      "name": "Add Unit / Integration Tests",
+      "action": "test_automation",
+      "description": "Create or extend tests that issue a fake 302 response and assert Activity tags include the two new keys.",
+      "dependencies": [
+        4
+      ],
+      "expected_files_added": [
+        "tests/RedirectEnricherTests.cs"
+      ],
+      "validation_criteria": "CI pipeline shows green tests covering positive, negative, and privacy redaction cases."
+    },
+    {
+      "order": 6,
+      "name": "Local & Dev-Cluster Verification",
+      "action": "manual_verification",
+      "description": "Run the service locally with OTLP exporter pointing to a local collector. Inspect spans (Jaeger, OpenTelemetry Collector, or console exporter) to confirm headers appear ONLY when they should.",
+      "dependencies": [
+        4
+      ],
+      "validation_criteria": "Visual confirmation that an Activity with HTTP 302 has both tags; Activities without redirect do not have HTTP_RESPONSE_REDIRECT_LOCATION."
+    },
+    {
+      "order": 7,
+      "name": "Schema / Mapping Check in Kusto",
+      "action": "schema_validation",
+      "description": "Verify that OtlpSpanEvents table in Kusto already ingests unknown tags inside span_attributes JSON. If explicit column mapping is required, file a Data Engineering PR to extend the mapping.",
+      "dependencies": [
+        6
+      ],
+      "validation_criteria": "Kusto mapping change approved OR confirmation that no change is required."
+    },
+    {
+      "order": 8,
+      "name": "Deploy to Demo Environment",
+      "action": "deployment",
+      "description": "Merge PR behind a feature-flag (e.g., OTEL_ENRICH_REDIRECT_HEADERS). Release to Demo and enable the flag via config.",
+      "dependencies": [
+        5,
+        7
+      ],
+      "validation_criteria": [
+        "No errors in Demo logs related to the new enricher.",
+        "Kusto query against OtlpSpanEvents (same as in ticket) returns rows with the new attributes."
+      ]
+    },
+    {
+      "order": 9,
+      "name": "Production Roll-out",
+      "action": "deployment",
+      "description": "Gradual rollout: 10% \u2192 50% \u2192 100% traffic using the feature-flag pattern.  Monitor span ingestion rate & Kusto dashboards.",
+      "dependencies": [
+        8
+      ],
+      "validation_criteria": "No spike in OTLP exporter failures, memory, or ingestion cost.  SRE sign-off."
+    },
+    {
+      "order": 10,
+      "name": "Documentation & Close-out",
+      "action": "documentation",
+      "description": "Update runbook and wiki with new troubleshooting steps that rely on these headers.  Close ticket with Kusto screenshots.",
+      "dependencies": [
+        9
+      ],
+      "validation_criteria": "Docs merged; ticket closed."
+    }
+  ],
+  "contextual_hints": [
+    "Retrieving HTTP_REFERER from the incoming request context and Redirect-Location from the outgoing response at the same execution point",
+    "Guaranteeing that attributes are only added for CLM-web spans and not all services, to avoid noisy data",
+    "Validating that upstream OTLP exporter and Kusto mappings already accept these new attributes"
+  ],
+  "similar_patterns": [
+    "http_redirect_instrumentation",
+    "missing_span_attributes"
+  ]
+}

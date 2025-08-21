@@ -1,0 +1,151 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "setAttribute"
+  },
+  "semantic_description": "Ensure OTLP span events include the HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION attributes.",
+  "search_keywords": [
+    "HTTP_REFERER",
+    "HTTP_RESPONSE_REDIRECT_LOCATION",
+    "OtlpSpanEvents",
+    "setAttribute"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": "HTTP request/response spans",
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "HTTP_REFERER",
+        "value_source": "incoming request header"
+      },
+      {
+        "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+        "value_source": "HTTP response header"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": {}
+  },
+  "confidence": "IntentConfidence.HIGH",
+  "operation_type": "OperationType.MULTI_FILE",
+  "complexity_score": 5,
+  "estimated_files": 4,
+  "validation_result": "ValidationResult(is_valid=True, confidence=<IntentConfidence.HIGH: 'high'>, issues=[], suggestions=[])",
+  "sub_tasks": [
+    {
+      "order": 1,
+      "action": "Scope confirmation & privacy sign-off",
+      "description": "Confirm with Privacy / Sec-Ops that capturing these two headers is compliant in all regions. Verify that the header-scrubber config already whitelists them or add exceptions.",
+      "owner": "telemetry-PM",
+      "dependencies": [],
+      "validation_criteria": "Written approval stored in the ticket; headers added to scrubber whitelist file."
+    },
+    {
+      "order": 2,
+      "action": "Code discovery",
+      "description": "Locate where HTTP server/client spans are created and finalized.\n\u2022 Search for `setAttribute(\"http.method\"` etc. to find the core helper.\n\u2022 Identify both cloud runtime path (`CloudHttpSpanBuilder.java`) and on-prem path (`OnPremHttpTelemetryMiddleware.cs`).",
+      "owner": "telemetry-dev-1",
+      "expected_files": [
+        "java/telemetry/CloudHttpSpanBuilder.java",
+        "dotnet/telemetry/OnPremHttpTelemetryMiddleware.cs",
+        "common/telemetry/HttpHeaderScrubber.kt"
+      ],
+      "dependencies": [
+        1
+      ],
+      "validation_criteria": "Exact methods that call `span.setAttribute(...)` are listed in the ticket wiki."
+    },
+    {
+      "order": 3,
+      "action": "Instrumentation design update",
+      "description": "Document how the new attributes are added:\n\u2022 Server side \u2013 before response is committed so status and Location header are visible.\n\u2022 Client side \u2013 after we receive the response.\n\u2022 Attribute names MUST follow existing casing (`http.referer`, `http.response.redirect_location`) to stay OTEL-semantic-convention compliant.\n\u2022 Values MUST go through `HeaderScrubber.scrub(String)`.",
+      "owner": "telemetry-architect",
+      "dependencies": [
+        2
+      ],
+      "validation_criteria": "Design doc attached and approved in pull-request #12345."
+    },
+    {
+      "order": 4,
+      "action": "Implementation \u2013 cloud runtime (Java)",
+      "description": "Modify `CloudHttpSpanBuilder.java`:\n1. Read `Referer` header from `HttpServletRequest` and call `span.setAttribute(\"http.referer\", scrub(value))`.\n2. After `chain.doFilter`, if `3xx`, fetch `Location` header from `HttpServletResponse` and set `span.setAttribute(\"http.response.redirect_location\", scrub(value))`.",
+      "owner": "telemetry-dev-2",
+      "dependencies": [
+        3
+      ],
+      "validation_criteria": "Unit tests in `CloudHttpSpanBuilderTest` assert attributes exist."
+    },
+    {
+      "order": 5,
+      "action": "Implementation \u2013 on-prem runtime (.NET)",
+      "description": "Update `OnPremHttpTelemetryMiddleware.cs` similarly:\n\u2022 Before calling next middleware \u2013 capture Referer.\n\u2022 After next middleware \u2013 inspect response.StatusCode 300-399 and Location header.\n\u2022 Use `Span.SetAttribute()`.",
+      "owner": "telemetry-dev-3",
+      "dependencies": [
+        3
+      ],
+      "validation_criteria": "Unit tests in `OnPremHttpTelemetryMiddlewareTests` pass."
+    },
+    {
+      "order": 6,
+      "action": "Shared header-scrubber update",
+      "description": "Add logic to redact query-string tokens that match PII patterns and limit value length (<=256 chars).",
+      "owner": "privacy-dev",
+      "dependencies": [
+        4,
+        5
+      ],
+      "validation_criteria": "Scrubber unit tests cover new headers."
+    },
+    {
+      "order": 7,
+      "action": "E2E integration tests",
+      "description": "\u2022 Spin up docker compose demo (cloud) and local IIS site (on-prem).\n\u2022 Trigger a 302 redirect flow.\n\u2022 Validate via OTLP collector that spans now show both attributes.",
+      "owner": "qa-team",
+      "dependencies": [
+        4,
+        5
+      ],
+      "validation_criteria": "New Cypress job in CI reports attributes present."
+    },
+    {
+      "order": 8,
+      "action": "Backward-compat & schema documentation",
+      "description": "Update internal schema doc + Grafana data-source mapping so new attributes appear in drop-downs. Announce in #telemetry-announce.",
+      "owner": "telemetry-PM",
+      "dependencies": [
+        7
+      ],
+      "validation_criteria": "Docs merged; announcement posted."
+    },
+    {
+      "order": 9,
+      "action": "Canary deployment",
+      "description": "Deploy to staging, then to 5% of production pods in both SaaS regions. Monitor span volume and verify no cardinality explosions or privacy alerts.",
+      "owner": "SRE",
+      "dependencies": [
+        8
+      ],
+      "validation_criteria": "No error budget impact after 24h canary."
+    },
+    {
+      "order": 10,
+      "action": "Full rollout & close ticket",
+      "description": "Roll out 100%. Close ticket after 48h of stable metrics.",
+      "owner": "SRE",
+      "dependencies": [
+        9
+      ],
+      "validation_criteria": "Dashboards show \u226598% of HTTP spans with the new attributes when headers present."
+    }
+  ],
+  "contextual_hints": [
+    "Locate the exact layer where OTLP spans are finalized (server and client sides may differ) and verify header availability at that point in the pipeline",
+    "Capture and propagate HTTP_RESPONSE_REDIRECT_LOCATION which exists only for 3xx responses and may be mutated by intermediate middleware",
+    "Validate that header collection complies with existing header-scrubbing / GDPR redaction logic"
+  ],
+  "similar_patterns": [
+    "missing span attributes",
+    "HTTP instrumentation gap"
+  ]
+}

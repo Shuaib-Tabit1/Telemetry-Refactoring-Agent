@@ -1,0 +1,69 @@
+diff --git a/OtelSemanticConventions.cs b/OtelSemanticConventions.cs
+index 39a7c1b..960a41d 100644
+--- a/OtelSemanticConventions.cs
++++ b/OtelSemanticConventions.cs
+@@
+ public static class OtelSemanticConventions
+ {
+ 	// TODO: https://docusign.atlassian.net/browse/ATL-87307
+ 	public const string SessionId = "session.id";
+ 
++	// --- HTTP specific (custom) ------------------------------------------------
++
+ 	public const string AttributeHttpReferer = "http.referer";
+ 	public const string AttributeHttpResponseRedirectUrl = "http.response.redirect_url";
++
++	// CLM: new attributes (ATL-87307)
++	public const string AttributeHttpResponseRedirectLocation = "http.response.redirect_location";
++	public const string AttributeHttpRefererHeader           = "http.referer_header";
+ }
+diff --git a/ActivityEnricher.cs b/ActivityEnricher.cs
+index 472d522..e9bb966 100644
+--- a/ActivityEnricher.cs
++++ b/ActivityEnricher.cs
+@@ public static class ActivityEnricher
+ 			SetAccountIdTag(activity, context);
+ 			SetUserIdTag(activity, context);
+ 			SetSessionIdTag(activity, context);
+ 			SetOrganizationIdTag(activity, context);
++
++            // -----------------------------------------------------------------
++            // ATL-87307 – add HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION
++            // -----------------------------------------------------------------
++
++            // 1. Incoming request header "Referer"
++#if NETFRAMEWORK
++            var refererHeader = context?.Request?.Headers?["Referer"];
++#else
++            var refererHeader = context?.Request?.Headers["Referer"].FirstOrDefault();
++#endif
++            if (!string.IsNullOrWhiteSpace(refererHeader))
++            {
++                activity.SetTag(OtelSemanticConventions.AttributeHttpReferer, refererHeader);
++            }
++
++            // 2. Outgoing redirect "Location" for 3xx responses
++#if NETFRAMEWORK
++            var isRedirect = context?.Response?.StatusCode is >= 300 and < 400;
++            var locationHeader = isRedirect == true
++                ? context.Response.Headers["Location"]
++                : null;
++#else
++            var isRedirect = context?.Response?.StatusCode is >= 300 and < 400;
++            string? locationHeader = null;
++            if (isRedirect == true && context != null)
++            {
++                locationHeader = context.Response.Headers["Location"].FirstOrDefault();
++            }
++#endif
++            if (!string.IsNullOrWhiteSpace(locationHeader))
++            {
++                activity.SetTag(
++                    OtelSemanticConventions.AttributeHttpResponseRedirectUrl,
++                    locationHeader);
++            }
+ 		}
+ 
+ 		private static void SetAccountIdTag(Activity activity, HttpContext context)
+ 		{
+ 			if (activity.GetTagItem(OpenTelemetryAttributes.AttributeAccountId) == null
