@@ -1,0 +1,21 @@
+2025-08-28 10:32:16,051 - scanner.pipeline_orchestrator - INFO - Stage ticket_processing: Starting (attempt 1)
+2025-08-28 10:32:16,052 - scanner.pipeline_orchestrator - INFO - Stage ticket_processing: Completed in 0.00s
+2025-08-28 10:32:16,052 - scanner.pipeline_orchestrator - INFO - Stage intent_extraction: Starting (attempt 1)
+2025-08-28 10:32:27,406 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-28 10:32:36,328 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-28 10:33:25,472 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-28 10:33:25,476 - scanner.pipeline_orchestrator - INFO - Stage intent_extraction: Completed in 69.42s
+2025-08-28 10:33:25,477 - scanner.pipeline_orchestrator - INFO - Stage project_parsing: Starting (attempt 1)
+2025-08-28 10:33:25,490 - scanner.pipeline_orchestrator - INFO - Stage project_parsing: Completed in 0.01s
+2025-08-28 10:33:25,508 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: mps
+2025-08-28 10:33:25,508 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-08-28 10:33:39,977 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 1)
+2025-08-28 10:33:42,523 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Completed in 2.55s
+2025-08-28 10:33:42,524 - scanner.pipeline_orchestrator - INFO - Stage advanced_analysis: Starting (attempt 1)
+2025-08-28 10:33:42,524 - scanner.pipeline_orchestrator - WARNING - Stage advanced_analysis: Attempt 1 failed: 'NoneType' object has no attribute 'analyze_impact'
+2025-08-28 10:33:43,526 - scanner.pipeline_orchestrator - INFO - Stage advanced_analysis: Starting (attempt 2)
+2025-08-28 10:33:43,527 - scanner.pipeline_orchestrator - WARNING - Stage advanced_analysis: Attempt 2 failed: 'NoneType' object has no attribute 'analyze_impact'
+2025-08-28 10:33:45,529 - scanner.pipeline_orchestrator - INFO - Stage advanced_analysis: Starting (attempt 3)
+2025-08-28 10:33:45,530 - scanner.pipeline_orchestrator - WARNING - Stage advanced_analysis: Attempt 3 failed: 'NoneType' object has no attribute 'analyze_impact'
+2025-08-28 10:33:49,532 - scanner.pipeline_orchestrator - INFO - Stage advanced_analysis: Starting (attempt 4)
+2025-08-28 10:33:49,533 - scanner.pipeline_orchestrator - WARNING - Stage advanced_analysis: Attempt 4 failed: 'NoneType' object has no attribute 'analyze_impact'

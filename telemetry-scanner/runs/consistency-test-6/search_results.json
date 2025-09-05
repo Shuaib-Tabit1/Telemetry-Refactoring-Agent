@@ -1,0 +1,271 @@
+[
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/DetectTypeProcessor.Trace.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (4 occurrences); Contains method call: SetTag (4 times); Matches 3 keywords: SetTag, ActivitySource, OpenTelemetry",
+    "matching_patterns": [
+      "OpenTelemetry",
+      "SetTag",
+      "ActivitySource"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/VideoInfoProcessor.Trace.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (4 occurrences); Contains method call: SetTag (4 times); Matches 3 keywords: SetTag, ActivitySource, OpenTelemetry",
+    "matching_patterns": [
+      "OpenTelemetry",
+      "SetTag",
+      "ActivitySource"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/DetectTypeProcessor.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (1 occurrences)",
+    "matching_patterns": [
+      "SetTag"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/MessageWorkerService/DispatchedWorker.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (3 occurrences); Matches 3 keywords: SetTag, ActivitySource, OpenTelemetry",
+    "matching_patterns": [
+      "OpenTelemetry",
+      "SetTag",
+      "ActivitySource"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Engine/WorkflowInstance.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (9 occurrences); Contains method call: SetTag (9 times); Matches 3 keywords: SetTag, ActivitySource, OpenTelemetry",
+    "matching_patterns": [
+      "OpenTelemetry",
+      "SetTag",
+      "ActivitySource"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Service/V1/WinsService.Trace.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (1 occurrences)",
+    "matching_patterns": [
+      "SetTag"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/API.WorkflowActivities/Program.cs",
+    "strategy": "pattern",
+    "relevance_score": 100,
+    "reasoning": "Telemetry infrastructure: Import: DocuSign.CLM.API.WorkflowActivities.Infrastructure.Telemetry.Metrics.MetricsEmitters, Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics, Import: OpenTelemetry.Metrics; Matches 2 keywords: OpenTelemetry, middleware",
+    "matching_patterns": [
+      "Import: OpenTelemetry.Metrics",
+      "Import: DocuSign.CLM.API.WorkflowActivities.Infrastructure.Telemetry.Metrics.MetricsEmitters",
+      "middleware",
+      "Pattern: Metrics",
+      "Pattern: Instrumentation",
+      "Config file: program.cs",
+      "OpenTelemetry",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics",
+      "Pattern: OpenTelemetry"
+    ],
+    "confidence": 0.85
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/ScmHttpApplication.cs",
+    "strategy": "pattern",
+    "relevance_score": 100,
+    "reasoning": "Telemetry infrastructure: Import: DocuSign.CLM.Monitoring, Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions, Import: OpenTelemetry.Metrics",
+    "matching_patterns": [
+      "Import: DocuSign.CLM.Monitoring",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+      "Import: OpenTelemetry.Metrics",
+      "Import: OpenTelemetry.Trace",
+      "Pattern: OpenTelemetry",
+      "Pattern: Instrumentation",
+      "Pattern: Monitoring",
+      "Pattern: Metrics",
+      "Pattern: UseOpenTelemetry"
+    ],
+    "confidence": 0.85
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/AtlasDataManipulationService/Startup.cs",
+    "strategy": "pattern",
+    "relevance_score": 100,
+    "reasoning": "Telemetry infrastructure: Import: ADEXS.Caching.OpenTelemetry.Extensions, Import: ADEXS.CqlCorePersistence.OpenTelemetry, Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics.Extensions",
+    "matching_patterns": [
+      "Import: ADEXS.Caching.OpenTelemetry.Extensions",
+      "Import: ADEXS.CqlCorePersistence.OpenTelemetry",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics.Extensions",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry",
+      "Import: OpenTelemetry.Exporter",
+      "Import: OpenTelemetry.Metrics",
+      "Import: OpenTelemetry.Trace",
+      "Pattern: OpenTelemetry",
+      "Pattern: Instrumentation",
+      "Pattern: Metrics",
+      "Pattern: ConfigureServices",
+      "Config file: startup.cs"
+    ],
+    "confidence": 0.85
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Core.ServiceFramework/ICoreInstrumentationLifetimeService.cs",
+    "strategy": "pattern",
+    "relevance_score": 100,
+    "reasoning": "Telemetry infrastructure: Import: OpenTelemetry.Metrics, Import: OpenTelemetry.Trace, Pattern: OpenTelemetry",
+    "matching_patterns": [
+      "Import: OpenTelemetry.Metrics",
+      "Import: OpenTelemetry.Trace",
+      "Pattern: OpenTelemetry",
+      "Pattern: Instrumentation",
+      "Pattern: Metrics",
+      "Pattern: TracerProvider",
+      "Pattern: MeterProvider",
+      "Config file: icoreinstrumentationlifetimeservice.cs"
+    ],
+    "confidence": 0.85
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Service/V1/WinsService.cs",
+    "strategy": "structural",
+    "relevance_score": 100,
+    "reasoning": "Contains method call: SetTag (54 times)",
+    "matching_patterns": [
+      "SetTag"
+    ],
+    "confidence": 0.9
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/VideoInfo/VideoInfo.cs",
+    "strategy": "structural",
+    "relevance_score": 100,
+    "reasoning": "Contains method call: SetTag (5 times)",
+    "matching_patterns": [
+      "SetTag"
+    ],
+    "confidence": 0.9
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Core.Types/Constants.cs",
+    "strategy": "graph_based",
+    "relevance_score": 100,
+    "reasoning": "file contains configuration or constants; contains telemetry symbol: ADEXS.Core.Types.Constants.Forms.EmitMetafieldInputAttribute(System.Guid); has relationship to telemetry symbol: ADEXS.Core.Types.Constants.Forms.EmitMetafieldInputAttribute(System.Guid); contains telemetry symbol: ADEXS.Core.Types.Constants.Forms.EmitMetagroupLabelElement(System.Guid); symbol is application entry point or middleware; contains HTTP-related constant: ADEXS.Core.Types.Constants.CustomHeaders; contains HTTP-related constant: ADEXS.Core.Types.Constants.DocuSignCustomHeaders; contains HTTP-related constant: ADEXS.Core.Types.Constants.ActCustomHeaders; contains HTTP-related constant: ADEXS.Core.Types.Constants.HttpContextCache; contains HTTP-related constant: ADEXS.Core.Types.Constants.HttpContextCookie; contains telemetry symbol: ADEXS.Core.Types.Constants.SystemMetadataGroupNames; contains telemetry symbol: ADEXS.Core.Types.Constants.HtmlAttributes; contains HTTP-related constant: ADEXS.Core.Types.Constants.Allocation; contains telemetry symbol: ADEXS.Core.Types.Constants.FileDataSource.UploadSourceAttribute; contains telemetry symbol: ADEXS.Core.Types.Constants.MetadataHtmlAttributes; contains telemetry symbol: ADEXS.Core.Types.Constants.AgreementDetailsImpliedMetadataGuids",
+    "matching_patterns": [
+      "configuration_pattern",
+      "telemetry_symbol_ADEXS.Core.Types.Constants.Forms.EmitMetafieldInputAttribute(System.Guid)",
+      "telemetry_relationship",
+      "telemetry_symbol_ADEXS.Core.Types.Constants.Forms.EmitMetagroupLabelElement(System.Guid)",
+      "application_entry_point",
+      "http_constant_ADEXS.Core.Types.Constants.CustomHeaders",
+      "http_constant_ADEXS.Core.Types.Constants.DocuSignCustomHeaders",
+      "http_constant_ADEXS.Core.Types.Constants.ActCustomHeaders",
+      "http_constant_ADEXS.Core.Types.Constants.HttpContextCache",
+      "http_constant_ADEXS.Core.Types.Constants.HttpContextCookie",
+      "telemetry_symbol_ADEXS.Core.Types.Constants.SystemMetadataGroupNames",
+      "telemetry_symbol_ADEXS.Core.Types.Constants.HtmlAttributes",
+      "http_constant_ADEXS.Core.Types.Constants.Allocation",
+      "telemetry_symbol_ADEXS.Core.Types.Constants.FileDataSource.UploadSourceAttribute",
+      "telemetry_symbol_ADEXS.Core.Types.Constants.MetadataHtmlAttributes",
+      "telemetry_symbol_ADEXS.Core.Types.Constants.AgreementDetailsImpliedMetadataGuids"
+    ],
+    "confidence": 0.8
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Core.Types/Enums.cs",
+    "strategy": "graph_based",
+    "relevance_score": 100,
+    "reasoning": "has relationship to telemetry symbol: System.Reflection.MemberInfo.GetCustomAttributes(System.Type, bool); has relationship to telemetry symbol: System.Reflection.MemberInfo.GetCustomAttributes(System.Type, bool); has relationship to telemetry symbol: System.Reflection.MemberInfo.GetCustomAttributes(System.Type, bool); has relationship to telemetry symbol: System.Collections.Generic.IEnumerable<System.ComponentModel.DescriptionAttribute>.FirstOrDefault<System.ComponentModel.DescriptionAttribute>(); has relationship to telemetry symbol: System.Attribute.GetCustomAttribute(System.Reflection.MemberInfo, System.Type); has relationship to telemetry symbol: System.Reflection.MemberInfo.GetCustomAttributes(System.Type, bool); has relationship to telemetry symbol: System.Reflection.MemberInfo.GetCustomAttributes(System.Type, bool)",
+    "matching_patterns": [
+      "telemetry_relationship",
+      "telemetry_relationship",
+      "telemetry_relationship",
+      "telemetry_relationship",
+      "telemetry_relationship",
+      "telemetry_relationship",
+      "telemetry_relationship"
+    ],
+    "confidence": 0.8
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/ActIntegration/Client/ActIntegrationClient.cs",
+    "strategy": "graph_based",
+    "relevance_score": 90,
+    "reasoning": "contains HTTP-related constant: ADEXS.ActIntegration.ActIntegrationClient.MakeHttpRequestV2Async(ADEXS.Core.Domain.Model.UserAccount, System.Guid, System.Guid, System.Net.Http.HttpMethod, string, string, string, string, int, DocuSign.CLM.Monitoring.SmartMon.ISmartMon, bool); has relationship to telemetry symbol: System.TimeSpan.FromSeconds(double); contains HTTP-related constant: ADEXS.ActIntegration.ActIntegrationClient.MakeHttpRequestV2(ADEXS.Core.Domain.Model.UserAccount, System.Guid, System.Guid, System.Net.Http.HttpMethod, string, string, string, string, int, DocuSign.CLM.Monitoring.SmartMon.ISmartMon, bool); has relationship to telemetry symbol: System.TimeSpan.FromSeconds(double); contains HTTP-related constant: ADEXS.ActIntegration.ActIntegrationClient.MakeHttpRequest(ADEXS.Core.Domain.Model.UserAccount, System.Net.Http.HttpMethod, string, string, string, string, int, DocuSign.CLM.Monitoring.SmartMon.ISmartMon); has relationship to telemetry symbol: System.TimeSpan.FromSeconds(double); contains HTTP-related constant: ADEXS.ActIntegration.ActIntegrationClient.GetHttpClient(); contains HTTP-related constant: ADEXS.ActIntegration.ActIntegrationClient.GetTokenScopesForHttpMethod(System.Net.Http.HttpMethod, ADEXS.ActIntegration.ActAccountInfo); contains HTTP-related constant: ADEXS.ActIntegration.ActIntegrationClient.AddDefaultRequestHeaders(ADEXS.ActIntegration.ActAccountInfo, string, System.Net.Http.HttpClient, string, string, string)",
+    "matching_patterns": [
+      "http_constant_ADEXS.ActIntegration.ActIntegrationClient.MakeHttpRequestV2Async(ADEXS.Core.Domain.Model.UserAccount, System.Guid, System.Guid, System.Net.Http.HttpMethod, string, string, string, string, int, DocuSign.CLM.Monitoring.SmartMon.ISmartMon, bool)",
+      "telemetry_relationship",
+      "http_constant_ADEXS.ActIntegration.ActIntegrationClient.MakeHttpRequestV2(ADEXS.Core.Domain.Model.UserAccount, System.Guid, System.Guid, System.Net.Http.HttpMethod, string, string, string, string, int, DocuSign.CLM.Monitoring.SmartMon.ISmartMon, bool)",
+      "telemetry_relationship",
+      "http_constant_ADEXS.ActIntegration.ActIntegrationClient.MakeHttpRequest(ADEXS.Core.Domain.Model.UserAccount, System.Net.Http.HttpMethod, string, string, string, string, int, DocuSign.CLM.Monitoring.SmartMon.ISmartMon)",
+      "telemetry_relationship",
+      "http_constant_ADEXS.ActIntegration.ActIntegrationClient.GetHttpClient()",
+      "http_constant_ADEXS.ActIntegration.ActIntegrationClient.GetTokenScopesForHttpMethod(System.Net.Http.HttpMethod, ADEXS.ActIntegration.ActAccountInfo)",
+      "http_constant_ADEXS.ActIntegration.ActIntegrationClient.AddDefaultRequestHeaders(ADEXS.ActIntegration.ActAccountInfo, string, System.Net.Http.HttpClient, string, string, string)"
+    ],
+    "confidence": 0.8
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/OpenApiClients/DacDocGenApiClient/Api/GenApi.cs",
+    "strategy": "graph_based",
+    "relevance_score": 90,
+    "reasoning": "contains HTTP-related constant: DacDocGenApiClient.Api.GenApi.GenerateDocumentV1WithHttpInfo(string, DacDocGenApiClient.Model.GenerateDocumentRequest); contains HTTP-related constant: DacDocGenApiClient.Api.GenApi.GenerateDocumentV1WithHttpInfoAsync(string, DacDocGenApiClient.Model.GenerateDocumentRequest, System.Threading.CancellationToken); contains HTTP-related constant: DacDocGenApiClient.Api.GenApi.ParseTemplateV1WithHttpInfo(System.Guid, DacDocGenApiClient.Model.ParseTemplateRequest); contains HTTP-related constant: DacDocGenApiClient.Api.GenApi.ParseTemplateV1WithHttpInfoAsync(System.Guid, DacDocGenApiClient.Model.ParseTemplateRequest, System.Threading.CancellationToken); contains HTTP-related constant: DacDocGenApiClient.Api.GenApi.UploadTemplateV1WithHttpInfo(System.Guid, string, DacDocGenApiClient.Client.FileParameter, long?); contains HTTP-related constant: DacDocGenApiClient.Api.GenApi.UploadTemplateV1WithHttpInfoAsync(System.Guid, string, DacDocGenApiClient.Client.FileParameter, long?, System.Threading.CancellationToken)",
+    "matching_patterns": [
+      "http_constant_DacDocGenApiClient.Api.GenApi.GenerateDocumentV1WithHttpInfo(string, DacDocGenApiClient.Model.GenerateDocumentRequest)",
+      "http_constant_DacDocGenApiClient.Api.GenApi.GenerateDocumentV1WithHttpInfoAsync(string, DacDocGenApiClient.Model.GenerateDocumentRequest, System.Threading.CancellationToken)",
+      "http_constant_DacDocGenApiClient.Api.GenApi.ParseTemplateV1WithHttpInfo(System.Guid, DacDocGenApiClient.Model.ParseTemplateRequest)",
+      "http_constant_DacDocGenApiClient.Api.GenApi.ParseTemplateV1WithHttpInfoAsync(System.Guid, DacDocGenApiClient.Model.ParseTemplateRequest, System.Threading.CancellationToken)",
+      "http_constant_DacDocGenApiClient.Api.GenApi.UploadTemplateV1WithHttpInfo(System.Guid, string, DacDocGenApiClient.Client.FileParameter, long?)",
+      "http_constant_DacDocGenApiClient.Api.GenApi.UploadTemplateV1WithHttpInfoAsync(System.Guid, string, DacDocGenApiClient.Client.FileParameter, long?, System.Threading.CancellationToken)"
+    ],
+    "confidence": 0.8
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/OpenApiClients/DacDocGenApiClient/Client/ApiClient.cs",
+    "strategy": "graph_based",
+    "relevance_score": 90,
+    "reasoning": "contains HTTP-related constant: DacDocGenApiClient.Client.CustomJsonCodec.Deserialize<T>(System.Net.Http.HttpResponseMessage); contains HTTP-related constant: DacDocGenApiClient.Client.CustomJsonCodec.Deserialize(System.Net.Http.HttpResponseMessage, System.Type); contains HTTP-related constant: DacDocGenApiClient.Client.ApiClient.NewRequest(System.Net.Http.HttpMethod, string, DacDocGenApiClient.Client.RequestOptions, DacDocGenApiClient.Client.IReadableConfiguration); contains HTTP-related constant: DacDocGenApiClient.Client.ApiClient.InterceptRequest(System.Net.Http.HttpRequestMessage); contains HTTP-related constant: DacDocGenApiClient.Client.ApiClient.InterceptResponse(System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage); contains HTTP-related constant: DacDocGenApiClient.Client.ApiClient.ToApiResponse<T>(System.Net.Http.HttpResponseMessage, object, System.Uri); contains HTTP-related constant: DacDocGenApiClient.Client.ApiClient.Exec<T>(System.Net.Http.HttpRequestMessage, DacDocGenApiClient.Client.IReadableConfiguration); contains HTTP-related constant: DacDocGenApiClient.Client.ApiClient.ExecAsync<T>(System.Net.Http.HttpRequestMessage, DacDocGenApiClient.Client.IReadableConfiguration, System.Threading.CancellationToken)",
+    "matching_patterns": [
+      "http_constant_DacDocGenApiClient.Client.CustomJsonCodec.Deserialize<T>(System.Net.Http.HttpResponseMessage)",
+      "http_constant_DacDocGenApiClient.Client.CustomJsonCodec.Deserialize(System.Net.Http.HttpResponseMessage, System.Type)",
+      "http_constant_DacDocGenApiClient.Client.ApiClient.NewRequest(System.Net.Http.HttpMethod, string, DacDocGenApiClient.Client.RequestOptions, DacDocGenApiClient.Client.IReadableConfiguration)",
+      "http_constant_DacDocGenApiClient.Client.ApiClient.InterceptRequest(System.Net.Http.HttpRequestMessage)",
+      "http_constant_DacDocGenApiClient.Client.ApiClient.InterceptResponse(System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage)",
+      "http_constant_DacDocGenApiClient.Client.ApiClient.ToApiResponse<T>(System.Net.Http.HttpResponseMessage, object, System.Uri)",
+      "http_constant_DacDocGenApiClient.Client.ApiClient.Exec<T>(System.Net.Http.HttpRequestMessage, DacDocGenApiClient.Client.IReadableConfiguration)",
+      "http_constant_DacDocGenApiClient.Client.ApiClient.ExecAsync<T>(System.Net.Http.HttpRequestMessage, DacDocGenApiClient.Client.IReadableConfiguration, System.Threading.CancellationToken)"
+    ],
+    "confidence": 0.8
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Core.ServiceFramework/AbstractServicedComponent.cs",
+    "strategy": "pattern",
+    "relevance_score": 85,
+    "reasoning": "Telemetry infrastructure: Import: DocuSign.CLM.Monitoring, Import: DocuSign.Monitoring, Import: service invocation to start process,\n\t\t\t\t\t// so Assembly.EntryAssembly is not represents correct service assembly. We are\n\t\t\t\t\t// using GetType().Assembly instead, which would provide correct release version.\n\t\t\t\t\tTask.Run(() => _coreInstrumentationLifetimeService.StartAsync(\n\t\t\t\t\t\tassembly: this.GetType().Assembly))\n\t\t\t\t\t\t\t.GetAwaiter().GetResult()",
+    "matching_patterns": [
+      "Import: DocuSign.CLM.Monitoring",
+      "Import: DocuSign.Monitoring",
+      "Import: service invocation to start process,\n\t\t\t\t\t// so Assembly.EntryAssembly is not represents correct service assembly. We are\n\t\t\t\t\t// using GetType().Assembly instead, which would provide correct release version.\n\t\t\t\t\tTask.Run(() => _coreInstrumentationLifetimeService.StartAsync(\n\t\t\t\t\t\tassembly: this.GetType().Assembly))\n\t\t\t\t\t\t\t.GetAwaiter().GetResult()",
+      "Pattern: OpenTelemetry",
+      "Pattern: Instrumentation",
+      "Pattern: Monitoring",
+      "Pattern: UseOpenTelemetry"
+    ],
+    "confidence": 0.85
+  }
+]

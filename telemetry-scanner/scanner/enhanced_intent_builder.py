@@ -27,6 +27,20 @@ class ValidationResult:
     suggestions: List[str]
 
 @dataclass
+class ImplementationStrategy:
+    """Implementation strategy determined from ticket analysis."""
+    extend_existing: bool
+    create_new: bool  
+    preferred_approach: str  # "direct_instrumentation", "middleware", "context_accessor", "semantic_conventions"
+
+@dataclass
+class ExactRequirements:
+    """Exact requirements parsed from the ticket."""
+    attribute_names: List[str]        # Exact attribute names from ticket
+    patterns: List[str]               # Code patterns from ticket
+    implementation_notes: List[str]   # Implementation guidance from ticket
+
+@dataclass
 class EnhancedIntent:
     # Original fields
     issue_category: str
@@ -44,6 +58,11 @@ class EnhancedIntent:
     sub_tasks: List[Dict] = None
     contextual_hints: List[str] = None
     similar_patterns: List[str] = None
+    
+    # New implementation guidance fields
+    implementation_strategy: ImplementationStrategy = None
+    exact_requirements: ExactRequirements = None
+    telemetry_analysis: Dict = None
 
 class EnhancedIntentBuilder:
     """Advanced intent builder with multi-step reasoning and validation."""
@@ -72,7 +91,7 @@ class EnhancedIntentBuilder:
         
         # Step 5: Enhance with contextual information
         enhanced_intent = self._enhance_with_context(
-            basic_intent, complexity_analysis, planning_result, validation, context
+            basic_intent, complexity_analysis, planning_result, validation, ticket_text, context
         )
         
         return enhanced_intent
@@ -199,6 +218,82 @@ Provide a step-by-step plan in JSON format:
         
         return json.loads(response.choices[0].message.content)
     
+    def _parse_exact_requirements(self, basic_intent: Dict, ticket_text: str) -> ExactRequirements:
+        """Parse exact attribute names, patterns, and implementation details from ticket."""
+        exact_attributes = []
+        exact_patterns = []
+        implementation_notes = []
+        
+        # Extract quoted attribute names (e.g., "HTTP_REFERER", "HTTP_RESPONSE_REDIRECT_LOCATION")
+        import re
+        quoted_attrs = re.findall(r'"([A-Z_][A-Z0-9_]*)"', ticket_text)
+        for attr in quoted_attrs:
+            if 'HTTP' in attr or 'RESPONSE' in attr or 'REQUEST' in attr:
+                exact_attributes.append(attr)
+        
+        # Extract backtick-quoted patterns
+        backtick_patterns = re.findall(r'`([^`]+)`', ticket_text)
+        for pattern in backtick_patterns:
+            if any(keyword in pattern.lower() for keyword in ['attribute', 'span', 'telemetry', 'otel']):
+                exact_patterns.append(pattern)
+        
+        # Extract implementation guidance from key phrases
+        impl_keywords = [
+            'extend existing', 'use existing', 'modify existing', 'add to existing',
+            'create new', 'implement new', 'build new',
+            'semantic conventions', 'constants file', 'middleware',
+            'direct instrumentation', 'context accessor'
+        ]
+        
+        for keyword in impl_keywords:
+            if keyword in ticket_text.lower():
+                # Extract surrounding context for implementation notes
+                sentences = ticket_text.split('.')
+                for sentence in sentences:
+                    if keyword in sentence.lower():
+                        implementation_notes.append(sentence.strip())
+        
+        return ExactRequirements(
+            attribute_names=exact_attributes,
+            patterns=exact_patterns,
+            implementation_notes=implementation_notes
+        )
+    
+    def _determine_implementation_strategy(self, basic_intent: Dict, complexity: Dict, 
+                                         exact_requirements: ExactRequirements) -> ImplementationStrategy:
+        """Determine the best implementation approach based on intent and requirements."""
+        
+        # Default to extending existing patterns
+        extend_existing = True
+        create_new = False
+        preferred_approach = "direct_instrumentation"
+        
+        # Check if requirements explicitly mention creating new components
+        for note in exact_requirements.implementation_notes:
+            note_lower = note.lower()
+            if any(phrase in note_lower for phrase in ['create new', 'implement new', 'build new']):
+                create_new = True
+                extend_existing = False
+            elif any(phrase in note_lower for phrase in ['extend existing', 'use existing', 'modify existing']):
+                extend_existing = True
+                create_new = False
+        
+        # Determine preferred approach based on complexity and requirements
+        if complexity.get("complexity_score", 5) <= 2:
+            preferred_approach = "direct_instrumentation"
+        elif any(note.lower().find('middleware') >= 0 for note in exact_requirements.implementation_notes):
+            preferred_approach = "middleware"
+        elif any(note.lower().find('context accessor') >= 0 for note in exact_requirements.implementation_notes):
+            preferred_approach = "context_accessor"
+        elif any(note.lower().find('semantic conventions') >= 0 for note in exact_requirements.implementation_notes):
+            preferred_approach = "semantic_conventions"
+        
+        return ImplementationStrategy(
+            extend_existing=extend_existing,
+            create_new=create_new,
+            preferred_approach=preferred_approach
+        )
+
     def _validate_intent(self, basic_intent: Dict, complexity: Dict, planning: Dict) -> ValidationResult:
         """Validate the extracted intent and assess confidence."""
         
@@ -249,8 +344,16 @@ Provide a step-by-step plan in JSON format:
     
     def _enhance_with_context(self, basic_intent: Dict, complexity: Dict, 
                              planning: Dict, validation: ValidationResult, 
-                             context: Dict = None) -> EnhancedIntent:
+                             ticket_text: str, context: Dict = None) -> EnhancedIntent:
         """Create enhanced intent with all analysis results."""
+        
+        # Parse exact requirements from the ticket
+        exact_requirements = self._parse_exact_requirements(basic_intent, ticket_text)
+        
+        # Determine implementation strategy
+        implementation_strategy = self._determine_implementation_strategy(
+            basic_intent, complexity, exact_requirements
+        )
         
         # Map complexity score to operation type
         complexity_score = complexity.get("complexity_score", 5)
@@ -276,5 +379,7 @@ Provide a step-by-step plan in JSON format:
             validation_result=validation,
             sub_tasks=planning.get("steps", []),
             contextual_hints=complexity.get("technical_challenges", []),
-            similar_patterns=basic_intent.get("recognized_patterns", [])
+            similar_patterns=basic_intent.get("recognized_patterns", []),
+            exact_requirements=exact_requirements,
+            implementation_strategy=implementation_strategy
         )

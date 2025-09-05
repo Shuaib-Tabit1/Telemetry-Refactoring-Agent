@@ -1,0 +1,1718 @@
+{
+  "execution_summary": {
+    "total_stages": 9,
+    "completed": 9,
+    "failed": 0,
+    "cache_hits": 0,
+    "total_execution_time": 456.26676988601685
+  },
+  "stage_details": {
+    "ticket_processing": {
+      "stage_name": "ticket_processing",
+      "status": "StageStatus.COMPLETED",
+      "result": "## OpenTelemetry Span Attributes Missing - HTTP Redirect Tracking\n\n**Summary:** Add missing HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION attributes to CLM web application spans\n\n**Problem Description:**\nOur OpenTelemetry spans in the CLM (Contract Lifecycle Management) web application are missing critical HTTP attributes needed for debugging redirect flows and investigating user journey issues. Specifically:\n\n1. **Missing Attribute**: `HTTP_REFERER` - The referring page URL that led to the current request\n2. **Missing Attribute**: `HTTP_RESPONSE_REDIRECT_LOCATION` - The destination URL when a 302/redirect response occurs\n\n**Business Impact:**\n- Cannot trace user navigation flows through CLM application\n- Difficult to investigate redirect-related issues and errors\n- Missing context for 302 responses that redirect to error pages\n\n**Technical Details:**\n\n**Target Application:** CLM Web Application (clm-web)\n**Environment:** Demo (but affects all environments)\n**Specific Pages Affected:**\n- `/clm/Documents/BrowseDocuments.aspx`\n- `/clm/SSO/SSOEndpoint.ashx` \n- Any page that handles redirects (HTTP 302 responses)\n\n**Expected Kusto Query Results:**\nAfter fix, this query should show the missing attributes:\n```kusto\nOtlpSpanEvents\n| where Environment == \"Demo\"\n| where url_path == \"/clm/Documents/BrowseDocuments.aspx\"\n| where http_status_code > 200\n| project Timestamp, url_path, http_status_code, HTTP_REFERER, HTTP_RESPONSE_REDIRECT_LOCATION\n```\n\n**Implementation Requirements:**\n\n1. **Add HTTP_REFERER attribute** to all incoming HTTP requests\n   - Source: `Request.Headers[\"Referer\"]` or `HttpContext.Request.Headers.Referer`\n   - Add to span as: `activity.SetTag(\"HTTP_REFERER\", refererValue)`\n\n2. **Add HTTP_RESPONSE_REDIRECT_LOCATION attribute** for redirect responses\n   - Source: `Response.Headers[\"Location\"]` when status code is 301/302/303/307/308\n   - Add to span as: `activity.SetTag(\"HTTP_RESPONSE_REDIRECT_LOCATION\", locationValue)`\n\n**Files to Look For:**\n- CLM web application middleware or request handling code\n- ASP.NET request pipeline components\n- OpenTelemetry instrumentation configuration\n- Files containing \"ActivitySource\", \"SetTag\", or \"AddTag\" method calls\n- Middleware files that handle HTTP requests/responses\n- Look for existing telemetry code in CLM-related projects\n\n**Acceptance Criteria:**\n- [ ] HTTP_REFERER attribute captured from incoming request headers\n- [ ] HTTP_RESPONSE_REDIRECT_LOCATION attribute captured for 302+ responses  \n- [ ] Attributes visible in OtlpSpanEvents Kusto table\n- [ ] No performance degradation from additional attribute collection\n- [ ] Proper null/empty value handling for missing headers\n\n**Technical Notes:**\n- Follow existing OpenTelemetry patterns in the codebase\n- Ensure attribute names match exactly: \"HTTP_REFERER\" and \"HTTP_RESPONSE_REDIRECT_LOCATION\"\n- Add attributes to HTTP request spans, not separate spans\n- Handle edge cases where headers might be missing or empty\n",
+      "error": null,
+      "execution_time": 0.00038695335388183594,
+      "cache_hit": false
+    },
+    "intent_extraction": {
+      "stage_name": "intent_extraction",
+      "status": "StageStatus.COMPLETED",
+      "result": {
+        "issue_category": "INSTRUMENTATION",
+        "static_analysis_query": {
+          "find_method_call": "SetTag"
+        },
+        "semantic_description": "Add HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION headers as attributes on existing HTTP request spans.",
+        "search_keywords": [
+          "HTTP_REFERER",
+          "HTTP_RESPONSE_REDIRECT_LOCATION",
+          "Activity.SetTag",
+          "OpenTelemetry",
+          "middleware"
+        ],
+        "telemetry_operation": {
+          "type": "span",
+          "target_name": "HTTP request span",
+          "action": "ADD_ATTRIBUTES",
+          "attributes_to_add": [
+            {
+              "name": "HTTP_REFERER",
+              "value_source": "Request.Headers[\"Referer\"]"
+            },
+            {
+              "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+              "value_source": "Response.Headers[\"Location\"]"
+            }
+          ],
+          "new_span_name": null,
+          "new_metric_details": {}
+        },
+        "confidence": "IntentConfidence.HIGH",
+        "operation_type": "OperationType.MULTI_FILE",
+        "complexity_score": 5,
+        "estimated_files": 4,
+        "validation_result": {
+          "is_valid": true,
+          "confidence": "IntentConfidence.HIGH",
+          "issues": [],
+          "suggestions": []
+        },
+        "sub_tasks": [
+          {
+            "order": 1,
+            "name": "Code-base discovery",
+            "action": "locate_configuration",
+            "description": "Identify where the root HTTP Activity (span) is created or enriched.\n1. Grep / Search for keywords: \"ActivitySource\", \"SetTag(\", \"OpenTelemetry\", \"AddAspNetCoreInstrumentation\".\n2. Inspect Startup.cs, Program.cs, WebApplicationBuilder, and *Telemetry*.cs extension files.\n3. Confirm whether custom middleware already wraps requests (look for `app.UseMiddleware(` or `IApplicationBuilder.UseXyzTelemetry`).",
+            "expected_files": [
+              "Startup.cs | Program.cs",
+              "TelemetryExtensions.cs (or similar)",
+              "Middleware/RequestTrackingMiddleware.cs"
+            ],
+            "validation_criteria": [
+              "Discovered the exact class where existing SetTag calls are placed OR determine the need for new middleware.",
+              "Documented file & method names for next steps."
+            ]
+          },
+          {
+            "order": 2,
+            "name": "Design instrumentation point",
+            "action": "technical_design",
+            "dependencies": [
+              1
+            ],
+            "description": "Decide whether to place new tags in:\nA) an existing custom telemetry middleware, OR\nB) a new lightweight middleware inserted early (for Referer) and late (for Location) in the pipeline.\nDocument chosen approach; update ADR (architecture decision record) if your repo uses them.",
+            "validation_criteria": [
+              "Written short design note/ADR that indicates chosen solution and why.",
+              "Team sign-off in PR description or design review."
+            ]
+          },
+          {
+            "order": 3,
+            "name": "Implement code changes",
+            "action": "implement_changes",
+            "dependencies": [
+              2
+            ],
+            "description": "1. Add the new middleware or modify existing one.\n2. On request start (HttpContext.Request):\n   \u2022 string referer = context.Request.Headers[\"Referer\"].FirstOrDefault();\n   \u2022 if (!string.IsNullOrWhiteSpace(referer)) Activity.Current?.SetTag(\"HTTP_REFERER\", referer);\n3. On response completion (after next(context)):\n   \u2022 if (context.Response.StatusCode >= 300 && context.Response.StatusCode < 400)\n       {\n           var location = context.Response.Headers[\"Location\"].FirstOrDefault();\n           if (!string.IsNullOrWhiteSpace(location)) Activity.Current?.SetTag(\"HTTP_RESPONSE_REDIRECT_LOCATION\", location);\n       }\n4. Handle null/empty gracefully (do NOT write tag when empty).\n5. Add middleware registration in Startup/Program *after* `UseRouting()` and *before* `UseEndpoints()` so that Request & Response data are both available.",
+            "expected_files_modified": [
+              "Middleware/RedirectTrackingMiddleware.cs (new)",
+              "Startup.cs or Program.cs (Add middleware)"
+            ],
+            "validation_criteria": [
+              "Build succeeds locally.",
+              "No duplicate tags if ASP.NET automatic instrumentation later adds same names (confirmed they don\u2019t)."
+            ]
+          },
+          {
+            "order": 4,
+            "name": "Unit & integration tests",
+            "action": "test_implementation",
+            "dependencies": [
+              3
+            ],
+            "description": "1. Add unit test for middleware using TestServer.\n2. Test cases:\n   a. Request with Referer header returns 200 \u2014 expect HTTP_REFERER tag present, no HTTP_RESPONSE_REDIRECT_LOCATION.\n   b. Request that returns 302 with Location header \u2014 expect both tags.\n   c. Missing headers \u2014 expect no tags, no exceptions.\n3. Assert using ActivityListener or OTLP exporter mocks.",
+            "validation_criteria": [
+              "All tests green in CI.",
+              "Code coverage > 80% for new middleware."
+            ]
+          },
+          {
+            "order": 5,
+            "name": "Manual validation in local & Demo",
+            "action": "manual_validation",
+            "dependencies": [
+              4
+            ],
+            "description": "1. Run CLM locally with OTLP exporter to console.\n2. Hit /clm/Documents/BrowseDocuments.aspx via browser with and without Referer.\n3. Trigger redirect flow via SSO endpoint to generate 302.\n4. Confirm console shows newly added attributes.\n5. Deploy feature branch to Demo slot and execute Kusto query provided in ticket\u2014verify columns populated.",
+            "validation_criteria": [
+              "Attributes appear in spans for both scenarios.",
+              "No missing or null mismatches in Kusto."
+            ]
+          },
+          {
+            "order": 6,
+            "name": "Performance & security review",
+            "action": "non_functional_checks",
+            "dependencies": [
+              5
+            ],
+            "description": "1. Run load test (baseline vs. branch) for 5k RPS, compare p95 latency; budget <1% regression.\n2. Confirm Referer and Location do not unintentionally expose PII; add `TelemetryDataClassification` comment or update data-map if required.",
+            "validation_criteria": [
+              "Performance delta within threshold.",
+              "Security/Privacy review approved."
+            ]
+          },
+          {
+            "order": 7,
+            "name": "PR & code review",
+            "action": "code_review",
+            "dependencies": [
+              6
+            ],
+            "description": "Open PR with reference to ticket, attach design note, test results, Kusto screenshots, and performance numbers.",
+            "validation_criteria": [
+              "At least two reviewer approvals.",
+              "CI pipeline green (build, unit tests, sonar)."
+            ]
+          },
+          {
+            "order": 8,
+            "name": "Deploy to all environments",
+            "action": "deployment",
+            "dependencies": [
+              7
+            ],
+            "description": "1. Merge to main; pipeline deploys to Dev \u2192 QA \u2192 Demo \u2192 Prod.\n2. Monitor Kusto dashboard for new attributes and any spike in Exceptions/Latency for 24h.\n3. Post deployment confirmation in #clm-ops channel.",
+            "validation_criteria": [
+              "New attributes visible in each environment.",
+              "No new high-severity alerts triggered."
+            ]
+          },
+          {
+            "order": 9,
+            "name": "Documentation update",
+            "action": "docs",
+            "dependencies": [
+              8
+            ],
+            "description": "1. Update internal wiki / runbooks explaining the two new span attributes, sample Kusto queries, and troubleshooting guide.\n2. Add entry to CHANGELOG.md under Unreleased \u2192 Released section.",
+            "validation_criteria": [
+              "Docs merged.",
+              "Search for attributes in wiki returns new page."
+            ]
+          }
+        ],
+        "contextual_hints": [
+          "Finding the single place where the root HTTP request Activity is created (could be default ASP.NET instrumentation, custom ActivitySource, or 3rd-party middleware)",
+          "Ensuring the Location header is available before the span ends for every redirect status code",
+          "Adding tags only once and avoiding duplication with any automatic ASP.NET OpenTelemetry instrumentation",
+          "Validating the change across multiple environments and in Kusto, including scenarios with and without redirect/Referer headers"
+        ],
+        "similar_patterns": [
+          "http_header_to_span_attribute",
+          "redirect_tracking"
+        ],
+        "implementation_strategy": {
+          "extend_existing": true,
+          "create_new": false,
+          "preferred_approach": "middleware"
+        },
+        "exact_requirements": {
+          "attribute_names": [
+            "HTTP_REFERER",
+            "HTTP_RESPONSE_REDIRECT_LOCATION",
+            "HTTP_REFERER",
+            "HTTP_RESPONSE_REDIRECT_LOCATION"
+          ],
+          "patterns": [
+            "kusto\nOtlpSpanEvents\n| where Environment == \"Demo\"\n| where url_path == \"/clm/Documents/BrowseDocuments.aspx\"\n| where http_status_code > 200\n| project Timestamp, url_path, http_status_code, HTTP_REFERER, HTTP_RESPONSE_REDIRECT_LOCATION\n",
+            "\n\n**Implementation Requirements:**\n\n1. **Add HTTP_REFERER attribute** to all incoming HTTP requests\n   - Source: ",
+            "\n   - Add to span as: ",
+            "\n\n2. **Add HTTP_RESPONSE_REDIRECT_LOCATION attribute** for redirect responses\n   - Source: ",
+            " when status code is 301/302/303/307/308\n   - Add to span as: "
+          ],
+          "implementation_notes": [
+            "SetTag(\"HTTP_RESPONSE_REDIRECT_LOCATION\", locationValue)`\n\n**Files to Look For:**\n- CLM web application middleware or request handling code\n- ASP",
+            "NET request pipeline components\n- OpenTelemetry instrumentation configuration\n- Files containing \"ActivitySource\", \"SetTag\", or \"AddTag\" method calls\n- Middleware files that handle HTTP requests/responses\n- Look for existing telemetry code in CLM-related projects\n\n**Acceptance Criteria:**\n- [ ] HTTP_REFERER attribute captured from incoming request headers\n- [ ] HTTP_RESPONSE_REDIRECT_LOCATION attribute captured for 302+ responses  \n- [ ] Attributes visible in OtlpSpanEvents Kusto table\n- [ ] No performance degradation from additional attribute collection\n- [ ] Proper null/empty value handling for missing headers\n\n**Technical Notes:**\n- Follow existing OpenTelemetry patterns in the codebase\n- Ensure attribute names match exactly: \"HTTP_REFERER\" and \"HTTP_RESPONSE_REDIRECT_LOCATION\"\n- Add attributes to HTTP request spans, not separate spans\n- Handle edge cases where headers might be missing or empty"
+          ]
+        },
+        "telemetry_analysis": null
+      },
+      "error": null,
+      "execution_time": 34.208401918411255,
+      "cache_hit": false
+    },
+    "project_parsing": {
+      "stage_name": "project_parsing",
+      "status": "StageStatus.COMPLETED",
+      "result": [
+        "/Users/shuaib.tabit/Documents/Atlas/src/ActIntegration\\ActIntegration.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/AdminService\\AdminService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/AdvancedInsightsService\\AdvancedInsightsService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/AdvancedInsightsService.IntegrationTests\\AdvancedInsightsService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/AgreementDefinitionModel\\AdmIntegration.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.ABAC.PDP\\API.ABAC.PDP.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.Allocation.IntegrationTests/API.Allocation.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.Allocation/API.Allocation.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.Authentication\\API.Authentication.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.Common\\API.Common.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.Content\\API.Content.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.Content.EndToEndTests\\API.Content.EndToEndTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.DocuSignInternal.Common\\API.DocuSignInternal.Common.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.DocuSignInternal.IntegrationTests\\API.DocuSignInternal.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.DocuSignInternal\\API.DocuSignInternal.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.GateKeeper.IntegrationTests/API.GateKeeper.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.GateKeeper\\API.GateKeeper.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.OpenSearch.EndToEndTests\\API.OpenSearch.EndToEndTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.OpenSearch\\API.OpenSearch.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.Provisioning.IntegrationTests/API.Provisioning.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.Provisioning\\API.Provisioning.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.SfGenAPI\\API.SfGenAPI.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.WebAPI\\API.WebAPI.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.WorkflowActivities\\API.WorkflowActivities.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.WorkflowActivities.IntegrationTests\\API.WorkflowActivities.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.WorkflowActivities.Client/API.WorkflowActivities.Client.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.WorkflowDesign\\API.WorkflowDesign.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.WorkflowDesign.IntegrationTests\\API.WorkflowDesign.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Atlas.Workflow.Activities\\Atlas.Workflow.Activities.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Atlas.Workflow.Client\\Atlas.Workflow.Client.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Atlas.Workflow.Readers\\Atlas.Workflow.Readers.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/AtlasDataManipulationService\\AtlasDataManipulationService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/AtlasDataManipulationService.IntegrationTests\\AtlasDataManipulationService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/AuthenticationApplication\\AuthenticationApplication.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/AuthenticationApplication.IntegrationTests\\AuthenticationApplication.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/AuthMaintenanceService\\AuthMaintenanceService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/AuthMaintenanceService.IntegrationTests\\AuthMaintenanceService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Automation.Toolkit.Tests\\Automation.Toolkit.Tests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ChatNotification\\ChatNotification.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/CodeRunner\\CodeRunner.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Collaboration.Core\\Collaboration.Core.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Collaboration.Infrastructure\\Collaboration.Infrastructure.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ConnectServiceIntegration\\ConnectServiceIntegration.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain.Testing\\Core.Domain.Testing.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain\\Core.Domain.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Core.ServiceFramework\\Core.ServiceFramework.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Core.ServiceFramework.Testing\\Core.ServiceFramework.Testing.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Core.Types\\Core.Types.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/CustomRules\\CustomRules.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/CustomRuleService\\CustomRuleService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/CustomRuleService.IntegrationTests\\CustomRuleService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService\\DetectTypeService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService.IntegrationTests\\DetectTypeService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/DocToPDFService\\DocToPDFService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/DocToPDFService.IntegrationTests\\DocToPDFService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/DocumentAssembly\\DocumentAssembly.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/DocumentCompareService\\DocumentCompareService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/DocumentCompareService.IntegrationTests\\DocumentCompareService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/DocumentCreation\\DocumentCreation.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/DocumentCreation.IntegrationTests\\DocumentCreation.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ElasticCore\\ElasticCore.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ElasticIndexing\\ElasticIndexing.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ElectronicSignature\\ElectronicSignature.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ESignatureService\\ESignatureService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ESignatureService.IntegrationTests\\ESignatureService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ETL\\ETL.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ExtractService\\ExtractService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ExtractService.IntegrationTests\\ExtractService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Fax\\Fax.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/FormGen\\FormGen.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/GenericEventProcessor\\GenericEventProcessor.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/GenericEventProcessor.IntegrationTests\\GenericEventProcessor.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/GraphQLCore\\GraphQLCore.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/HtmlService\\HtmlService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/InboundFax\\InboundFax.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/InteractivePreviewCore\\InteractivePreviewCore.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/MaintenanceService\\MaintenanceService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/MenuActions\\DocumentReviewMenuActions.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/MessageWorkerService\\MessageWorkerService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/NewsService\\NewsService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/NewsService.IntegrationTests\\NewsService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ObligationManagementIntegration\\ObligationManagementIntegration.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/OfficeWebAppsAPI.IntegrationTests/OfficeWebAppsAPI.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/OfficeWebAppsAPI\\OfficeWebAppsAPI.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/OneConfig.Testing\\OneConfig.Testing.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/OpenApiClients\\DacDocGenApiClient\\DacDocGenApiClient.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/OpenApiClients\\Doc2PdfApiClient\\Doc2PdfApiClient.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/OrchestrationIntegration\\OrchestrationIntegration.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/OutboundEmail\\OutboundEmail.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/OutboundEmail.IntegrationTests\\OutboundEmail.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/OutboundEvent\\OutboundEvent.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/OutboundEvent.IntegrationTests\\OutboundEvent.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/OutboundFax\\OutboundFax.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/OutboundHttpService\\OutboundHttpService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Packaging\\Packaging.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/PdfService\\PdfService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ProcessBuilder\\ProcessBuilder.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ProfileLogger\\ProfileLogger.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ProxyLayer\\ProxyLayer.Core\\ProxyLayer.Core.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ProxyLayer\\ProxyLayer.Infrastructure\\ProxyLayer.Infrastructure.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ReportingService\\ReportingService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ReportingService.IntegrationTests\\ReportingService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/REST.Authentication\\REST.Authentication.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/REST.Common\\REST.Common.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/REST.Content\\REST.Content.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/REST.WebServices\\REST.WebServices.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/RtmIntegration\\RtmIntegration.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/SANitationService\\SANitationService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/SForce.Core\\SForce.Core.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/SForce.Services\\SForce.Services.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/SFTPServer\\SFTPServer.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/SFTPServer.IntegrationTests\\SFTPServer.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/SharedTemplates\\SharedTemplates.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/SMTPServer\\SMTPServer.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/SMTPServer.IntegrationTests\\SMTPServer.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/StructuredDocumentService\\StructuredDocumentService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/StructuredDocumentService.IntegrationTests\\StructuredDocumentService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/TaskProcessor\\TaskProcessor.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/TreeService\\TreeService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/TreeService.IntegrationTests\\TreeService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/UserTaskList\\UserTaskList.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/VendorCallback\\VendorCallback.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common.Testing\\Web.Common.Testing.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common.Abstractions/Web.Common.Abstractions.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common.Resources/Web.Common.Resources.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common\\Web.Common.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common.AspNetCore/Web.Common.AspNetCore/Web.Common.AspNetCore.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Web.CommonUI.Abstractions\\Web.CommonUI.Abstractions.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Web.CommonUI.Resources/Web.CommonUI.Resources.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Web.CommonUI\\Web.CommonUI.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Web.CommonUI.AspNetCore\\Web.CommonUI.AspNetCore\\Web.CommonUI.AspNetCore.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Web.IntegrationTests\\Web.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Web.Testing\\Web.Testing.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Web\\Web.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/WebNet\\WebNet.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/WebNet.IntegrationTests\\WebNet.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/WebContent\\WebContent.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/WebShare\\WebShare.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/WebSoap\\WebSoap.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/WINS.Protocol\\WINS.Protocol.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/WINS\\WINS.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/CLM.Search\\dirs.proj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/WebSoap.EndToEndTests\\WebSoap.EndToEndTests.csproj"
+      ],
+      "error": null,
+      "execution_time": 0.0070650577545166016,
+      "cache_hit": false
+    },
+    "graph_building": {
+      "stage_name": "graph_building",
+      "status": "StageStatus.COMPLETED",
+      "result": {
+        "projects_count": 143,
+        "graph_loaded": true
+      },
+      "error": null,
+      "execution_time": 385.2623779773712,
+      "cache_hit": false
+    },
+    "intelligent_search": {
+      "stage_name": "intelligent_search",
+      "status": "StageStatus.COMPLETED",
+      "result": [
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/DetectTypeProcessor.Trace.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 100,
+          "reasoning": "Direct match for 'SetTag' (4 occurrences); Contains method call: SetTag (4 times)",
+          "matching_patterns": [
+            "SetTag"
+          ],
+          "context_snippets": [
+            "_serviceInstrumentation?.ActivitySource\n\t\t\t?.StartActivity($\"{InstrumentationNames.DetectTypeName}.{name}\")\n\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, name)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeMessageType, TraceSemanticConventions.MessageTypeValues.Received)\n\t\t\t?.SetTag(MqWorkersServiceTraceSemanticConventions.AttributeDocuSignMessageTaskName, nameof(TaskTypes.DetectTypeTask))\n\t\t\t?.SetMetricName(InstrumentationNames.DetectTypeName)",
+            "?.StartActivity($\"{InstrumentationNames.DetectTypeName}.{name}\")\n\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, name)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeMessageType, TraceSemanticConventions.MessageTypeValues.Received)\n\t\t\t?.SetTag(MqWorkersServiceTraceSemanticConventions.AttributeDocuSignMessageTaskName, nameof(TaskTypes.DetectTypeTask))\n\t\t\t?.SetMetricName(InstrumentationNames.DetectTypeName)\n\t\t\t?.SetQueueTaskTags(Task)",
+            "?.SetStatus(ActivityStatusCode.Error)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, name)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeMessageType, TraceSemanticConventions.MessageTypeValues.Received)\n\t\t\t?.SetTag(MqWorkersServiceTraceSemanticConventions.AttributeDocuSignMessageTaskName, nameof(TaskTypes.DetectTypeTask))\n\t\t\t?.SetMetricName(InstrumentationNames.DetectTypeName)\n\t\t\t?.SetQueueTaskTags(Task)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignFileDataId, DeserializedPayload.FileDataUid);",
+            "?.SetTag(MqWorkersServiceTraceSemanticConventions.AttributeDocuSignMessageTaskName, nameof(TaskTypes.DetectTypeTask))\n\t\t\t?.SetMetricName(InstrumentationNames.DetectTypeName)\n\t\t\t?.SetQueueTaskTags(Task)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignFileDataId, DeserializedPayload.FileDataUid);\n}\n#nullable restore"
+          ],
+          "confidence": 0.95
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/VideoInfoProcessor.Trace.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 100,
+          "reasoning": "Direct match for 'SetTag' (4 occurrences); Contains method call: SetTag (4 times)",
+          "matching_patterns": [
+            "SetTag"
+          ],
+          "context_snippets": [
+            "_serviceInstrumentation?.ActivitySource\n\t\t\t?.StartActivity($\"{InstrumentationNames.VideoInfoName}.{name}\")\n\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, name)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeMessageType, TraceSemanticConventions.MessageTypeValues.Received)\n\t\t\t?.SetTag(MqWorkersServiceTraceSemanticConventions.AttributeDocuSignMessageTaskName, nameof(TaskTypes.VideoInfoTask))\n\t\t\t?.SetMetricName(InstrumentationNames.VideoInfoName)",
+            "?.StartActivity($\"{InstrumentationNames.VideoInfoName}.{name}\")\n\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, name)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeMessageType, TraceSemanticConventions.MessageTypeValues.Received)\n\t\t\t?.SetTag(MqWorkersServiceTraceSemanticConventions.AttributeDocuSignMessageTaskName, nameof(TaskTypes.VideoInfoTask))\n\t\t\t?.SetMetricName(InstrumentationNames.VideoInfoName)\n\t\t\t?.SetQueueTaskTags(Task)",
+            "?.SetStatus(ActivityStatusCode.Error)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, name)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeMessageType, TraceSemanticConventions.MessageTypeValues.Received)\n\t\t\t?.SetTag(MqWorkersServiceTraceSemanticConventions.AttributeDocuSignMessageTaskName, nameof(TaskTypes.VideoInfoTask))\n\t\t\t?.SetMetricName(InstrumentationNames.VideoInfoName)\n\t\t\t?.SetQueueTaskTags(Task)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignDocumentId, DeserializedPayload.DocumentUid);",
+            "?.SetTag(MqWorkersServiceTraceSemanticConventions.AttributeDocuSignMessageTaskName, nameof(TaskTypes.VideoInfoTask))\n\t\t\t?.SetMetricName(InstrumentationNames.VideoInfoName)\n\t\t\t?.SetQueueTaskTags(Task)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignDocumentId, DeserializedPayload.DocumentUid);\n}\n#nullable restore"
+          ],
+          "confidence": 0.95
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/DetectTypeProcessor.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 100,
+          "reasoning": "Direct match for 'SetTag' (1 occurrences)",
+          "matching_patterns": [
+            "SetTag"
+          ],
+          "context_snippets": [
+            "Logger.InfoNoPII(Task.LastErrorMessage);\n\t\t\t\t\tresult.TaskResult = TaskResult.Success;\n\t\t\t\t\tactivity?.SetStatus(ActivityStatusCode.Ok)\n\t\t\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignDetectTypeMimeType, mimeType);\n\t\t\t\t}\n\t\t\t\tcatch (Exception e)\n\t\t\t\t{"
+          ],
+          "confidence": 0.95
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/MessageWorkerService/DispatchedWorker.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 100,
+          "reasoning": "Direct match for 'SetTag' (3 occurrences); Telemetry infrastructure: Import: DocuSign.CLM.Monitoring, Import: DocuSign.Monitoring, Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+          "matching_patterns": [
+            "Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+            "Pattern: OpenTelemetry",
+            "Pattern: StartActivity",
+            "Pattern: ActivitySource",
+            "Pattern: Monitoring",
+            "Import: DocuSign.Monitoring",
+            "SetTag",
+            "Import: var activity = StartActivity(task, corrToken)",
+            "Import: DocuSign.CLM.Monitoring",
+            "Pattern: Instrumentation"
+          ],
+          "context_snippets": [
+            "ActivityKind.Consumer,\n\t\t\t\t\tparentContext: correlationToken.ToActivityContext())\n\t\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeMessageType, TraceSemanticConventions.MessageTypeValues.Received)\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignMessageTaskName, TypeName)\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignMessageQueueType, ServiceTraceSemanticConventions.DocuSignMessageQueueTypeWorker)\n\t\t\t\t?.SetQueueTaskTags(task);",
+            "parentContext: correlationToken.ToActivityContext())\n\t\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeMessageType, TraceSemanticConventions.MessageTypeValues.Received)\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignMessageTaskName, TypeName)\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignMessageQueueType, ServiceTraceSemanticConventions.DocuSignMessageQueueTypeWorker)\n\t\t\t\t?.SetQueueTaskTags(task);\n\t}",
+            "?.SetStatus(ActivityStatusCode.Error)\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeMessageType, TraceSemanticConventions.MessageTypeValues.Received)\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignMessageTaskName, TypeName)\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignMessageQueueType, ServiceTraceSemanticConventions.DocuSignMessageQueueTypeWorker)\n\t\t\t\t?.SetQueueTaskTags(task);\n\t}\n}"
+          ],
+          "confidence": 0.95
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Engine/WorkflowInstance.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 100,
+          "reasoning": "Direct match for 'SetTag' (9 occurrences); Telemetry infrastructure: Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions, Import: var span = StartActivity()\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, instanceActivity.Uid), Import: var span = StartActivity()\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, instanceActivity?.Uid); Contains method call: SetTag (9 times)",
+          "matching_patterns": [
+            "Import: var span = StartActivity()\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, instanceActivity.Uid)",
+            "Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+            "Pattern: OpenTelemetry",
+            "Pattern: StartActivity",
+            "Pattern: ActivitySource",
+            "Import: var span = StartActivity()",
+            "SetTag",
+            "Pattern: Instrumentation",
+            "Import: var span = StartActivity()\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, instanceActivity?.Uid)"
+          ],
+          "context_snippets": [
+            "LastProcessDate = DateTime.UtcNow;\n\n\t\t\tusing var span = StartActivity()\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, instanceActivity.Uid);\n\n            IWINSActivity activity = _SafeGetActivity(instanceActivity);\n            if (activity == null) throw new ApplicationException(string.Format(\"Cannot find expected activity {0} in workflow map for instanceUid {1}\", instanceActivity.ActivityTypeName, Uid));",
+            "LastProcessDate = DateTime.UtcNow;\n\n\t\t\tusing var span = StartActivity()\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, instanceActivity?.Uid);\n\n            IWINSActivity activity = _SafeGetActivity(instanceActivity);\n            if (activity == null) return;",
+            "private Activity StartActivity([CallerMemberName] string name = \"\") => ServiceInstrumentation?.ActivitySource\n\t\t\t?.StartActivity($\"{nameof(WorkflowInstance)}.{name}\")\n\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t.SetTag(TraceSemanticConventions.AttributeCodeFunction, name)\n\t\t\t.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, _instance.AccountId)\n\t\t\t.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, _instance.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, _instance.Uid)",
+            "?.StartActivity($\"{nameof(WorkflowInstance)}.{name}\")\n\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t.SetTag(TraceSemanticConventions.AttributeCodeFunction, name)\n\t\t\t.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, _instance.AccountId)\n\t\t\t.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, _instance.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, _instance.Uid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, _instance.VersionUid)",
+            "?.SetStatus(ActivityStatusCode.Error)\n\t\t\t.SetTag(TraceSemanticConventions.AttributeCodeFunction, name)\n\t\t\t.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, _instance.AccountId)\n\t\t\t.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, _instance.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, _instance.Uid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, _instance.VersionUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, _instance.RevisionUid)",
+            ".SetTag(TraceSemanticConventions.AttributeCodeFunction, name)\n\t\t\t.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, _instance.AccountId)\n\t\t\t.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, _instance.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, _instance.Uid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, _instance.VersionUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, _instance.RevisionUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowDefinitionUid, _instance.DefinitionUid);",
+            ".SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, _instance.AccountId)\n\t\t\t.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, _instance.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, _instance.Uid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, _instance.VersionUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, _instance.RevisionUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowDefinitionUid, _instance.DefinitionUid);",
+            ".SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, _instance.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, _instance.Uid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, _instance.VersionUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, _instance.RevisionUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowDefinitionUid, _instance.DefinitionUid);\n\n\t\tprivate void CheckAndHandleInstanceStateChanges()",
+            ".SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, _instance.Uid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, _instance.VersionUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, _instance.RevisionUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowDefinitionUid, _instance.DefinitionUid);\n\n\t\tprivate void CheckAndHandleInstanceStateChanges()\n\t\t{"
+          ],
+          "confidence": 0.95
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Service/V1/WinsService.Trace.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 100,
+          "reasoning": "Direct match for 'SetTag' (1 occurrences)",
+          "matching_patterns": [
+            "SetTag"
+          ],
+          "context_snippets": [
+            "private Activity? StartActivity([CallerMemberName] string name = \"\") => _serviceInstrumentation?.ActivitySource\n                ?.StartActivity($\"{nameof(WinsService)}.{name}\")\n                ?.SetStatus(ActivityStatusCode.Error)\n                ?.SetTag(TraceSemanticConventions.AttributeCodeFunction, name);\n}\n\n#nullable restore"
+          ],
+          "confidence": 0.95
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Service/V1/WinsService.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 100,
+          "reasoning": "Direct match for 'SetTag' (54 occurrences); Telemetry infrastructure: Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions, Import: OpenTelemetry.Trace, Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId); Contains method call: SetTag (54 times)",
+          "matching_patterns": [
+            "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid)",
+            "Pattern: StartActivity",
+            "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, request.RevisionUid)",
+            "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, request.Revision.Uid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, request.Revision.VersionUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowDefinitionUid, request.Revision.DefinitionUid)",
+            "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid)",
+            "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)",
+            "Pattern: AddTag",
+            "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, request.SourceVersionUid)",
+            "Pattern: Instrumentation",
+            "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkItemUid, request.WorkItemUid)",
+            "Pattern: OpenTelemetry",
+            "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, request.RevisionUid)",
+            "Import: OpenTelemetry.Trace",
+            "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, request.RevisionUid)",
+            "Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+            "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, request.Version.Uid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowDefinitionUid, request.Version.DefinitionUid)",
+            "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, request.ActivityUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowSourceInstanceUid, request.SourceInstanceUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowSourceActivityUid, request.SourceActivityUid)",
+            "SetTag",
+            "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, request.VersionUid)",
+            "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, request.ActivityUid)"
+          ],
+          "context_snippets": [
+            "ValidateUser(request?.User);\n\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId);\n\n\t\tValidateWorkflowName(request!.WorkflowName);\n\t\tValidateAndParseUserUid(request.User.Uid, request.User.AccountId, out var userAccountUid);",
+            "ValidateUser(request?.User);\n\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId);\n\n\t\tValidateWorkflowName(request!.WorkflowName);\n\t\tValidateAndParseUserUid(request.User.Uid, request.User.AccountId, out var userAccountUid);",
+            "ValidateUser(request?.User);\n\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId);\n\n\t\tValidateWorkflowName(request!.WorkflowName);\n\t\tValidateAndParseUserUid(request.User.Uid, request.User.AccountId, out var userAccountUid);",
+            "ValidateUser(request?.User);\n\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, request.VersionUid);\n\n\t\tif (!Guid.TryParse(request!.VersionUid, out var versionUid))",
+            "using var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, request.VersionUid);\n\n\t\tif (!Guid.TryParse(request!.VersionUid, out var versionUid))\n\t\t{",
+            "ValidateUser(request?.User);\n\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId);\n\n\t\tValidateWorkflowName(request!.WorkflowName);\n\t\tValidateAndParseUserUid(request.User.Uid, request.User.AccountId, out var userAccountUid);",
+            "ValidateUser(request?.User);\n\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, request.SourceVersionUid);\n\n\t\tif (!Guid.TryParse(request!.SourceVersionUid, out var sourceVersionUid))",
+            "using var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, request.SourceVersionUid);\n\n\t\tif (!Guid.TryParse(request!.SourceVersionUid, out var sourceVersionUid))\n\t\t{",
+            "ValidateUser(request?.User);\n\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId);\n\n\t\tValidateWorkflowName(request!.WorkflowName);\n\t\tValidateAndParseUserUid(request.User.Uid, request.User.AccountId, out var userAccountUid);",
+            "ValidateUser(request?.User);\n\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid);\n\n\t\tif (!Guid.TryParse(request!.InstanceUid, out var instanceUid))",
+            "using var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid);\n\n\t\tif (!Guid.TryParse(request!.InstanceUid, out var instanceUid))\n\t\t{",
+            "ValidateUser(request?.User);\n\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid);\n\n\t\tif (!Guid.TryParse(request!.InstanceUid, out var instanceUid))",
+            "using var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid);\n\n\t\tif (!Guid.TryParse(request!.InstanceUid, out var instanceUid))\n\t\t{",
+            "ValidateUser(request?.User);\n\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid);\n\n\t\tValidateAndParseUserUid(request!.User.Uid, request.User.AccountId, out var userAccountUid);",
+            "using var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid);\n\n\t\tValidateAndParseUserUid(request!.User.Uid, request.User.AccountId, out var userAccountUid);",
+            "ValidateUser(request?.User);\n\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid);\n\n\t\tValidateAndParseUserUid(request!.User.Uid, request.User.AccountId, out var userAccountUid);",
+            "using var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid);\n\n\t\tValidateAndParseUserUid(request!.User.Uid, request.User.AccountId, out var userAccountUid);",
+            "ServerCallContext context)\n\t{\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, request.ActivityUid);",
+            "{\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, request.ActivityUid);\n\n\t\tif (!Guid.TryParse(request.InstanceUid, out var instanceUid))",
+            "using var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, request.ActivityUid);\n\n\t\tif (!Guid.TryParse(request.InstanceUid, out var instanceUid))\n\t\t{",
+            "ValidateUser(request?.User);\n\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId);\n\n\t\tValidateAndParseUserUid(request!.User.Uid, request.User.AccountId, out var userAccountUid);",
+            "request.XmlParam);\n\n\t\t\tactivity?.SetStatus(ActivityStatusCode.Ok)\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, instanceUid);\n\t\t\treturn Task.FromResult(new StartWorkflowResponse {InstanceUid = instanceUid.ToString()});\n\t\t}\n\t\tcatch (ArgumentException argEx)",
+            "ValidateUser(request?.User);\n\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid);\n\n\t\tValidateWorkflowName(request!.WorkflowName);",
+            "using var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid);\n\n\t\tValidateWorkflowName(request!.WorkflowName);\n\t\tValidateAndParseUserUid(request.User.Uid, request.User.AccountId, out var userAccountUid);",
+            "ValidateUser(request?.StartParameters?.Submitter);\n\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, request.RevisionUid);",
+            "using var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, request.RevisionUid);\n\n\t\tif (!Guid.TryParse(request!.InstanceUid, out var instanceUid))",
+            "using var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, request.RevisionUid);\n\n\t\tif (!Guid.TryParse(request!.InstanceUid, out var instanceUid))\n\t\t{",
+            "ValidateUser(request?.User);\n\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, request.RevisionUid);\n\n\t\tif (!Guid.TryParse(request!.RevisionUid, out var revisionUid))",
+            "using var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, request.RevisionUid);\n\n\t\tif (!Guid.TryParse(request!.RevisionUid, out var revisionUid))\n\t\t{",
+            "request.XmlParam);\n\n\t\t\tactivity?.SetStatus(ActivityStatusCode.Ok)\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, instanceUid);\n\t\t\treturn Task.FromResult(new StartRoutingApprovalWorkflowResponse {InstanceUid = instanceUid.ToString()});\n\t\t}\n\t\tcatch (ArgumentException argEx)",
+            "ValidateUser(request?.User);\n\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId);\n\n\t\tValidateWorkflowName(request!.WorkflowName);\n\t\tValidateAndParseUserUid(request.User.Uid, request.User.AccountId, out var userAccountUid);",
+            "request.XmlParam);\n\n\t\t\tactivity?.SetStatus(ActivityStatusCode.Ok)\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, instanceUid);\n\n\t\t\treturn Task.FromResult(new SendStartWorkflowResponse {InstanceUid = instanceUid.ToString()});\n\t\t}",
+            "ValidateUser(request?.User);\n\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkItemUid, request.WorkItemUid);\n\n\t\tif (!Guid.TryParse(request!.WorkItemUid, out var workItemUid))",
+            "using var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkItemUid, request.WorkItemUid);\n\n\t\tif (!Guid.TryParse(request!.WorkItemUid, out var workItemUid))\n\t\t{",
+            "ValidateUser(request?.User);\n\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, request.Version.Uid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowDefinitionUid, request.Version.DefinitionUid);",
+            "using var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, request.Version.Uid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowDefinitionUid, request.Version.DefinitionUid);\n\n\t\tValidateAndParseUserUid(request!.User.Uid, request.User.AccountId, out var userAccountUid);",
+            "using var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, request.Version.Uid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowDefinitionUid, request.Version.DefinitionUid);\n\n\t\tValidateAndParseUserUid(request!.User.Uid, request.User.AccountId, out var userAccountUid);",
+            "ValidateUser(request?.User);\n\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, request.Revision.Uid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, request.Revision.VersionUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowDefinitionUid, request.Revision.DefinitionUid);",
+            "using var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, request.Revision.Uid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, request.Revision.VersionUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowDefinitionUid, request.Revision.DefinitionUid);",
+            "using var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, request.Revision.Uid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, request.Revision.VersionUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowDefinitionUid, request.Revision.DefinitionUid);\n\n\t\tValidateAndParseUserUid(request!.User.Uid, request.User.AccountId, out var userAccountUid);",
+            "?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, request.Revision.Uid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, request.Revision.VersionUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowDefinitionUid, request.Revision.DefinitionUid);\n\n\t\tValidateAndParseUserUid(request!.User.Uid, request.User.AccountId, out var userAccountUid);",
+            "ValidateUser(request?.User);\n\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId);\n\n\t\tValidateAndParseUserUid(request!.User.Uid, request.User.AccountId, out var userAccountUid);",
+            "ValidateUser(request?.User);\n\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId);\n\n\t\tValidateAndParseUserUid(request!.User.Uid, request.User.AccountId, out var userAccountUid);",
+            "ValidateUser(request?.User);\n\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, request.ActivityUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowSourceInstanceUid, request.SourceInstanceUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowSourceActivityUid, request.SourceActivityUid);",
+            "using var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, request.ActivityUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowSourceInstanceUid, request.SourceInstanceUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowSourceActivityUid, request.SourceActivityUid);",
+            "using var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, request.ActivityUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowSourceInstanceUid, request.SourceInstanceUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowSourceActivityUid, request.SourceActivityUid);\n\n\t\tValidateAndParseUserUid(request!.User.Uid, request.User.AccountId, out var userAccountUid);",
+            "?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, request.ActivityUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowSourceInstanceUid, request.SourceInstanceUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowSourceActivityUid, request.SourceActivityUid);\n\n\t\tValidateAndParseUserUid(request!.User.Uid, request.User.AccountId, out var userAccountUid);",
+            "ValidateUser(request?.User);\n\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, request.ActivityUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowSourceInstanceUid, request.SourceInstanceUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowSourceActivityUid, request.SourceActivityUid);",
+            "using var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, request.ActivityUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowSourceInstanceUid, request.SourceInstanceUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowSourceActivityUid, request.SourceActivityUid);",
+            "using var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, request.ActivityUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowSourceInstanceUid, request.SourceInstanceUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowSourceActivityUid, request.SourceActivityUid);\n\n\t\tValidateAndParseUserUid(request!.User.Uid, request.User.AccountId, out var userAccountUid);",
+            "?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, request.ActivityUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowSourceInstanceUid, request.SourceInstanceUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowSourceActivityUid, request.SourceActivityUid);\n\n\t\tValidateAndParseUserUid(request!.User.Uid, request.User.AccountId, out var userAccountUid);",
+            "ServerCallContext context)\n\t{\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, request.RevisionUid);",
+            "{\n\t\tusing var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, request.RevisionUid);\n\n\t\tif (!Guid.TryParse(request!.InstanceUid, out var instanceUid))",
+            "using var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, request.RevisionUid);\n\n\t\tif (!Guid.TryParse(request!.InstanceUid, out var instanceUid))\n\t\t{"
+          ],
+          "confidence": 0.95
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/Profile/ProfileModule.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 100,
+          "reasoning": "Direct match for 'SetTag' (1 occurrences)",
+          "matching_patterns": [
+            "SetTag"
+          ],
+          "context_snippets": [
+            "private void OnPostRequestHandlerExecute(object sender, EventArgs e)\n\t\t{\n\t\t\tActivity.Current?.SetTagsWithCommonFields(HttpContext.Current);\n\t\t\tLogSessionSize(HttpContext.Current?.Session);\n\t\t\t_performanceLog.SetSession(HttpContext.Current?.Session);\n\t\t}"
+          ],
+          "confidence": 0.95
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/Helpers/BaseApiHandler.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 100,
+          "reasoning": "Direct match for 'SetTag' (1 occurrences)",
+          "matching_patterns": [
+            "SetTag"
+          ],
+          "context_snippets": [
+            "try\n\t\t{\n\t\t\tPopulateFeatureFlagContext(AtlasContext.Current.UserAccount, context);\n\t\t\tActivity.Current?.SetTagsWithCommonFields(context);\n\t\t}\n\t\tcatch (Exception ex)\n\t\t{"
+          ],
+          "confidence": 0.95
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/Session/RedisSessionStateProviderWrapper.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 100,
+          "reasoning": "Direct match for 'SetTag' (1 occurrences); Telemetry infrastructure: Import: DocuSign.CLM.Monitoring, Import: DocuSign.Monitoring, Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+          "matching_patterns": [
+            "Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+            "Pattern: OpenTelemetry",
+            "Import: var activity = StartActivity()\n\t\t\t\t?.SetStatus(ActivityStatusCode.Ok)",
+            "Pattern: StartActivity",
+            "Pattern: ActivitySource",
+            "Pattern: Instrumentation",
+            "Pattern: Monitoring",
+            "Import: DocuSign.Monitoring",
+            "Import: var activity = StartActivity()",
+            "SetTag",
+            "Import: OpenTelemetry.Context.Propagation",
+            "Import: OpenTelemetry.Trace",
+            "Import: DocuSign.CLM.Monitoring",
+            "Import: OpenTelemetry.Instrumentation.AspNet"
+          ],
+          "context_snippets": [
+            "private Activity StartActivity([CallerMemberName] string name = \"\") =>\n\t\t\tSessionStateProviderActivitySource\n\t\t\t\t.StartActivity($\"{nameof(RedisSessionStateProviderWrapper)}.{name}\")\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, name);\n\n\t\t#endregion\n\t}"
+          ],
+          "confidence": 0.95
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/MimeLookup/MimeDetectorWindows.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 100,
+          "reasoning": "Direct match for 'SetTag' (3 occurrences); Telemetry infrastructure: Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions, Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics.Extensions, Import: var activity = StartActivity()",
+          "matching_patterns": [
+            "Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+            "Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics.Extensions",
+            "Pattern: OpenTelemetry",
+            "Pattern: StartActivity",
+            "Pattern: ActivitySource",
+            "Pattern: Metrics",
+            "Import: var activity = StartActivity()",
+            "SetTag",
+            "Pattern: Instrumentation"
+          ],
+          "context_snippets": [
+            "{\n\t\t\tvar result = MimeLookup.GetMimeType(filePath);\n\t\t\tactivity?.SetStatus(ActivityStatusCode.Ok)\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignDetectTypeMimeType, result);\n\t\t\treturn result;\n\t\t}\n\t\tcatch (Exception ex) when (ex.TraceAndIgnore(activity, ActivityStatusCode.Error))",
+            "_serviceInstrumentation?.ActivitySource\n\t\t\t?.StartActivity($\"{InstrumentationNames.MimeDetector}.{name}\")\n\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, name)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignDetectTypeMimeDetectorType, nameof(MimeDetectiveType.UrlMon))\n\t\t\t?.SetMetricName(InstrumentationNames.MimeDetector);",
+            "?.StartActivity($\"{InstrumentationNames.MimeDetector}.{name}\")\n\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, name)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignDetectTypeMimeDetectorType, nameof(MimeDetectiveType.UrlMon))\n\t\t\t?.SetMetricName(InstrumentationNames.MimeDetector);\n\n\tstatic class MimeLookup"
+          ],
+          "confidence": 0.95
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/MimeLookup/MimeDetectorCrossPlatform.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 100,
+          "reasoning": "Direct match for 'SetTag' (3 occurrences)",
+          "matching_patterns": [
+            "SetTag"
+          ],
+          "context_snippets": [
+            "using var stream = File.OpenRead(filePath);\n\t\t\tvar result = MimeGuesser.GuessMimeType(stream);\n\t\t\tactivity?.SetStatus(ActivityStatusCode.Ok)\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignDetectTypeMimeType, result);\n\t\t\treturn result;\n\t\t}\n\t\tcatch (Exception ex) when (ex.TraceAndIgnore(activity, ActivityStatusCode.Error))",
+            "_serviceInstrumentation?.ActivitySource\n\t\t\t?.StartActivity($\"{InstrumentationNames.MimeDetector}.{name}\")\n\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, name)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignDetectTypeMimeDetectorType, nameof(MimeDetectiveType.MimeGuesser))\n\t\t\t?.SetMetricName(InstrumentationNames.MimeDetector);\n}",
+            "?.StartActivity($\"{InstrumentationNames.MimeDetector}.{name}\")\n\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, name)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignDetectTypeMimeDetectorType, nameof(MimeDetectiveType.MimeGuesser))\n\t\t\t?.SetMetricName(InstrumentationNames.MimeDetector);\n}\n#nullable restore"
+          ],
+          "confidence": 0.95
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/VideoInfo/VideoInfo.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 100,
+          "reasoning": "Direct match for 'SetTag' (5 occurrences); Contains method call: SetTag (5 times)",
+          "matching_patterns": [
+            "SetTag"
+          ],
+          "context_snippets": [
+            "_serviceInstrumentation?.ActivitySource\n\t\t\t\t?.StartActivity($\"{InstrumentationNames.MediaInfo}.{name}\")\n\t\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, name)\n\t\t\t\t?.SetMetricName(InstrumentationNames.MediaInfo);\n\n\t\tprivate Activity SetVideoInfoTags(Activity activity, VideoInfoModel videoInfoModel) =>",
+            "private Activity SetVideoInfoTags(Activity activity, VideoInfoModel videoInfoModel) =>\n\t\t\tactivity\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignVideoInfoWidth, videoInfoModel.Width)\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignVideoInfoHeight, videoInfoModel.Height)\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignVideoInfoDuration, videoInfoModel.Duration)\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignVideoInfoCodec, videoInfoModel.Codec);",
+            "private Activity SetVideoInfoTags(Activity activity, VideoInfoModel videoInfoModel) =>\n\t\t\tactivity\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignVideoInfoWidth, videoInfoModel.Width)\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignVideoInfoHeight, videoInfoModel.Height)\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignVideoInfoDuration, videoInfoModel.Duration)\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignVideoInfoCodec, videoInfoModel.Codec);\n\t}",
+            "activity\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignVideoInfoWidth, videoInfoModel.Width)\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignVideoInfoHeight, videoInfoModel.Height)\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignVideoInfoDuration, videoInfoModel.Duration)\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignVideoInfoCodec, videoInfoModel.Codec);\n\t}\n}",
+            "?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignVideoInfoWidth, videoInfoModel.Width)\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignVideoInfoHeight, videoInfoModel.Height)\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignVideoInfoDuration, videoInfoModel.Duration)\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignVideoInfoCodec, videoInfoModel.Codec);\n\t}\n}"
+          ],
+          "confidence": 0.95
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/Extensions/Telemetry/ActivityExtensions.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 100,
+          "reasoning": "Direct match for 'SetTag' (6 occurrences); Contains method call: SetTag (6 times)",
+          "matching_patterns": [
+            "SetTag"
+          ],
+          "context_snippets": [
+            "where T : IQueueTask\n\t\t=>\n\t\tactivity\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeMessageId, task.MessageId)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, task.AccountId)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeMessagingConversationId, task.CorrelationId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignMessageUniqueId, task.UniqueId);",
+            "=>\n\t\tactivity\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeMessageId, task.MessageId)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, task.AccountId)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeMessagingConversationId, task.CorrelationId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignMessageUniqueId, task.UniqueId);",
+            "activity\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeMessageId, task.MessageId)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, task.AccountId)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeMessagingConversationId, task.CorrelationId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignMessageUniqueId, task.UniqueId);\n\n\tpublic static Activity? SetQueueTaskResultTags<T>(this Activity? activity, T task, ProcessTaskResult result)",
+            "?.SetTag(TraceSemanticConventions.AttributeMessageId, task.MessageId)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, task.AccountId)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeMessagingConversationId, task.CorrelationId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignMessageUniqueId, task.UniqueId);\n\n\tpublic static Activity? SetQueueTaskResultTags<T>(this Activity? activity, T task, ProcessTaskResult result)\n\t\twhere T : IQueueTask",
+            "where T : IQueueTask\n\t\t=>\n\t\t\tactivity\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignMessageResultMessage, result.Message)\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignMessageLastErrorMessage, task.LastErrorMessage);\n}\n#nullable restore",
+            "=>\n\t\t\tactivity\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignMessageResultMessage, result.Message)\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignMessageLastErrorMessage, task.LastErrorMessage);\n}\n#nullable restore"
+          ],
+          "confidence": 0.95
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/API.GateKeeper/Middlewares/LogAsyncRequestHttpMiddleware.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 100,
+          "reasoning": "Direct match for 'SetTag' (1 occurrences)",
+          "matching_patterns": [
+            "SetTag"
+          ],
+          "context_snippets": [
+            "try\n\t\t{\n\t\t\tcontext.AddKazMonServerVariables();\n\t\t\tactivity?.SetTagsWithCommonFields(context);\n\t\t\tawait base.Invoke(context);\n\t\t\tactivity?.SetStatus(context?.Response.StatusCode < 400 ? ActivityStatusCode.Ok : ActivityStatusCode.Error);\n\t\t}"
+          ],
+          "confidence": 0.95
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/WebNet/Middlewares/LogAsyncRequestHttpMiddleware.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 100,
+          "reasoning": "Direct match for 'SetTag' (1 occurrences); Matches 2 keywords: OpenTelemetry, middleware",
+          "matching_patterns": [
+            "SetTag",
+            "OpenTelemetry",
+            "middleware"
+          ],
+          "context_snippets": [
+            "try\n\t\t{\n\t\t\tcontext.AddKazMonServerVariables();\n\t\t\tactivity?.SetTagsWithCommonFields(context);\n\t\t\tawait base.Invoke(context);\n\t\t\tactivity?.SetStatus(context?.Response.StatusCode < 400 ? ActivityStatusCode.Ok : ActivityStatusCode.Error);\n\t\t}"
+          ],
+          "confidence": 0.95
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/API.WorkflowActivities/Program.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 100,
+          "reasoning": "Telemetry infrastructure: Import: DocuSign.CLM.API.WorkflowActivities.Infrastructure.Telemetry.Metrics.MetricsEmitters, Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics, Import: OpenTelemetry.Metrics; Matches 2 keywords: OpenTelemetry, middleware",
+          "matching_patterns": [
+            "Pattern: OpenTelemetry",
+            "Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics",
+            "OpenTelemetry",
+            "Import: OpenTelemetry.Metrics",
+            "Pattern: Metrics",
+            "middleware",
+            "Import: DocuSign.CLM.API.WorkflowActivities.Infrastructure.Telemetry.Metrics.MetricsEmitters",
+            "Pattern: Instrumentation",
+            "Config file: program.cs"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/ScmHttpApplication.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 100,
+          "reasoning": "Telemetry infrastructure: Import: DocuSign.CLM.Monitoring, Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions, Import: OpenTelemetry.Metrics",
+          "matching_patterns": [
+            "Import: DocuSign.CLM.Monitoring",
+            "Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+            "Import: OpenTelemetry.Metrics",
+            "Import: OpenTelemetry.Trace",
+            "Pattern: OpenTelemetry",
+            "Pattern: Instrumentation",
+            "Pattern: Monitoring",
+            "Pattern: Metrics",
+            "Pattern: UseOpenTelemetry"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/AtlasDataManipulationService/Startup.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 100,
+          "reasoning": "Telemetry infrastructure: Import: ADEXS.Caching.OpenTelemetry.Extensions, Import: ADEXS.CqlCorePersistence.OpenTelemetry, Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics.Extensions",
+          "matching_patterns": [
+            "Import: ADEXS.Caching.OpenTelemetry.Extensions",
+            "Import: ADEXS.CqlCorePersistence.OpenTelemetry",
+            "Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics.Extensions",
+            "Import: DocuSign.Msf.AspNet.OpenTelemetry",
+            "Import: OpenTelemetry.Exporter",
+            "Import: OpenTelemetry.Metrics",
+            "Import: OpenTelemetry.Trace",
+            "Pattern: OpenTelemetry",
+            "Pattern: Instrumentation",
+            "Pattern: Metrics",
+            "Pattern: ConfigureServices",
+            "Config file: startup.cs"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Core.ServiceFramework/ICoreInstrumentationLifetimeService.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 100,
+          "reasoning": "Telemetry infrastructure: Import: OpenTelemetry.Metrics, Import: OpenTelemetry.Trace, Pattern: OpenTelemetry",
+          "matching_patterns": [
+            "Import: OpenTelemetry.Metrics",
+            "Import: OpenTelemetry.Trace",
+            "Pattern: OpenTelemetry",
+            "Pattern: Instrumentation",
+            "Pattern: Metrics",
+            "Pattern: TracerProvider",
+            "Pattern: MeterProvider",
+            "Config file: icoreinstrumentationlifetimeservice.cs"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Core.ServiceFramework/CoreInstrumentationLifetimeService.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 100,
+          "reasoning": "Telemetry infrastructure: Import: ADEXS.ServiceFramework.OpenTelemetry.Extensions, Import: OpenTelemetry.Metrics, Import: OpenTelemetry.Trace",
+          "matching_patterns": [
+            "Import: ADEXS.ServiceFramework.OpenTelemetry.Extensions",
+            "Import: OpenTelemetry.Metrics",
+            "Import: OpenTelemetry.Trace",
+            "Pattern: OpenTelemetry",
+            "Pattern: Instrumentation",
+            "Pattern: Metrics",
+            "Pattern: TracerProvider",
+            "Pattern: MeterProvider",
+            "Config file: coreinstrumentationlifetimeservice.cs"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Web/DocExplorer/Controllers/PanelControllers/AttributesController.cs",
+          "strategy": "SearchStrategy.STRUCTURAL",
+          "relevance_score": 100,
+          "reasoning": "Contains method call: SetTag (15 times)",
+          "matching_patterns": [
+            "SetTag"
+          ],
+          "context_snippets": [
+            "using var saveActivity = _serviceInstrumentation?.ActivitySource\n\t\t\t\t?.StartActivity(nameof(SaveAttributes))\n\t\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, nameof(SaveAttributes));\n\t\t\tsaveActivity?.SetTagsWithCommonFields(System.Web.HttpContext.Current);\n\n\t\t\tvar stopwatch = Stopwatch.StartNew();",
+            "?.StartActivity(nameof(SaveAttributes))\n\t\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, nameof(SaveAttributes));\n\t\t\tsaveActivity?.SetTagsWithCommonFields(System.Web.HttpContext.Current);\n\n\t\t\tvar stopwatch = Stopwatch.StartNew();\n\t\t\tvar statusMessages = new Messages();",
+            "{\n\t\t\t\tattrvm = WebUtility.HtmlDecode(attrvm);\n\t\t\t\tvar attributes = attrvm.ToObject<AttributesViewModel>();\n\t\t\t\tsaveActivity?.SetTag(\"docusign.document.id\", attributes.docUid);\n\n\t\t\t\tvar document = LoadAndValidateDocument(attributes.docUid);",
+            "using var loadActivity = _serviceInstrumentation?.ActivitySource\n\t\t\t\t?.StartActivity(nameof(LoadAttributes))\n\t\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, nameof(LoadAttributes))\n\t\t\t\t?.SetTag(\"docusign.document.id\", docUid);\n\t\t\tloadActivity?.SetTagsWithCommonFields(System.Web.HttpContext.Current);",
+            "?.StartActivity(nameof(LoadAttributes))\n\t\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, nameof(LoadAttributes))\n\t\t\t\t?.SetTag(\"docusign.document.id\", docUid);\n\t\t\tloadActivity?.SetTagsWithCommonFields(System.Web.HttpContext.Current);\n\n\t\t\tvar statusMessages = new Messages();",
+            "?.SetStatus(ActivityStatusCode.Error)\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, nameof(LoadAttributes))\n\t\t\t\t?.SetTag(\"docusign.document.id\", docUid);\n\t\t\tloadActivity?.SetTagsWithCommonFields(System.Web.HttpContext.Current);\n\n\t\t\tvar statusMessages = new Messages();\n\t\t\tif (!HasSufficientRightsToView())",
+            "using var loadGroupSchemaActivity = _serviceInstrumentation?.ActivitySource\n\t\t\t\t?.StartActivity(nameof(LoadGroupSchema))\n\t\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, nameof(LoadGroupSchema))\n\t\t\t\t?.SetTag(\"docusign.document.id\", docUid);\n\t\t\tloadGroupSchemaActivity?.SetTagsWithCommonFields(System.Web.HttpContext.Current);",
+            "?.StartActivity(nameof(LoadGroupSchema))\n\t\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, nameof(LoadGroupSchema))\n\t\t\t\t?.SetTag(\"docusign.document.id\", docUid);\n\t\t\tloadGroupSchemaActivity?.SetTagsWithCommonFields(System.Web.HttpContext.Current);\n\n\t\t\tvar statusMessages = new Messages();",
+            "?.SetStatus(ActivityStatusCode.Error)\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, nameof(LoadGroupSchema))\n\t\t\t\t?.SetTag(\"docusign.document.id\", docUid);\n\t\t\tloadGroupSchemaActivity?.SetTagsWithCommonFields(System.Web.HttpContext.Current);\n\n\t\t\tvar statusMessages = new Messages();\n\t\t\ttry",
+            "using var refreshActivity = _serviceInstrumentation?.ActivitySource\n\t\t\t\t?.StartActivity(nameof(Refresh))\n\t\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, nameof(Refresh))\n\t\t\t\t?.SetTag(\"docusign.document.id\", docUid);\n\t\t\trefreshActivity?.SetTagsWithCommonFields(System.Web.HttpContext.Current);",
+            "?.StartActivity(nameof(Refresh))\n\t\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, nameof(Refresh))\n\t\t\t\t?.SetTag(\"docusign.document.id\", docUid);\n\t\t\trefreshActivity?.SetTagsWithCommonFields(System.Web.HttpContext.Current);\n\n\t\t\tvar statusMessages = new Messages();",
+            "?.SetStatus(ActivityStatusCode.Error)\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, nameof(Refresh))\n\t\t\t\t?.SetTag(\"docusign.document.id\", docUid);\n\t\t\trefreshActivity?.SetTagsWithCommonFields(System.Web.HttpContext.Current);\n\n\t\t\tvar statusMessages = new Messages();",
+            "using var loadCascadingDropdownOptionsActivity = _serviceInstrumentation?.ActivitySource\n\t\t\t\t?.StartActivity(nameof(LoadCascadingDropdownOptions))\n\t\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, nameof(LoadCascadingDropdownOptions))\n\t\t\t\t?.SetTag(\"docusign.document.id\", docUid);\n\t\t\tloadCascadingDropdownOptionsActivity?.SetTagsWithCommonFields(System.Web.HttpContext.Current);",
+            "?.StartActivity(nameof(LoadCascadingDropdownOptions))\n\t\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, nameof(LoadCascadingDropdownOptions))\n\t\t\t\t?.SetTag(\"docusign.document.id\", docUid);\n\t\t\tloadCascadingDropdownOptionsActivity?.SetTagsWithCommonFields(System.Web.HttpContext.Current);\n\n\t\t\tvar statusMessages = new Messages();",
+            "?.SetStatus(ActivityStatusCode.Error)\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, nameof(LoadCascadingDropdownOptions))\n\t\t\t\t?.SetTag(\"docusign.document.id\", docUid);\n\t\t\tloadCascadingDropdownOptionsActivity?.SetTagsWithCommonFields(System.Web.HttpContext.Current);\n\n\t\t\tvar statusMessages = new Messages();\n\t\t\ttry"
+          ],
+          "confidence": 0.9
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Web.CommonUI/MVC/Controls/FormExtensions.cs",
+          "strategy": "SearchStrategy.STRUCTURAL",
+          "relevance_score": 100,
+          "reasoning": "Contains method call: SetTag (10 times)",
+          "matching_patterns": [
+            "SetTag"
+          ],
+          "context_snippets": [
+            "{\n               tag.MergeAttribute(\"id\", id);\n           }\n           SetTagContent(tag, text);\n       }\n\n       private static void ConfigureAtlasLinkTag(TTagBuilder tag, string text, Dictionary<string, string> attributes)",
+            "private static void ConfigureAtlasLinkTag(TTagBuilder tag, string text, Dictionary<string, string> attributes)\n       {\n           tag.MergeAttributes(attributes);\n           SetTagContent(tag, text);\n       }\n\n       private static void ConfigureAtlasImageTag(TTagBuilder tag, string spriteClassName, string additionalClassName)",
+            "{\n           tag.ApplyHtmlAttributes(htmlAttributes);\n           tag.AddCssClass(\"LinkButton\");\n           SetTagContent(tag, string.IsNullOrWhiteSpace(text) ? WebCommonUI.Resources.Common.Close : text);\n           if (!tag.Attributes.ContainsKey(\"onclick\"))\n           {\n               tag.Attributes.Add(\"onclick\", \"CloseWindoid();return false;\");",
+            "}\n           }, TTagRenderMode.SelfClosing);\n\n           SetTagContent(tag, imageHtml);\n       }\n\n       private static THtml BuildAtlasMetadataField(THtmlHelper html, string name, Enums.DataType fieldType, List<string> allowedValues, string value, CultureInfo culture)",
+            "div.ApplyHtmlAttributes(htmlAttributes);\n           div.AddCssClass(\"atlasfield\");\n           div.Attributes.Add(\"id\", $\"{member.Member.Name}Field\");\n           SetTagContent(div, labelHtml, controlHtml);\n       }\n\n       private static void ConfigureFaUxFieldFor<TModel, TValue>(TTagBuilder div, Expression<Func<TModel, TValue>> expression, object htmlAttributes, THtml labelHtml, THtml controlHtml)",
+            "t.AddCssClass(\"theme_primary-dark_background-color\");\n           });\n\n           SetTagContent(div, icon, controlHtml, labelHtml, spanLine);\n       }\n\n       private static TTagBuilder BuildLabel(string name, string displayName)",
+            "var tag = new TTagBuilder(\"label\");\n           tag.Attributes[\"for\"] = name;\n           tag.AddCssClass(AtlasLabelName);\n           SetTagContent(tag, displayName);\n           return tag;\n       }",
+            "/// <summary>\n       /// Abstraction for setting tag content to handle framework differences.\n       /// </summary>\n       private static void SetTagContent(TTagBuilder tag, string content)\n       {\n#if NETFRAMEWORK\n           tag.SetInnerText(content);",
+            "/// <summary>\n       /// Abstraction for setting tag content to handle framework differences.\n       /// </summary>\n       private static void SetTagContent(TTagBuilder tag, THtml htmlContent)\n       {\n#if NETFRAMEWORK\n           tag.InnerHtml = htmlContent.ToHtmlString();",
+            "/// <summary>\n       /// Abstraction for setting tag content to handle framework differences.\n       /// </summary>\n       private static void SetTagContent(TTagBuilder tag, params THtml[] htmlContents)\n       {\n#if NETFRAMEWORK\n           using (var writer = new StringWriter())"
+          ],
+          "confidence": 0.9
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/API.WorkflowActivities/Infrastructure/Telemetry/WorkflowScopeEvents/WorkflowScopeEventsController.Trace.cs",
+          "strategy": "SearchStrategy.STRUCTURAL",
+          "relevance_score": 100,
+          "reasoning": "Contains method call: SetTag (6 times)",
+          "matching_patterns": [
+            "SetTag"
+          ],
+          "context_snippets": [
+            ".StartActivity($\"{GetType().Name}.{name}\")\n\t\t\t.SetMetricName(InstrumentationNames.ActivitySourceName)\n\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, $\"{GetType().Name}.{name}\")\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, accountId)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignUserId, userAccountUid)\n\t\t\t?.SetTag(WorkflowScopeEventsTraceSemanticConventions.AttributeDocuSignInstanceUid, instanceUid)",
+            ".SetMetricName(InstrumentationNames.ActivitySourceName)\n\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, $\"{GetType().Name}.{name}\")\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, accountId)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignUserId, userAccountUid)\n\t\t\t?.SetTag(WorkflowScopeEventsTraceSemanticConventions.AttributeDocuSignInstanceUid, instanceUid)\n\t\t\t?.SetTag(WorkflowScopeEventsTraceSemanticConventions.AttributeDocuSignActivityUid, activityUid)",
+            "?.SetStatus(ActivityStatusCode.Error)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, $\"{GetType().Name}.{name}\")\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, accountId)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignUserId, userAccountUid)\n\t\t\t?.SetTag(WorkflowScopeEventsTraceSemanticConventions.AttributeDocuSignInstanceUid, instanceUid)\n\t\t\t?.SetTag(WorkflowScopeEventsTraceSemanticConventions.AttributeDocuSignActivityUid, activityUid)\n\t\t\t?.SetTag(WorkflowScopeEventsTraceSemanticConventions.AttributeDocuSignRevisionUid, revisionUid);",
+            "?.SetTag(TraceSemanticConventions.AttributeCodeFunction, $\"{GetType().Name}.{name}\")\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, accountId)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignUserId, userAccountUid)\n\t\t\t?.SetTag(WorkflowScopeEventsTraceSemanticConventions.AttributeDocuSignInstanceUid, instanceUid)\n\t\t\t?.SetTag(WorkflowScopeEventsTraceSemanticConventions.AttributeDocuSignActivityUid, activityUid)\n\t\t\t?.SetTag(WorkflowScopeEventsTraceSemanticConventions.AttributeDocuSignRevisionUid, revisionUid);\n\t}",
+            "?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, accountId)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignUserId, userAccountUid)\n\t\t\t?.SetTag(WorkflowScopeEventsTraceSemanticConventions.AttributeDocuSignInstanceUid, instanceUid)\n\t\t\t?.SetTag(WorkflowScopeEventsTraceSemanticConventions.AttributeDocuSignActivityUid, activityUid)\n\t\t\t?.SetTag(WorkflowScopeEventsTraceSemanticConventions.AttributeDocuSignRevisionUid, revisionUid);\n\t}\n}",
+            "?.SetTag(TraceSemanticConventions.AttributeDocuSignUserId, userAccountUid)\n\t\t\t?.SetTag(WorkflowScopeEventsTraceSemanticConventions.AttributeDocuSignInstanceUid, instanceUid)\n\t\t\t?.SetTag(WorkflowScopeEventsTraceSemanticConventions.AttributeDocuSignActivityUid, activityUid)\n\t\t\t?.SetTag(WorkflowScopeEventsTraceSemanticConventions.AttributeDocuSignRevisionUid, revisionUid);\n\t}\n}\n#nullable restore"
+          ],
+          "confidence": 0.9
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/API.WorkflowActivities/Infrastructure/Telemetry/WorkflowActivities/WorkflowActivitiesController.Trace.cs",
+          "strategy": "SearchStrategy.STRUCTURAL",
+          "relevance_score": 100,
+          "reasoning": "Contains method call: SetTag (6 times)",
+          "matching_patterns": [
+            "SetTag"
+          ],
+          "context_snippets": [
+            ".StartActivity($\"{GetType().Name}.{name}\")\n\t\t\t.SetMetricName(InstrumentationNames.ActivitySourceName)\n\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, $\"{GetType().Name}.{name}\")\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, accountId)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignUserId, userAccountUid)\n\t\t\t?.SetTag(WorkflowActivitiesTraceSemanticConventions.AttributeDocuSignInstanceUid, instanceUid)",
+            ".SetMetricName(InstrumentationNames.ActivitySourceName)\n\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, $\"{GetType().Name}.{name}\")\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, accountId)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignUserId, userAccountUid)\n\t\t\t?.SetTag(WorkflowActivitiesTraceSemanticConventions.AttributeDocuSignInstanceUid, instanceUid)\n\t\t\t?.SetTag(WorkflowActivitiesTraceSemanticConventions.AttributeDocuSignActivityUid, activityUid)",
+            "?.SetStatus(ActivityStatusCode.Error)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, $\"{GetType().Name}.{name}\")\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, accountId)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignUserId, userAccountUid)\n\t\t\t?.SetTag(WorkflowActivitiesTraceSemanticConventions.AttributeDocuSignInstanceUid, instanceUid)\n\t\t\t?.SetTag(WorkflowActivitiesTraceSemanticConventions.AttributeDocuSignActivityUid, activityUid)\n\t\t\t?.SetTag(WorkflowActivitiesTraceSemanticConventions.AttributeDocuSignRevisionUid, revisionUid);",
+            "?.SetTag(TraceSemanticConventions.AttributeCodeFunction, $\"{GetType().Name}.{name}\")\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, accountId)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignUserId, userAccountUid)\n\t\t\t?.SetTag(WorkflowActivitiesTraceSemanticConventions.AttributeDocuSignInstanceUid, instanceUid)\n\t\t\t?.SetTag(WorkflowActivitiesTraceSemanticConventions.AttributeDocuSignActivityUid, activityUid)\n\t\t\t?.SetTag(WorkflowActivitiesTraceSemanticConventions.AttributeDocuSignRevisionUid, revisionUid);\n\t}",
+            "?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, accountId)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignUserId, userAccountUid)\n\t\t\t?.SetTag(WorkflowActivitiesTraceSemanticConventions.AttributeDocuSignInstanceUid, instanceUid)\n\t\t\t?.SetTag(WorkflowActivitiesTraceSemanticConventions.AttributeDocuSignActivityUid, activityUid)\n\t\t\t?.SetTag(WorkflowActivitiesTraceSemanticConventions.AttributeDocuSignRevisionUid, revisionUid);\n\t}\n}",
+            "?.SetTag(TraceSemanticConventions.AttributeDocuSignUserId, userAccountUid)\n\t\t\t?.SetTag(WorkflowActivitiesTraceSemanticConventions.AttributeDocuSignInstanceUid, instanceUid)\n\t\t\t?.SetTag(WorkflowActivitiesTraceSemanticConventions.AttributeDocuSignActivityUid, activityUid)\n\t\t\t?.SetTag(WorkflowActivitiesTraceSemanticConventions.AttributeDocuSignRevisionUid, revisionUid);\n\t}\n}\n#nullable restore"
+          ],
+          "confidence": 0.9
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/API.WorkflowActivities/Infrastructure/Telemetry/WorkflowDefinition/WorkflowDefinitionController.Trace.cs",
+          "strategy": "SearchStrategy.STRUCTURAL",
+          "relevance_score": 100,
+          "reasoning": "Contains method call: SetTag (4 times)",
+          "matching_patterns": [
+            "SetTag"
+          ],
+          "context_snippets": [
+            ".StartActivity($\"{GetType().Name}.{name}\")\n\t\t\t.SetMetricName(InstrumentationNames.ActivitySourceName)\n\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, $\"{GetType().Name}.{name}\")\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, accountId)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignUserId, userAccountUid)\n\t\t\t?.SetTag(WorkflowDefinitionTraceSemanticConventions.AttributeDocuSignRevisionUid, revisionUid);",
+            ".SetMetricName(InstrumentationNames.ActivitySourceName)\n\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, $\"{GetType().Name}.{name}\")\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, accountId)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignUserId, userAccountUid)\n\t\t\t?.SetTag(WorkflowDefinitionTraceSemanticConventions.AttributeDocuSignRevisionUid, revisionUid);\n\t}",
+            "?.SetStatus(ActivityStatusCode.Error)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, $\"{GetType().Name}.{name}\")\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, accountId)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignUserId, userAccountUid)\n\t\t\t?.SetTag(WorkflowDefinitionTraceSemanticConventions.AttributeDocuSignRevisionUid, revisionUid);\n\t}\n}",
+            "?.SetTag(TraceSemanticConventions.AttributeCodeFunction, $\"{GetType().Name}.{name}\")\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, accountId)\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignUserId, userAccountUid)\n\t\t\t?.SetTag(WorkflowDefinitionTraceSemanticConventions.AttributeDocuSignRevisionUid, revisionUid);\n\t}\n}\n#nullable restore"
+          ],
+          "confidence": 0.9
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain/Utilities/ActivityEnricher.cs",
+          "strategy": "SearchStrategy.STRUCTURAL",
+          "relevance_score": 100,
+          "reasoning": "Contains method call: SetTag (7 times); Matches 2 keywords: Activity.SetTag, OpenTelemetry",
+          "matching_patterns": [
+            "SetTag",
+            "Activity.SetTag",
+            "OpenTelemetry"
+          ],
+          "context_snippets": [
+            "namespace ADEXS.Core.Domain.Utilities;\npublic static class ActivityEnricher\n{\n\tpublic static void SetTagsWithCommonFields(this Activity activity, HttpContext context)\n\t{\n\t\tif (activity == null)\n\t\t{",
+            "{\n\t\tif (AtlasContext.Current != null && AtlasContext.Current.AccountId != 0 && AtlasContext.Current.AccountId != int.MinValue)\n\t\t{\n\t\t\tactivity.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, AtlasContext.Current.AccountId);\n\t\t\treturn;\n\t\t}",
+            "var account = dataPointCollection.FirstOrDefault();\n\t\t\tif (!string.IsNullOrEmpty(account))\n\t\t\t{\n\t\t\t\tactivity.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, account);\n\t\t\t\treturn;\n\t\t\t}\n\t\t}",
+            "{\n\t\tif (AtlasContext.Current != null && !System.Guid.Empty.Equals(AtlasContext.Current.UserAccountUid))\n\t\t{\n\t\t\tactivity.SetTag(TraceSemanticConventions.AttributeDocuSignUserId, AtlasContext.Current.UserAccountUid);\n\t\t\treturn;\n\t\t}",
+            "var userId = dataPointCollection.FirstOrDefault();\n\t\t\tif (!string.IsNullOrEmpty(userId))\n\t\t\t{\n\t\t\t\tactivity.SetTag(TraceSemanticConventions.AttributeDocuSignUserId, userId);\n\t\t\t\treturn;\n\t\t\t}\n\t\t}",
+            "{\n\t\tif (!string.IsNullOrEmpty(context?.Session?.SessionID))\n\t\t{\n\t\t\tactivity.SetTag(OtelSemanticConventions.SessionId, context?.Session?.SessionID);\n\t\t}\n\t}\n#else",
+            "var session = context == null ? null : GetSession(context);\n\t\tif (!string.IsNullOrEmpty(session?.Id))\n\t\t{\n\t\t\tactivity.SetTag(OtelSemanticConventions.SessionId, session?.Id);\n\t\t}\n\t}"
+          ],
+          "confidence": 0.9
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Core.Types/Constants.cs",
+          "strategy": "SearchStrategy.GRAPH_BASED",
+          "relevance_score": 100,
+          "reasoning": "file contains configuration or constants; contains telemetry symbol: ADEXS.Core.Types.Constants.Forms.EmitMetafieldInputAttribute(System.Guid); has relationship to telemetry symbol: ADEXS.Core.Types.Constants.Forms.EmitMetafieldInputAttribute(System.Guid); contains telemetry symbol: ADEXS.Core.Types.Constants.Forms.EmitMetagroupLabelElement(System.Guid); symbol is application entry point or middleware; contains HTTP-related constant: ADEXS.Core.Types.Constants.CustomHeaders; contains HTTP-related constant: ADEXS.Core.Types.Constants.DocuSignCustomHeaders; contains HTTP-related constant: ADEXS.Core.Types.Constants.ActCustomHeaders; contains HTTP-related constant: ADEXS.Core.Types.Constants.HttpContextCache; contains HTTP-related constant: ADEXS.Core.Types.Constants.HttpContextCookie; contains telemetry symbol: ADEXS.Core.Types.Constants.SystemMetadataGroupNames; contains telemetry symbol: ADEXS.Core.Types.Constants.HtmlAttributes; contains HTTP-related constant: ADEXS.Core.Types.Constants.Allocation; contains telemetry symbol: ADEXS.Core.Types.Constants.FileDataSource.UploadSourceAttribute; contains telemetry symbol: ADEXS.Core.Types.Constants.MetadataHtmlAttributes; contains telemetry symbol: ADEXS.Core.Types.Constants.AgreementDetailsImpliedMetadataGuids",
+          "matching_patterns": [
+            "configuration_pattern",
+            "telemetry_symbol_ADEXS.Core.Types.Constants.Forms.EmitMetafieldInputAttribute(System.Guid)",
+            "telemetry_relationship",
+            "telemetry_symbol_ADEXS.Core.Types.Constants.Forms.EmitMetagroupLabelElement(System.Guid)",
+            "application_entry_point",
+            "http_constant_ADEXS.Core.Types.Constants.CustomHeaders",
+            "http_constant_ADEXS.Core.Types.Constants.DocuSignCustomHeaders",
+            "http_constant_ADEXS.Core.Types.Constants.ActCustomHeaders",
+            "http_constant_ADEXS.Core.Types.Constants.HttpContextCache",
+            "http_constant_ADEXS.Core.Types.Constants.HttpContextCookie",
+            "telemetry_symbol_ADEXS.Core.Types.Constants.SystemMetadataGroupNames",
+            "telemetry_symbol_ADEXS.Core.Types.Constants.HtmlAttributes",
+            "http_constant_ADEXS.Core.Types.Constants.Allocation",
+            "telemetry_symbol_ADEXS.Core.Types.Constants.FileDataSource.UploadSourceAttribute",
+            "telemetry_symbol_ADEXS.Core.Types.Constants.MetadataHtmlAttributes",
+            "telemetry_symbol_ADEXS.Core.Types.Constants.AgreementDetailsImpliedMetadataGuids"
+          ],
+          "context_snippets": [],
+          "confidence": 0.8
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Core.Types/Enums.cs",
+          "strategy": "SearchStrategy.GRAPH_BASED",
+          "relevance_score": 100,
+          "reasoning": "has relationship to telemetry symbol: System.Reflection.MemberInfo.GetCustomAttributes(System.Type, bool); has relationship to telemetry symbol: System.Reflection.MemberInfo.GetCustomAttributes(System.Type, bool); has relationship to telemetry symbol: System.Reflection.MemberInfo.GetCustomAttributes(System.Type, bool); has relationship to telemetry symbol: System.Collections.Generic.IEnumerable<System.ComponentModel.DescriptionAttribute>.FirstOrDefault<System.ComponentModel.DescriptionAttribute>(); has relationship to telemetry symbol: System.Attribute.GetCustomAttribute(System.Reflection.MemberInfo, System.Type); has relationship to telemetry symbol: System.Reflection.MemberInfo.GetCustomAttributes(System.Type, bool); has relationship to telemetry symbol: System.Reflection.MemberInfo.GetCustomAttributes(System.Type, bool)",
+          "matching_patterns": [
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship"
+          ],
+          "context_snippets": [],
+          "confidence": 0.8
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Engine/WINSManager.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 95,
+          "reasoning": "Telemetry infrastructure: Import: Monitoring = DocuSign.Monitoring, Import: (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t\t{\n\t\t\t\t\ttry\n\t\t\t\t\t{\n\t\t\t\t\t\tvar result = WINSClientLibrary.CreateNewWorkflowDefinition(user, workflowName), Import: (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId, instanceUid))\n\t\t\t\t{\n\t\t\t\t\tusing (ScmNDC.Push(BuildNDCTags(user.AccountId, instanceUid)))\n\t\t\t\t\t{\n\t\t\t\t\t\ttry\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\tSaveInstanceStateChangedForGrpcEngineV1(instanceUid)",
+          "matching_patterns": [
+            "Import: Monitoring = DocuSign.Monitoring",
+            "Import: (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t\t{\n\t\t\t\t\ttry\n\t\t\t\t\t{\n\t\t\t\t\t\tvar result = WINSClientLibrary.CreateNewWorkflowDefinition(user, workflowName)",
+            "Import: (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId, instanceUid))\n\t\t\t\t{\n\t\t\t\t\tusing (ScmNDC.Push(BuildNDCTags(user.AccountId, instanceUid)))\n\t\t\t\t\t{\n\t\t\t\t\t\ttry\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\tSaveInstanceStateChangedForGrpcEngineV1(instanceUid)",
+            "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t{\n\t\t\t\ttry\n\t\t\t\t{\n\t\t\t\t\tvar result = WINSClientLibrary.LoadWorkItem(user, workItemUid)",
+            "Import: (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId, instanceUid))\n\t\t\t\t{\n\t\t\t\t\tusing (ScmNDC.Push(BuildNDCTags(user.AccountId, instanceUid)))\n\t\t\t\t\t{\n\t\t\t\t\t\ttry\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\tSaveInstanceStateChangedForGrpcEngineV1(instanceUid)",
+            "Import: (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId, instanceUid))\n\t\t\t\t{\n\t\t\t\t\tusing (ScmNDC.Push(BuildNDCTags(user.AccountId, instanceUid)))\n\t\t\t\t\t{\n\t\t\t\t\t\ttry\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\tIWINSControlInstance control = WorkflowManager.Instance.GetControlInstance(user.AccountId, instanceUid)",
+            "Import: (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId, instanceUid))\n\t\t\t\t{\n\t\t\t\t\tusing (ScmNDC.Push(BuildNDCTags(user.AccountId, instanceUid)))\n\t\t\t\t\t{\n\t\t\t\t\t\ttry\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\tIWINSControlInstance control = WorkflowManager.Instance.GetControlInstance(user.AccountId, instanceUid)",
+            "Import: (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t\t{\n\t\t\t\t\ttry\n\t\t\t\t\t{\n\t\t\t\t\t\t_log.InfoNoPII(string.Format(\"SubmitWorkItem: WorkItemUid {0}, output {1}\", workItemUid, PII.Encode(output)))",
+            "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t{\n\t\t\t\tvar design = ServiceLocator.GetInstance<CoreDomainWorkflowRepository.IVersionRepository>().LoadDesignerDefinitionByUid(user.AccountId, user.Uid, version.Uid)",
+            "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t{\n\t\t\t\tvar design = ServiceLocator.GetInstance<CoreDomainWorkflowRepository.IRevisionRepository>().LoadDesignerDefinitionByUid(user.AccountId, user.Uid, revision.Uid)",
+            "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t{\n\t\t\t\tvar result = new Legacy2Designer(new DefinitionReaderLegacy(oldDesign)).Convert(user)",
+            "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t{\n\t\t\t\tstring jwtToken = null",
+            "Import: (CreateFeatureFlagsRemoteCallWrapper(userAccount.AccountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(userAccount.AccountId, sourceInstanceUid))\n\t\t\t{\n\t\t\t\tMonitoring.ServiceContext.Log(Monitoring.DataPoint.WorkflowActivityUid, activityUid)",
+            "Import: (CreateFeatureFlagsRemoteCallWrapper(accountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(accountId, instanceUid))\n\t\t\t{\n\t\t\t\tMonitoring.ServiceContext.Log(Monitoring.DataPoint.WorkflowActivityUid, activityUid)",
+            "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t{\n\t\t\t\tvar result = WINSClientLibrary.ExportWorkflowDefinition(user, workflowName, versionNumber, revisionNumber)",
+            "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\t{\n\t\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t\t{\n\t\t\t\t\tCheckEnableMigrationSuspendWorkflowFeature(user.AccountId)",
+            "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\t{\n\t\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t\t{\n\t\t\t\t\tCheckEnableMigrationSuspendWorkflowFeature(user.AccountId)",
+            "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\t{\n\t\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t\t{\n\t\t\t\t\tCheckEnableMigrationSuspendWorkflowFeature(user.AccountId)",
+            "Import: (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t\t{\n\t\t\t\t\tvar result = WINSClientLibrary.VersionWorkflow(user, workflowName, sourceVersionNumber, sourceRevisionNumber, newVersionNumber, comment)",
+            "Import: (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t\t{\n\t\t\t\t\tvar result = WINSClientLibrary.VersionWorkflow(user, sourceVersionUid, sourceRevisionNumber, newVersionNumber, comment)",
+            "Import: (CreateFeatureFlagsRemoteCallWrapper(accountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(accountId, instanceUid))\n\t\t\t{\n\t\t\t\tbool isActivityExecutionLimitReached = Governor.IsActivityExecutionLimitReached(accountId, instanceUid, revisionUid, revisionCreatedDate, activityExecutionCount, out _)",
+            "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t{\n\t\t\t\tusing (ScmNDC.Push(BuildNDCTags(user.AccountId, default(Guid))))\n\t\t\t\t{\n\t\t\t\t\tStartParameters startParameters = new StartParameters(user, xmlParam, sourceType, sourceId)",
+            "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t{\n\t\t\t\tusing (ScmNDC.Push(BuildNDCTags(user.AccountId, default(Guid))))\n\t\t\t\t{\n\t\t\t\t\tGuid result = WorkflowRepository.SendStartWorkflow(user, workflowName, sourceType, sourceId, xmlParam)",
+            "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t{\n\t\t\t\tusing (ScmNDC.Push(BuildNDCTags(user.AccountId, instanceUid)))\n\t\t\t\t{\n\t\t\t\t\ttry\n\t\t\t\t\t{\n\t\t\t\t\t\tGuid result = _StartWorkflow(user.AccountId, user.Uid, workflowName, xmlParam, sourceType, sourceId, instanceUid)",
+            "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t{\n\t\t\t\tusing (ScmNDC.Push(BuildNDCTags(user.AccountId, instanceUid)))\n\t\t\t\t{\n\t\t\t\t\tGuid result = _StartWorkflow(user.AccountId, revisionUid, startParameters, instanceUid)",
+            "Pattern: Monitoring"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/ActIntegration/Client/ActIntegrationClient.cs",
+          "strategy": "SearchStrategy.GRAPH_BASED",
+          "relevance_score": 90,
+          "reasoning": "contains HTTP-related constant: ADEXS.ActIntegration.ActIntegrationClient.MakeHttpRequestV2Async(ADEXS.Core.Domain.Model.UserAccount, System.Guid, System.Guid, System.Net.Http.HttpMethod, string, string, string, string, int, DocuSign.CLM.Monitoring.SmartMon.ISmartMon, bool); has relationship to telemetry symbol: System.TimeSpan.FromSeconds(double); contains HTTP-related constant: ADEXS.ActIntegration.ActIntegrationClient.MakeHttpRequestV2(ADEXS.Core.Domain.Model.UserAccount, System.Guid, System.Guid, System.Net.Http.HttpMethod, string, string, string, string, int, DocuSign.CLM.Monitoring.SmartMon.ISmartMon, bool); has relationship to telemetry symbol: System.TimeSpan.FromSeconds(double); contains HTTP-related constant: ADEXS.ActIntegration.ActIntegrationClient.MakeHttpRequest(ADEXS.Core.Domain.Model.UserAccount, System.Net.Http.HttpMethod, string, string, string, string, int, DocuSign.CLM.Monitoring.SmartMon.ISmartMon); has relationship to telemetry symbol: System.TimeSpan.FromSeconds(double); contains HTTP-related constant: ADEXS.ActIntegration.ActIntegrationClient.GetHttpClient(); contains HTTP-related constant: ADEXS.ActIntegration.ActIntegrationClient.GetTokenScopesForHttpMethod(System.Net.Http.HttpMethod, ADEXS.ActIntegration.ActAccountInfo); contains HTTP-related constant: ADEXS.ActIntegration.ActIntegrationClient.AddDefaultRequestHeaders(ADEXS.ActIntegration.ActAccountInfo, string, System.Net.Http.HttpClient, string, string, string)",
+          "matching_patterns": [
+            "http_constant_ADEXS.ActIntegration.ActIntegrationClient.MakeHttpRequestV2Async(ADEXS.Core.Domain.Model.UserAccount, System.Guid, System.Guid, System.Net.Http.HttpMethod, string, string, string, string, int, DocuSign.CLM.Monitoring.SmartMon.ISmartMon, bool)",
+            "telemetry_relationship",
+            "http_constant_ADEXS.ActIntegration.ActIntegrationClient.MakeHttpRequestV2(ADEXS.Core.Domain.Model.UserAccount, System.Guid, System.Guid, System.Net.Http.HttpMethod, string, string, string, string, int, DocuSign.CLM.Monitoring.SmartMon.ISmartMon, bool)",
+            "telemetry_relationship",
+            "http_constant_ADEXS.ActIntegration.ActIntegrationClient.MakeHttpRequest(ADEXS.Core.Domain.Model.UserAccount, System.Net.Http.HttpMethod, string, string, string, string, int, DocuSign.CLM.Monitoring.SmartMon.ISmartMon)",
+            "telemetry_relationship",
+            "http_constant_ADEXS.ActIntegration.ActIntegrationClient.GetHttpClient()",
+            "http_constant_ADEXS.ActIntegration.ActIntegrationClient.GetTokenScopesForHttpMethod(System.Net.Http.HttpMethod, ADEXS.ActIntegration.ActAccountInfo)",
+            "http_constant_ADEXS.ActIntegration.ActIntegrationClient.AddDefaultRequestHeaders(ADEXS.ActIntegration.ActAccountInfo, string, System.Net.Http.HttpClient, string, string, string)"
+          ],
+          "context_snippets": [],
+          "confidence": 0.8
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/OpenApiClients/DacDocGenApiClient/Api/GenApi.cs",
+          "strategy": "SearchStrategy.GRAPH_BASED",
+          "relevance_score": 90,
+          "reasoning": "contains HTTP-related constant: DacDocGenApiClient.Api.GenApi.GenerateDocumentV1WithHttpInfo(string, DacDocGenApiClient.Model.GenerateDocumentRequest); contains HTTP-related constant: DacDocGenApiClient.Api.GenApi.GenerateDocumentV1WithHttpInfoAsync(string, DacDocGenApiClient.Model.GenerateDocumentRequest, System.Threading.CancellationToken); contains HTTP-related constant: DacDocGenApiClient.Api.GenApi.ParseTemplateV1WithHttpInfo(System.Guid, DacDocGenApiClient.Model.ParseTemplateRequest); contains HTTP-related constant: DacDocGenApiClient.Api.GenApi.ParseTemplateV1WithHttpInfoAsync(System.Guid, DacDocGenApiClient.Model.ParseTemplateRequest, System.Threading.CancellationToken); contains HTTP-related constant: DacDocGenApiClient.Api.GenApi.UploadTemplateV1WithHttpInfo(System.Guid, string, DacDocGenApiClient.Client.FileParameter, long?); contains HTTP-related constant: DacDocGenApiClient.Api.GenApi.UploadTemplateV1WithHttpInfoAsync(System.Guid, string, DacDocGenApiClient.Client.FileParameter, long?, System.Threading.CancellationToken)",
+          "matching_patterns": [
+            "http_constant_DacDocGenApiClient.Api.GenApi.GenerateDocumentV1WithHttpInfo(string, DacDocGenApiClient.Model.GenerateDocumentRequest)",
+            "http_constant_DacDocGenApiClient.Api.GenApi.GenerateDocumentV1WithHttpInfoAsync(string, DacDocGenApiClient.Model.GenerateDocumentRequest, System.Threading.CancellationToken)",
+            "http_constant_DacDocGenApiClient.Api.GenApi.ParseTemplateV1WithHttpInfo(System.Guid, DacDocGenApiClient.Model.ParseTemplateRequest)",
+            "http_constant_DacDocGenApiClient.Api.GenApi.ParseTemplateV1WithHttpInfoAsync(System.Guid, DacDocGenApiClient.Model.ParseTemplateRequest, System.Threading.CancellationToken)",
+            "http_constant_DacDocGenApiClient.Api.GenApi.UploadTemplateV1WithHttpInfo(System.Guid, string, DacDocGenApiClient.Client.FileParameter, long?)",
+            "http_constant_DacDocGenApiClient.Api.GenApi.UploadTemplateV1WithHttpInfoAsync(System.Guid, string, DacDocGenApiClient.Client.FileParameter, long?, System.Threading.CancellationToken)"
+          ],
+          "context_snippets": [],
+          "confidence": 0.8
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/OpenApiClients/DacDocGenApiClient/Client/ApiClient.cs",
+          "strategy": "SearchStrategy.GRAPH_BASED",
+          "relevance_score": 90,
+          "reasoning": "contains HTTP-related constant: DacDocGenApiClient.Client.CustomJsonCodec.Deserialize<T>(System.Net.Http.HttpResponseMessage); contains HTTP-related constant: DacDocGenApiClient.Client.CustomJsonCodec.Deserialize(System.Net.Http.HttpResponseMessage, System.Type); contains HTTP-related constant: DacDocGenApiClient.Client.ApiClient.NewRequest(System.Net.Http.HttpMethod, string, DacDocGenApiClient.Client.RequestOptions, DacDocGenApiClient.Client.IReadableConfiguration); contains HTTP-related constant: DacDocGenApiClient.Client.ApiClient.InterceptRequest(System.Net.Http.HttpRequestMessage); contains HTTP-related constant: DacDocGenApiClient.Client.ApiClient.InterceptResponse(System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage); contains HTTP-related constant: DacDocGenApiClient.Client.ApiClient.ToApiResponse<T>(System.Net.Http.HttpResponseMessage, object, System.Uri); contains HTTP-related constant: DacDocGenApiClient.Client.ApiClient.Exec<T>(System.Net.Http.HttpRequestMessage, DacDocGenApiClient.Client.IReadableConfiguration); contains HTTP-related constant: DacDocGenApiClient.Client.ApiClient.ExecAsync<T>(System.Net.Http.HttpRequestMessage, DacDocGenApiClient.Client.IReadableConfiguration, System.Threading.CancellationToken)",
+          "matching_patterns": [
+            "http_constant_DacDocGenApiClient.Client.CustomJsonCodec.Deserialize<T>(System.Net.Http.HttpResponseMessage)",
+            "http_constant_DacDocGenApiClient.Client.CustomJsonCodec.Deserialize(System.Net.Http.HttpResponseMessage, System.Type)",
+            "http_constant_DacDocGenApiClient.Client.ApiClient.NewRequest(System.Net.Http.HttpMethod, string, DacDocGenApiClient.Client.RequestOptions, DacDocGenApiClient.Client.IReadableConfiguration)",
+            "http_constant_DacDocGenApiClient.Client.ApiClient.InterceptRequest(System.Net.Http.HttpRequestMessage)",
+            "http_constant_DacDocGenApiClient.Client.ApiClient.InterceptResponse(System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage)",
+            "http_constant_DacDocGenApiClient.Client.ApiClient.ToApiResponse<T>(System.Net.Http.HttpResponseMessage, object, System.Uri)",
+            "http_constant_DacDocGenApiClient.Client.ApiClient.Exec<T>(System.Net.Http.HttpRequestMessage, DacDocGenApiClient.Client.IReadableConfiguration)",
+            "http_constant_DacDocGenApiClient.Client.ApiClient.ExecAsync<T>(System.Net.Http.HttpRequestMessage, DacDocGenApiClient.Client.IReadableConfiguration, System.Threading.CancellationToken)"
+          ],
+          "context_snippets": [],
+          "confidence": 0.8
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/WINS.Protocol/obj/Debug/net48/docusign/workflow/wins/v1alpha1/WinsModels.cs",
+          "strategy": "SearchStrategy.GRAPH_BASED",
+          "relevance_score": 90,
+          "reasoning": "has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.FieldCodec<string>.CalculateSizeWithTag(string); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.FieldCodec<string>.CalculateSizeWithTag(string); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.FieldCodec<string>.CalculateSizeWithTag(string); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.FieldCodec<string>.CalculateSizeWithTag(string); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.FieldCodec<string>.WriteTagAndValue(ref Google.Protobuf.WriteContext, string); has relationship to telemetry symbol: Google.Protobuf.FieldCodec<string>.CalculateSizeWithTag(string); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.FieldCodec<string>.CalculateSizeWithTag(string); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag()",
+          "matching_patterns": [
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship"
+          ],
+          "context_snippets": [],
+          "confidence": 0.8
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/WINS.Protocol/obj/Debug/net48/docusign/workflow/wins/v1alpha1/WinsService.cs",
+          "strategy": "SearchStrategy.GRAPH_BASED",
+          "relevance_score": 90,
+          "reasoning": "has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.FieldCodec<string>.CalculateSizeWithTag(string); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.FieldCodec<string>.CalculateSizeWithTag(string); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.FieldCodec<string>.CalculateSizeWithTag(string); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.FieldCodec<string>.CalculateSizeWithTag(string); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.FieldCodec<string>.CalculateSizeWithTag(string); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.FieldCodec<string>.CalculateSizeWithTag(string); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.FieldCodec<string>.CalculateSizeWithTag(string); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.FieldCodec<string>.CalculateSizeWithTag(string); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.FieldCodec<string>.CalculateSizeWithTag(string); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.FieldCodec<string>.CalculateSizeWithTag(string); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.FieldCodec<string>.CalculateSizeWithTag(string); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.FieldCodec<string>.CalculateSizeWithTag(string); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.FieldCodec<string>.CalculateSizeWithTag(string); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.FieldCodec<string>.CalculateSizeWithTag(string); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.FieldCodec<string>.CalculateSizeWithTag(string); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.FieldCodec<string>.CalculateSizeWithTag(string); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.FieldCodec<string>.WriteTagAndValue(ref Google.Protobuf.WriteContext, string); has relationship to telemetry symbol: Google.Protobuf.FieldCodec<string>.CalculateSizeWithTag(string); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag(); has relationship to telemetry symbol: Google.Protobuf.JsonFormatter.ToDiagnosticString(Google.Protobuf.IMessage); has relationship to telemetry symbol: Google.Protobuf.WriteContext.WriteRawTag(byte); has relationship to telemetry symbol: Google.Protobuf.ParseContext.ReadTag()",
+          "matching_patterns": [
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship"
+          ],
+          "context_snippets": [],
+          "confidence": 0.8
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Atlas.Workflow.Client/WorkflowDesignRepository.cs",
+          "strategy": "SearchStrategy.GRAPH_BASED",
+          "relevance_score": 90,
+          "reasoning": "has relationship to telemetry symbol: ADEXS.Atlas.Workflow.Client.Telemetry.WorkflowClientTelemetry.GetTimer(string); has relationship to telemetry symbol: ADEXS.Atlas.Workflow.Client.Telemetry.WorkflowClientTelemetry.GetTimer(string); has relationship to telemetry symbol: ADEXS.Atlas.Workflow.Client.Telemetry.WorkflowClientTelemetry.GetTimer(string); has relationship to telemetry symbol: ADEXS.Atlas.Workflow.Client.Telemetry.WorkflowClientTelemetry.GetTimer(string); has relationship to telemetry symbol: ADEXS.Atlas.Workflow.Client.Telemetry.WorkflowClientTelemetry.GetTimer(string); has relationship to telemetry symbol: ADEXS.Atlas.Workflow.Client.Telemetry.WorkflowClientTelemetry.GetTimer(string); has relationship to telemetry symbol: ADEXS.Atlas.Workflow.Client.Telemetry.WorkflowClientTelemetry.GetTimer(string); has relationship to telemetry symbol: ADEXS.Atlas.Workflow.Client.Telemetry.WorkflowClientTelemetry.GetTimer(string); has relationship to telemetry symbol: ADEXS.Atlas.Workflow.Client.Telemetry.WorkflowClientTelemetry.GetTimer(string); has relationship to telemetry symbol: ADEXS.Atlas.Workflow.Client.Telemetry.WorkflowClientTelemetry.GetTimer(string); has relationship to telemetry symbol: ADEXS.Atlas.Workflow.Client.Telemetry.WorkflowClientTelemetry.GetTimer(string); has relationship to telemetry symbol: ADEXS.Atlas.Workflow.Client.Telemetry.WorkflowClientTelemetry.GetTimer(string); has relationship to telemetry symbol: ADEXS.Atlas.Workflow.Client.Telemetry.WorkflowClientTelemetry.GetTimer(string); has relationship to telemetry symbol: ADEXS.Atlas.Workflow.Client.Telemetry.WorkflowClientTelemetry.GetTimer(string); contains HTTP-related constant: ADEXS.Atlas.Workflow.Client.WorkflowDesignRepository.GetWorkflowDesignApi(int, System.Guid, System.Net.Http.HttpClient, string)",
+          "matching_patterns": [
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "http_constant_ADEXS.Atlas.Workflow.Client.WorkflowDesignRepository.GetWorkflowDesignApi(int, System.Guid, System.Net.Http.HttpClient, string)"
+          ],
+          "context_snippets": [],
+          "confidence": 0.8
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain/Adm/Mapping/AdmMapper.cs",
+          "strategy": "SearchStrategy.GRAPH_BASED",
+          "relevance_score": 90,
+          "reasoning": "contains telemetry symbol: ADEXS.Core.Domain.Adm.Mapping.AgreementMapperTimeSpanUnitsResolver; contains telemetry symbol: ADEXS.Core.Domain.Adm.Mapping.AgreementMapperTimeSpanUnitsResolver.Resolve(ADEXS.Core.Domain.Model.Agreement, DocuSign.Adm.Api.Models.AgreementCreate, ADEXS.Core.Domain.Model.AgreementPeriod, DocuSign.Adm.Api.Models.TimeSpanUnits?, AutoMapper.ResolutionContext); has relationship to telemetry symbol: ADEXS.Core.Domain.Adm.Mapping.TimeSpanUnitsConverter.Convert(DocuSign.Adm.Api.Models.TimeSpanUnits?); has relationship to telemetry symbol: ADEXS.Core.Domain.Adm.Mapping.TimeSpanUnitsConverter.Convert(DocuSign.Adm.Api.Models.TimeSpanUnits?); has relationship to telemetry symbol: ADEXS.Core.Domain.Adm.Mapping.TimeSpanUnitsConverter.Convert(DocuSign.Adm.Api.Models.TimeSpanUnits?); has relationship to telemetry symbol: ADEXS.Core.Domain.Adm.Mapping.TimeSpanUnitsConverter.Convert(DocuSign.Adm.Api.Models.TimeSpanUnits?); contains telemetry symbol: ADEXS.Core.Domain.Adm.Mapping.TimeSpanUnitsConverter; contains telemetry symbol: ADEXS.Core.Domain.Adm.Mapping.TimeSpanUnitsConverter.Convert(DocuSign.Adm.Api.Models.TimeSpanUnits?)",
+          "matching_patterns": [
+            "telemetry_symbol_ADEXS.Core.Domain.Adm.Mapping.AgreementMapperTimeSpanUnitsResolver",
+            "telemetry_symbol_ADEXS.Core.Domain.Adm.Mapping.AgreementMapperTimeSpanUnitsResolver.Resolve(ADEXS.Core.Domain.Model.Agreement, DocuSign.Adm.Api.Models.AgreementCreate, ADEXS.Core.Domain.Model.AgreementPeriod, DocuSign.Adm.Api.Models.TimeSpanUnits?, AutoMapper.ResolutionContext)",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_symbol_ADEXS.Core.Domain.Adm.Mapping.TimeSpanUnitsConverter",
+            "telemetry_symbol_ADEXS.Core.Domain.Adm.Mapping.TimeSpanUnitsConverter.Convert(DocuSign.Adm.Api.Models.TimeSpanUnits?)"
+          ],
+          "context_snippets": [],
+          "confidence": 0.8
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain/AIConfiguration/ConfigurationService.cs",
+          "strategy": "SearchStrategy.GRAPH_BASED",
+          "relevance_score": 90,
+          "reasoning": "file contains configuration or constants; has relationship to telemetry symbol: ADEXS.Core.Domain.AIConfiguration.ConfigurationService.PopulateAOMAttributes(ADEXS.Core.Domain.Model.UserAccount, System.Guid, System.Collections.Generic.List<System.Linq.IGrouping<ADEXS.Core.Types.Enums.AIRulesEngineMappingObjectType, ADEXS.Core.Domain.Model.AIDocument.AIRulesEngineMapping>>, System.Collections.Generic.List<ADEXS.Core.Domain.AIConfiguration.Models.RuleModelMappingBasicDetails>, System.Collections.Generic.List<System.Linq.IGrouping<ADEXS.Core.Types.Enums.AIRulesEngineMappingObjectType, ADEXS.Core.Domain.Model.AIDocument.AIRulesEngineMapping>>); contains telemetry symbol: ADEXS.Core.Domain.AIConfiguration.ConfigurationService.GetAttributeGroups(ADEXS.Core.Domain.Model.UserAccount); has relationship to telemetry symbol: ADEXS.Core.Domain.Repository.MetadataRepository.IMetadataGroupRepository.LoadByAccountId(int); contains telemetry symbol: ADEXS.Core.Domain.AIConfiguration.ConfigurationService.SaveAttributeMapping(ADEXS.Core.Domain.Model.UserAccount, ADEXS.Core.Domain.AIConfiguration.Models.RuleModelMapping); contains telemetry symbol: ADEXS.Core.Domain.AIConfiguration.ConfigurationService.PopulateClmAttributes(ADEXS.Core.Domain.Model.UserAccount, System.Guid, System.Collections.Generic.List<System.Linq.IGrouping<ADEXS.Core.Types.Enums.AIRulesEngineMappingObjectType, ADEXS.Core.Domain.Model.AIDocument.AIRulesEngineMapping>>, System.Collections.Generic.List<System.Linq.IGrouping<ADEXS.Core.Types.Enums.AIRulesEngineMappingObjectType, ADEXS.Core.Domain.Model.AIDocument.AIRulesEngineMapping>>, System.Collections.Generic.List<ADEXS.Core.Domain.AIConfiguration.Models.RuleModelMappingBasicDetails>); has relationship to telemetry symbol: ADEXS.Core.Domain.Repository.MetadataRepository.IMetadataGroupRepository.LoadByUid(int, System.Guid); contains telemetry symbol: ADEXS.Core.Domain.AIConfiguration.ConfigurationService.PopulateAOMAttributes(ADEXS.Core.Domain.Model.UserAccount, System.Guid, System.Collections.Generic.List<System.Linq.IGrouping<ADEXS.Core.Types.Enums.AIRulesEngineMappingObjectType, ADEXS.Core.Domain.Model.AIDocument.AIRulesEngineMapping>>, System.Collections.Generic.List<ADEXS.Core.Domain.AIConfiguration.Models.RuleModelMappingBasicDetails>, System.Collections.Generic.List<System.Linq.IGrouping<ADEXS.Core.Types.Enums.AIRulesEngineMappingObjectType, ADEXS.Core.Domain.Model.AIDocument.AIRulesEngineMapping>>); has relationship to telemetry symbol: ADEXS.Core.Domain.Repository.AgreementRepository.IAgreementFieldService.GetStandardFields(ADEXS.Core.Domain.Model.UserAccount, ADEXS.Core.Domain.Repository.AgreementRepository.Tag?); contains telemetry symbol: ADEXS.Core.Domain.AIConfiguration.ConfigurationService.CreateRuleModelMappingBasicDetails(ADEXS.Core.Domain.Model.UserAccount, System.Guid, ADEXS.Core.Domain.Model.MetadataField, ADEXS.Core.Domain.Model.MetadataGroup, System.Collections.Generic.List<ADEXS.Core.Domain.Model.AIDocument.AIRulesEngineMapping>); has relationship to telemetry symbol: ADEXS.Core.Domain.AIConfiguration.Utilities.DataTypeHelper.IsCustomAttributeSupported(ADEXS.Core.Domain.Model.MetadataField, out ADEXS.Core.Types.Enums.AttributeFieldType, out RulesEngineAPIClient.Model.DataType); has relationship to telemetry symbol: ADEXS.Core.Domain.AIConfiguration.Utilities.DataTypeHelper.IsStandardAttributeSupported(ADEXS.Core.Domain.Repository.AgreementRepository.AgreementField, out ADEXS.Core.Types.Enums.AttributeFieldType, out RulesEngineAPIClient.Model.DataType); has relationship to telemetry symbol: ADEXS.Core.Domain.SmartAgreement.AIModelManagement.IAiModelManagement.GetAllowedModelItemsByAccount(ADEXS.Core.Domain.Model.Account); has relationship to telemetry symbol: ADEXS.Core.Domain.Repository.AgreementRepository.IAgreementFieldService.GetStandardFields(ADEXS.Core.Domain.Model.UserAccount, ADEXS.Core.Domain.Repository.AgreementRepository.Tag?)",
+          "matching_patterns": [
+            "configuration_pattern",
+            "telemetry_relationship",
+            "telemetry_symbol_ADEXS.Core.Domain.AIConfiguration.ConfigurationService.GetAttributeGroups(ADEXS.Core.Domain.Model.UserAccount)",
+            "telemetry_relationship",
+            "telemetry_symbol_ADEXS.Core.Domain.AIConfiguration.ConfigurationService.SaveAttributeMapping(ADEXS.Core.Domain.Model.UserAccount, ADEXS.Core.Domain.AIConfiguration.Models.RuleModelMapping)",
+            "telemetry_symbol_ADEXS.Core.Domain.AIConfiguration.ConfigurationService.PopulateClmAttributes(ADEXS.Core.Domain.Model.UserAccount, System.Guid, System.Collections.Generic.List<System.Linq.IGrouping<ADEXS.Core.Types.Enums.AIRulesEngineMappingObjectType, ADEXS.Core.Domain.Model.AIDocument.AIRulesEngineMapping>>, System.Collections.Generic.List<System.Linq.IGrouping<ADEXS.Core.Types.Enums.AIRulesEngineMappingObjectType, ADEXS.Core.Domain.Model.AIDocument.AIRulesEngineMapping>>, System.Collections.Generic.List<ADEXS.Core.Domain.AIConfiguration.Models.RuleModelMappingBasicDetails>)",
+            "telemetry_relationship",
+            "telemetry_symbol_ADEXS.Core.Domain.AIConfiguration.ConfigurationService.PopulateAOMAttributes(ADEXS.Core.Domain.Model.UserAccount, System.Guid, System.Collections.Generic.List<System.Linq.IGrouping<ADEXS.Core.Types.Enums.AIRulesEngineMappingObjectType, ADEXS.Core.Domain.Model.AIDocument.AIRulesEngineMapping>>, System.Collections.Generic.List<ADEXS.Core.Domain.AIConfiguration.Models.RuleModelMappingBasicDetails>, System.Collections.Generic.List<System.Linq.IGrouping<ADEXS.Core.Types.Enums.AIRulesEngineMappingObjectType, ADEXS.Core.Domain.Model.AIDocument.AIRulesEngineMapping>>)",
+            "telemetry_relationship",
+            "telemetry_symbol_ADEXS.Core.Domain.AIConfiguration.ConfigurationService.CreateRuleModelMappingBasicDetails(ADEXS.Core.Domain.Model.UserAccount, System.Guid, ADEXS.Core.Domain.Model.MetadataField, ADEXS.Core.Domain.Model.MetadataGroup, System.Collections.Generic.List<ADEXS.Core.Domain.Model.AIDocument.AIRulesEngineMapping>)",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship",
+            "telemetry_relationship"
+          ],
+          "context_snippets": [],
+          "confidence": 0.8
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain/AIConfiguration/Utilities/DataTypeHelper.cs",
+          "strategy": "SearchStrategy.GRAPH_BASED",
+          "relevance_score": 90,
+          "reasoning": "file contains configuration or constants; has relationship to telemetry symbol: System.Collections.Generic.Dictionary<ADEXS.Core.Types.Enums.DataType, ADEXS.Core.Types.Enums.AttributeFieldType>.GetValueOrDefault<ADEXS.Core.Types.Enums.DataType, ADEXS.Core.Types.Enums.AttributeFieldType>(ADEXS.Core.Types.Enums.DataType, ADEXS.Core.Types.Enums.AttributeFieldType); contains telemetry symbol: ADEXS.Core.Domain.AIConfiguration.Utilities.DataTypeHelper.IsSupported(ADEXS.Core.Types.Enums.DataType, out ADEXS.Core.Types.Enums.AttributeFieldType, out RulesEngineAPIClient.Model.DataType); contains telemetry symbol: ADEXS.Core.Domain.AIConfiguration.Utilities.DataTypeHelper.IsCustomAttributeSupported(ADEXS.Core.Domain.Model.MetadataField, out ADEXS.Core.Types.Enums.AttributeFieldType, out RulesEngineAPIClient.Model.DataType); has relationship to telemetry symbol: ADEXS.Core.Domain.AIConfiguration.Utilities.DataTypeHelper.IsSupported(ADEXS.Core.Types.Enums.DataType, out ADEXS.Core.Types.Enums.AttributeFieldType, out RulesEngineAPIClient.Model.DataType); contains telemetry symbol: ADEXS.Core.Domain.AIConfiguration.Utilities.DataTypeHelper.IsStandardAttributeSupported(ADEXS.Core.Domain.Repository.AgreementRepository.AgreementField, out ADEXS.Core.Types.Enums.AttributeFieldType, out RulesEngineAPIClient.Model.DataType); has relationship to telemetry symbol: ADEXS.Core.Domain.AIConfiguration.Utilities.DataTypeHelper.GetStandardAttributeDataType(ADEXS.Core.Domain.Repository.AgreementRepository.AgreementField); contains telemetry symbol: ADEXS.Core.Domain.AIConfiguration.Utilities.DataTypeHelper.GetStandardAttributeDataType(ADEXS.Core.Domain.Repository.AgreementRepository.AgreementField)",
+          "matching_patterns": [
+            "configuration_pattern",
+            "telemetry_relationship",
+            "telemetry_symbol_ADEXS.Core.Domain.AIConfiguration.Utilities.DataTypeHelper.IsSupported(ADEXS.Core.Types.Enums.DataType, out ADEXS.Core.Types.Enums.AttributeFieldType, out RulesEngineAPIClient.Model.DataType)",
+            "telemetry_symbol_ADEXS.Core.Domain.AIConfiguration.Utilities.DataTypeHelper.IsCustomAttributeSupported(ADEXS.Core.Domain.Model.MetadataField, out ADEXS.Core.Types.Enums.AttributeFieldType, out RulesEngineAPIClient.Model.DataType)",
+            "telemetry_relationship",
+            "telemetry_symbol_ADEXS.Core.Domain.AIConfiguration.Utilities.DataTypeHelper.IsStandardAttributeSupported(ADEXS.Core.Domain.Repository.AgreementRepository.AgreementField, out ADEXS.Core.Types.Enums.AttributeFieldType, out RulesEngineAPIClient.Model.DataType)",
+            "telemetry_relationship",
+            "telemetry_symbol_ADEXS.Core.Domain.AIConfiguration.Utilities.DataTypeHelper.GetStandardAttributeDataType(ADEXS.Core.Domain.Repository.AgreementRepository.AgreementField)"
+          ],
+          "context_snippets": [],
+          "confidence": 0.8
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain/Aom/AomUtilities.cs",
+          "strategy": "SearchStrategy.GRAPH_BASED",
+          "relevance_score": 90,
+          "reasoning": "contains telemetry symbol: ADEXS.Core.Domain.Aom.AomUtilities.GetAgreementTypeCustomNameToDefaultDictionary(ADEXS.Core.Domain.Model.UserAccount); contains telemetry symbol: ADEXS.Core.Domain.Aom.AomUtilities.GetAgreementTypeDefaultToCustomNameDictionary(ADEXS.Core.Domain.Model.UserAccount); contains telemetry symbol: ADEXS.Core.Domain.Aom.AomUtilities.GetAgreementTypeFieldUid(ADEXS.Core.Domain.Model.UserAccount); has relationship to telemetry symbol: LanguageExt.Prelude.Optional<ADEXS.Core.Domain.Model.MetadataGroup>(ADEXS.Core.Domain.Model.MetadataGroup?); contains telemetry symbol: ADEXS.Core.Domain.Aom.AomUtilities.GetAgreementTypeFieldUid(System.Guid, ADEXS.Core.Domain.Model.MetadataFields); contains telemetry symbol: ADEXS.Core.Domain.Aom.AomUtilities.GetAgreementValueFieldUid(ADEXS.Core.Domain.Model.UserAccount); has relationship to telemetry symbol: LanguageExt.Prelude.Optional<ADEXS.Core.Domain.Model.MetadataGroup>(ADEXS.Core.Domain.Model.MetadataGroup?); has relationship to telemetry symbol: LanguageExt.Prelude.Optional<ADEXS.Core.Domain.Model.MetadataGroup>(ADEXS.Core.Domain.Model.MetadataGroup?)",
+          "matching_patterns": [
+            "telemetry_symbol_ADEXS.Core.Domain.Aom.AomUtilities.GetAgreementTypeCustomNameToDefaultDictionary(ADEXS.Core.Domain.Model.UserAccount)",
+            "telemetry_symbol_ADEXS.Core.Domain.Aom.AomUtilities.GetAgreementTypeDefaultToCustomNameDictionary(ADEXS.Core.Domain.Model.UserAccount)",
+            "telemetry_symbol_ADEXS.Core.Domain.Aom.AomUtilities.GetAgreementTypeFieldUid(ADEXS.Core.Domain.Model.UserAccount)",
+            "telemetry_relationship",
+            "telemetry_symbol_ADEXS.Core.Domain.Aom.AomUtilities.GetAgreementTypeFieldUid(System.Guid, ADEXS.Core.Domain.Model.MetadataFields)",
+            "telemetry_symbol_ADEXS.Core.Domain.Aom.AomUtilities.GetAgreementValueFieldUid(ADEXS.Core.Domain.Model.UserAccount)",
+            "telemetry_relationship",
+            "telemetry_relationship"
+          ],
+          "context_snippets": [],
+          "confidence": 0.8
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Core.ServiceFramework/AbstractServicedComponent.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 85,
+          "reasoning": "Telemetry infrastructure: Import: DocuSign.CLM.Monitoring, Import: DocuSign.Monitoring, Import: service invocation to start process,\n\t\t\t\t\t// so Assembly.EntryAssembly is not represents correct service assembly. We are\n\t\t\t\t\t// using GetType().Assembly instead, which would provide correct release version.\n\t\t\t\t\tTask.Run(() => _coreInstrumentationLifetimeService.StartAsync(\n\t\t\t\t\t\tassembly: this.GetType().Assembly))\n\t\t\t\t\t\t\t.GetAwaiter().GetResult()",
+          "matching_patterns": [
+            "Import: DocuSign.CLM.Monitoring",
+            "Import: DocuSign.Monitoring",
+            "Import: service invocation to start process,\n\t\t\t\t\t// so Assembly.EntryAssembly is not represents correct service assembly. We are\n\t\t\t\t\t// using GetType().Assembly instead, which would provide correct release version.\n\t\t\t\t\tTask.Run(() => _coreInstrumentationLifetimeService.StartAsync(\n\t\t\t\t\t\tassembly: this.GetType().Assembly))\n\t\t\t\t\t\t\t.GetAwaiter().GetResult()",
+            "Pattern: OpenTelemetry",
+            "Pattern: Instrumentation",
+            "Pattern: Monitoring",
+            "Pattern: UseOpenTelemetry"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain/CoreDomainRegistry.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 75,
+          "reasoning": "Matches 1 keywords: OpenTelemetry",
+          "matching_patterns": [
+            "OpenTelemetry"
+          ],
+          "context_snippets": [],
+          "confidence": 0.6
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain/GlobalSuppressions.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 65,
+          "reasoning": "Matches 1 keywords: OpenTelemetry",
+          "matching_patterns": [
+            "OpenTelemetry"
+          ],
+          "context_snippets": [],
+          "confidence": 0.6
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/SForce.Services/Program.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 65,
+          "reasoning": "Matches 1 keywords: OpenTelemetry",
+          "matching_patterns": [
+            "OpenTelemetry"
+          ],
+          "context_snippets": [],
+          "confidence": 0.6
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/ESignatureService/Program.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 65,
+          "reasoning": "Matches 1 keywords: OpenTelemetry",
+          "matching_patterns": [
+            "OpenTelemetry"
+          ],
+          "context_snippets": [],
+          "confidence": 0.6
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/DocumentCompareService/Program.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 65,
+          "reasoning": "Matches 1 keywords: OpenTelemetry",
+          "matching_patterns": [
+            "OpenTelemetry"
+          ],
+          "context_snippets": [],
+          "confidence": 0.6
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/ProfileLogger/Program.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 65,
+          "reasoning": "Matches 1 keywords: OpenTelemetry",
+          "matching_patterns": [
+            "OpenTelemetry"
+          ],
+          "context_snippets": [],
+          "confidence": 0.6
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/DocumentCreation/Program.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 65,
+          "reasoning": "Matches 1 keywords: OpenTelemetry",
+          "matching_patterns": [
+            "OpenTelemetry"
+          ],
+          "context_snippets": [],
+          "confidence": 0.6
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Web/GlobalSuppressions.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 65,
+          "reasoning": "Matches 1 keywords: middleware",
+          "matching_patterns": [
+            "middleware"
+          ],
+          "context_snippets": [],
+          "confidence": 0.6
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Web/OWINStartup.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 55,
+          "reasoning": "Matches 1 keywords: middleware",
+          "matching_patterns": [
+            "middleware"
+          ],
+          "context_snippets": [],
+          "confidence": 0.6
+        }
+      ],
+      "error": null,
+      "execution_time": 3.601663112640381,
+      "cache_hit": false
+    },
+    "batch_filtering": {
+      "stage_name": "batch_filtering",
+      "status": "StageStatus.COMPLETED",
+      "result": [
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/API.GateKeeper/Middlewares/LogAsyncRequestHttpMiddleware.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 100,
+          "reasoning": "Direct match for 'SetTag' (1 occurrences)",
+          "matching_patterns": [
+            "SetTag"
+          ],
+          "context_snippets": [
+            "try\n\t\t{\n\t\t\tcontext.AddKazMonServerVariables();\n\t\t\tactivity?.SetTagsWithCommonFields(context);\n\t\t\tawait base.Invoke(context);\n\t\t\tactivity?.SetStatus(context?.Response.StatusCode < 400 ? ActivityStatusCode.Ok : ActivityStatusCode.Error);\n\t\t}"
+          ],
+          "confidence": 0.95
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/Profile/ProfileModule.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 100,
+          "reasoning": "Direct match for 'SetTag' (1 occurrences)",
+          "matching_patterns": [
+            "SetTag"
+          ],
+          "context_snippets": [
+            "private void OnPostRequestHandlerExecute(object sender, EventArgs e)\n\t\t{\n\t\t\tActivity.Current?.SetTagsWithCommonFields(HttpContext.Current);\n\t\t\tLogSessionSize(HttpContext.Current?.Session);\n\t\t\t_performanceLog.SetSession(HttpContext.Current?.Session);\n\t\t}"
+          ],
+          "confidence": 0.95
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/Helpers/BaseApiHandler.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 100,
+          "reasoning": "Direct match for 'SetTag' (1 occurrences)",
+          "matching_patterns": [
+            "SetTag"
+          ],
+          "context_snippets": [
+            "try\n\t\t{\n\t\t\tPopulateFeatureFlagContext(AtlasContext.Current.UserAccount, context);\n\t\t\tActivity.Current?.SetTagsWithCommonFields(context);\n\t\t}\n\t\tcatch (Exception ex)\n\t\t{"
+          ],
+          "confidence": 0.95
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/WebNet/Middlewares/LogAsyncRequestHttpMiddleware.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 100,
+          "reasoning": "Direct match for 'SetTag' (1 occurrences); Matches 2 keywords: OpenTelemetry, middleware",
+          "matching_patterns": [
+            "SetTag",
+            "OpenTelemetry",
+            "middleware"
+          ],
+          "context_snippets": [
+            "try\n\t\t{\n\t\t\tcontext.AddKazMonServerVariables();\n\t\t\tactivity?.SetTagsWithCommonFields(context);\n\t\t\tawait base.Invoke(context);\n\t\t\tactivity?.SetStatus(context?.Response.StatusCode < 400 ? ActivityStatusCode.Ok : ActivityStatusCode.Error);\n\t\t}"
+          ],
+          "confidence": 0.95
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/ScmHttpApplication.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 100,
+          "reasoning": "Telemetry infrastructure: Import: DocuSign.CLM.Monitoring, Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions, Import: OpenTelemetry.Metrics",
+          "matching_patterns": [
+            "Import: DocuSign.CLM.Monitoring",
+            "Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+            "Import: OpenTelemetry.Metrics",
+            "Import: OpenTelemetry.Trace",
+            "Pattern: OpenTelemetry",
+            "Pattern: Instrumentation",
+            "Pattern: Monitoring",
+            "Pattern: Metrics",
+            "Pattern: UseOpenTelemetry"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/ActIntegration/Client/ActIntegrationClient.cs",
+          "strategy": "SearchStrategy.GRAPH_BASED",
+          "relevance_score": 90,
+          "reasoning": "contains HTTP-related constant: ADEXS.ActIntegration.ActIntegrationClient.MakeHttpRequestV2Async(ADEXS.Core.Domain.Model.UserAccount, System.Guid, System.Guid, System.Net.Http.HttpMethod, string, string, string, string, int, DocuSign.CLM.Monitoring.SmartMon.ISmartMon, bool); has relationship to telemetry symbol: System.TimeSpan.FromSeconds(double); contains HTTP-related constant: ADEXS.ActIntegration.ActIntegrationClient.MakeHttpRequestV2(ADEXS.Core.Domain.Model.UserAccount, System.Guid, System.Guid, System.Net.Http.HttpMethod, string, string, string, string, int, DocuSign.CLM.Monitoring.SmartMon.ISmartMon, bool); has relationship to telemetry symbol: System.TimeSpan.FromSeconds(double); contains HTTP-related constant: ADEXS.ActIntegration.ActIntegrationClient.MakeHttpRequest(ADEXS.Core.Domain.Model.UserAccount, System.Net.Http.HttpMethod, string, string, string, string, int, DocuSign.CLM.Monitoring.SmartMon.ISmartMon); has relationship to telemetry symbol: System.TimeSpan.FromSeconds(double); contains HTTP-related constant: ADEXS.ActIntegration.ActIntegrationClient.GetHttpClient(); contains HTTP-related constant: ADEXS.ActIntegration.ActIntegrationClient.GetTokenScopesForHttpMethod(System.Net.Http.HttpMethod, ADEXS.ActIntegration.ActAccountInfo); contains HTTP-related constant: ADEXS.ActIntegration.ActIntegrationClient.AddDefaultRequestHeaders(ADEXS.ActIntegration.ActAccountInfo, string, System.Net.Http.HttpClient, string, string, string)",
+          "matching_patterns": [
+            "http_constant_ADEXS.ActIntegration.ActIntegrationClient.MakeHttpRequestV2Async(ADEXS.Core.Domain.Model.UserAccount, System.Guid, System.Guid, System.Net.Http.HttpMethod, string, string, string, string, int, DocuSign.CLM.Monitoring.SmartMon.ISmartMon, bool)",
+            "telemetry_relationship",
+            "http_constant_ADEXS.ActIntegration.ActIntegrationClient.MakeHttpRequestV2(ADEXS.Core.Domain.Model.UserAccount, System.Guid, System.Guid, System.Net.Http.HttpMethod, string, string, string, string, int, DocuSign.CLM.Monitoring.SmartMon.ISmartMon, bool)",
+            "telemetry_relationship",
+            "http_constant_ADEXS.ActIntegration.ActIntegrationClient.MakeHttpRequest(ADEXS.Core.Domain.Model.UserAccount, System.Net.Http.HttpMethod, string, string, string, string, int, DocuSign.CLM.Monitoring.SmartMon.ISmartMon)",
+            "telemetry_relationship",
+            "http_constant_ADEXS.ActIntegration.ActIntegrationClient.GetHttpClient()",
+            "http_constant_ADEXS.ActIntegration.ActIntegrationClient.GetTokenScopesForHttpMethod(System.Net.Http.HttpMethod, ADEXS.ActIntegration.ActAccountInfo)",
+            "http_constant_ADEXS.ActIntegration.ActIntegrationClient.AddDefaultRequestHeaders(ADEXS.ActIntegration.ActAccountInfo, string, System.Net.Http.HttpClient, string, string, string)"
+          ],
+          "context_snippets": [],
+          "confidence": 0.8
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/OpenApiClients/DacDocGenApiClient/Api/GenApi.cs",
+          "strategy": "SearchStrategy.GRAPH_BASED",
+          "relevance_score": 90,
+          "reasoning": "contains HTTP-related constant: DacDocGenApiClient.Api.GenApi.GenerateDocumentV1WithHttpInfo(string, DacDocGenApiClient.Model.GenerateDocumentRequest); contains HTTP-related constant: DacDocGenApiClient.Api.GenApi.GenerateDocumentV1WithHttpInfoAsync(string, DacDocGenApiClient.Model.GenerateDocumentRequest, System.Threading.CancellationToken); contains HTTP-related constant: DacDocGenApiClient.Api.GenApi.ParseTemplateV1WithHttpInfo(System.Guid, DacDocGenApiClient.Model.ParseTemplateRequest); contains HTTP-related constant: DacDocGenApiClient.Api.GenApi.ParseTemplateV1WithHttpInfoAsync(System.Guid, DacDocGenApiClient.Model.ParseTemplateRequest, System.Threading.CancellationToken); contains HTTP-related constant: DacDocGenApiClient.Api.GenApi.UploadTemplateV1WithHttpInfo(System.Guid, string, DacDocGenApiClient.Client.FileParameter, long?); contains HTTP-related constant: DacDocGenApiClient.Api.GenApi.UploadTemplateV1WithHttpInfoAsync(System.Guid, string, DacDocGenApiClient.Client.FileParameter, long?, System.Threading.CancellationToken)",
+          "matching_patterns": [
+            "http_constant_DacDocGenApiClient.Api.GenApi.GenerateDocumentV1WithHttpInfo(string, DacDocGenApiClient.Model.GenerateDocumentRequest)",
+            "http_constant_DacDocGenApiClient.Api.GenApi.GenerateDocumentV1WithHttpInfoAsync(string, DacDocGenApiClient.Model.GenerateDocumentRequest, System.Threading.CancellationToken)",
+            "http_constant_DacDocGenApiClient.Api.GenApi.ParseTemplateV1WithHttpInfo(System.Guid, DacDocGenApiClient.Model.ParseTemplateRequest)",
+            "http_constant_DacDocGenApiClient.Api.GenApi.ParseTemplateV1WithHttpInfoAsync(System.Guid, DacDocGenApiClient.Model.ParseTemplateRequest, System.Threading.CancellationToken)",
+            "http_constant_DacDocGenApiClient.Api.GenApi.UploadTemplateV1WithHttpInfo(System.Guid, string, DacDocGenApiClient.Client.FileParameter, long?)",
+            "http_constant_DacDocGenApiClient.Api.GenApi.UploadTemplateV1WithHttpInfoAsync(System.Guid, string, DacDocGenApiClient.Client.FileParameter, long?, System.Threading.CancellationToken)"
+          ],
+          "context_snippets": [],
+          "confidence": 0.8
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/OpenApiClients/DacDocGenApiClient/Client/ApiClient.cs",
+          "strategy": "SearchStrategy.GRAPH_BASED",
+          "relevance_score": 90,
+          "reasoning": "contains HTTP-related constant: DacDocGenApiClient.Client.CustomJsonCodec.Deserialize<T>(System.Net.Http.HttpResponseMessage); contains HTTP-related constant: DacDocGenApiClient.Client.CustomJsonCodec.Deserialize(System.Net.Http.HttpResponseMessage, System.Type); contains HTTP-related constant: DacDocGenApiClient.Client.ApiClient.NewRequest(System.Net.Http.HttpMethod, string, DacDocGenApiClient.Client.RequestOptions, DacDocGenApiClient.Client.IReadableConfiguration); contains HTTP-related constant: DacDocGenApiClient.Client.ApiClient.InterceptRequest(System.Net.Http.HttpRequestMessage); contains HTTP-related constant: DacDocGenApiClient.Client.ApiClient.InterceptResponse(System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage); contains HTTP-related constant: DacDocGenApiClient.Client.ApiClient.ToApiResponse<T>(System.Net.Http.HttpResponseMessage, object, System.Uri); contains HTTP-related constant: DacDocGenApiClient.Client.ApiClient.Exec<T>(System.Net.Http.HttpRequestMessage, DacDocGenApiClient.Client.IReadableConfiguration); contains HTTP-related constant: DacDocGenApiClient.Client.ApiClient.ExecAsync<T>(System.Net.Http.HttpRequestMessage, DacDocGenApiClient.Client.IReadableConfiguration, System.Threading.CancellationToken)",
+          "matching_patterns": [
+            "http_constant_DacDocGenApiClient.Client.CustomJsonCodec.Deserialize<T>(System.Net.Http.HttpResponseMessage)",
+            "http_constant_DacDocGenApiClient.Client.CustomJsonCodec.Deserialize(System.Net.Http.HttpResponseMessage, System.Type)",
+            "http_constant_DacDocGenApiClient.Client.ApiClient.NewRequest(System.Net.Http.HttpMethod, string, DacDocGenApiClient.Client.RequestOptions, DacDocGenApiClient.Client.IReadableConfiguration)",
+            "http_constant_DacDocGenApiClient.Client.ApiClient.InterceptRequest(System.Net.Http.HttpRequestMessage)",
+            "http_constant_DacDocGenApiClient.Client.ApiClient.InterceptResponse(System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage)",
+            "http_constant_DacDocGenApiClient.Client.ApiClient.ToApiResponse<T>(System.Net.Http.HttpResponseMessage, object, System.Uri)",
+            "http_constant_DacDocGenApiClient.Client.ApiClient.Exec<T>(System.Net.Http.HttpRequestMessage, DacDocGenApiClient.Client.IReadableConfiguration)",
+            "http_constant_DacDocGenApiClient.Client.ApiClient.ExecAsync<T>(System.Net.Http.HttpRequestMessage, DacDocGenApiClient.Client.IReadableConfiguration, System.Threading.CancellationToken)"
+          ],
+          "context_snippets": [],
+          "confidence": 0.8
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Web/OWINStartup.cs",
+          "strategy": "SearchStrategy.KEYWORD",
+          "relevance_score": 55,
+          "reasoning": "Matches 1 keywords: middleware",
+          "matching_patterns": [
+            "middleware"
+          ],
+          "context_snippets": [],
+          "confidence": 0.6
+        }
+      ],
+      "error": null,
+      "execution_time": 31.75481915473938,
+      "cache_hit": false
+    },
+    "final_selection": {
+      "stage_name": "final_selection",
+      "status": "StageStatus.COMPLETED",
+      "result": [
+        [],
+        "<scanner.advanced_llm_reasoning.ReasoningChain object at 0x3335b0b90>"
+      ],
+      "error": null,
+      "execution_time": 1.4316608905792236,
+      "cache_hit": false
+    },
+    "patch_generation": {
+      "stage_name": "patch_generation",
+      "status": "StageStatus.COMPLETED",
+      "result": {
+        "diff": "",
+        "explanation": "No files selected for modification",
+        "reasoning": "<scanner.advanced_llm_reasoning.ReasoningChain object at 0x3335b0e10>",
+        "selected_files": []
+      },
+      "error": null,
+      "execution_time": 0.00015091896057128906,
+      "cache_hit": false
+    },
+    "report_generation": {
+      "stage_name": "report_generation",
+      "status": "StageStatus.COMPLETED",
+      "result": {
+        "report_type": "analysis_only"
+      },
+      "error": null,
+      "execution_time": 0.00024390220642089844,
+      "cache_hit": false
+    }
+  }
+}

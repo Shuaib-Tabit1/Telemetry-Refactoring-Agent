@@ -1,0 +1,23 @@
+**Issue**: Customer ID and Account ID are missing in Span Attributes for Customer Impact Analysis
+
+**Problem Description**:
+Customer ID and Account ID are not showing in Span Attributes for iam-tasks service spans. The customer impact analysis team needs these attributes to appear in every span so they can calculate customer impact percentages during incidents.
+
+**Current State**:
+- Spans are created with ActivitySource.StartActivity calls throughout the codebase
+- Customer and account context is available but not being added to spans
+- Customer impact queries return incomplete data due to missing span attributes
+
+**Expected Outcome**:
+- Every span should include customer.id span attribute
+- Every span should include account.id span attribute  
+- These attributes should be set immediately after ActivitySource.StartActivity calls
+- Customer impact analysis queries should return complete data
+
+**Technical Requirements**:
+- Find all ActivitySource.StartActivity calls in the codebase
+- Add span.SetAttribute("customer.id", customerId) after each StartActivity call
+- Add span.SetAttribute("account.id", accountId) after each StartActivity call
+- Ensure customer context is available where needed
+
+**Priority**: High - impacts incident response and customer impact assessment capabilities

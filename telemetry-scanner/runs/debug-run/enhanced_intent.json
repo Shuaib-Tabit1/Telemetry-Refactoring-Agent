@@ -1,0 +1,213 @@
+{
+  "basic_intent": {
+    "issue_category": "INSTRUMENTATION",
+    "static_analysis_query": {
+      "find_method_call": "SetTag"
+    },
+    "semantic_description": "Add HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION attributes to existing HTTP request spans in the CLM web application.",
+    "search_keywords": [
+      "HTTP_REFERER",
+      "HTTP_RESPONSE_REDIRECT_LOCATION",
+      "Activity.SetTag",
+      "OpenTelemetry",
+      "ASP.NET middleware"
+    ],
+    "telemetry_operation": {
+      "type": "span",
+      "target_name": "incoming_http_request_span",
+      "action": "ADD_ATTRIBUTES",
+      "attributes_to_add": [
+        {
+          "name": "HTTP_REFERER",
+          "value_source": "Request.Headers[\"Referer\"]"
+        },
+        {
+          "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+          "value_source": "Response.Headers[\"Location\"]"
+        }
+      ],
+      "new_span_name": null,
+      "new_metric_details": {}
+    }
+  },
+  "enhanced_analysis": {
+    "confidence": "high",
+    "operation_type": "multi_file",
+    "complexity_score": 4,
+    "estimated_files": 3,
+    "validation_issues": [],
+    "suggestions": [],
+    "sub_tasks": [
+      {
+        "order": 1,
+        "id": "code_discovery",
+        "action": "locate_configuration",
+        "description": "Find the existing OpenTelemetry & ActivitySource setup and determine where span enrichment already happens.",
+        "expected_files": [
+          "Startup.cs | Program.cs",
+          "OpenTelemetry/Tracing/TracingExtensions.cs",
+          "Instrumentation/*Middleware.cs",
+          "any file that calls AddAspNetCoreInstrumentation or SetTag"
+        ],
+        "deliverables": [
+          "List of candidate middleware/enricher classes",
+          "Decision on whether to add logic to existing middleware or create a new one"
+        ],
+        "validation_criteria": "All relevant files called from the ASP.NET pipeline are identified and reviewed."
+      },
+      {
+        "order": 2,
+        "id": "design_change",
+        "action": "design",
+        "description": "Choose implementation pattern (extend existing RequestEnrichmentMiddleware or introduce a new one). Draft class diagram and threading/performance notes.",
+        "dependencies": [
+          "code_discovery"
+        ],
+        "deliverables": [
+          "High-level design doc in /docs/telemetry/redirect_attributes.md",
+          "Decision record in ADR format"
+        ],
+        "validation_criteria": "Design sign-off from at least two reviewers in the #telemetry channel."
+      },
+      {
+        "order": 3,
+        "id": "implement_referer",
+        "action": "implement_changes",
+        "description": "Read Referer from the incoming request header and add to Activity.",
+        "code_changes": [
+          "activity.SetTag(\"HTTP_REFERER\", context.Request.Headers[\"Referer\"].FirstOrDefault() ?? string.Empty)"
+        ],
+        "dependencies": [
+          "design_change"
+        ],
+        "expected_files_modified_or_added": [
+          "Middleware/RequestEnrichmentMiddleware.cs"
+        ],
+        "validation_criteria": "Unit test shows attribute present when header supplied and absent when not."
+      },
+      {
+        "order": 4,
+        "id": "implement_redirect_location",
+        "action": "implement_changes",
+        "description": "Capture the Location response header when status code indicates redirect (301/302/303/307/308) before Activity stops.",
+        "implementation_hint": "Wrap next(context) in try/finally, read context.Response.StatusCode and Location header after next returns.",
+        "code_snippet": [
+          "if (context.Response.StatusCode >= 301 && context.Response.StatusCode <= 308)",
+          "{",
+          "    var location = context.Response.Headers[\"Location\"].FirstOrDefault();",
+          "    if (!string.IsNullOrEmpty(location))",
+          "        activity?.SetTag(\"HTTP_RESPONSE_REDIRECT_LOCATION\", location);",
+          "}"
+        ],
+        "dependencies": [
+          "design_change"
+        ],
+        "expected_files_modified_or_added": [
+          "Middleware/RequestEnrichmentMiddleware.cs"
+        ],
+        "validation_criteria": "Integration test triggers 302 and asserts attribute value equals redirect url."
+      },
+      {
+        "order": 5,
+        "id": "unit_integration_tests",
+        "action": "test",
+        "description": "Add/extend tests for new attributes using TestServer and in-memory exporter.",
+        "expected_files": [
+          "Tests/Telemetry/RedirectAttributeTests.cs"
+        ],
+        "dependencies": [
+          "implement_referer",
+          "implement_redirect_location"
+        ],
+        "validation_criteria": "CI pipeline passes with new tests; code coverage \u2265 90 % on middleware."
+      },
+      {
+        "order": 6,
+        "id": "local_verification",
+        "action": "run_locally",
+        "description": "Run clm-web locally with OTLP exporter pointed to dev collector; verify span attributes via console or Jaeger UI.",
+        "dependencies": [
+          "unit_integration_tests"
+        ],
+        "validation_criteria": "Both attributes visible for manual browser navigation, and absent when headers not present."
+      },
+      {
+        "order": 7,
+        "id": "pull_request",
+        "action": "code_review",
+        "description": "Open PR labelled telemetry/instrumentation, request reviews, link to ticket and design doc.",
+        "dependencies": [
+          "local_verification"
+        ],
+        "validation_criteria": "At least two approvals, zero critical comments unresolved."
+      },
+      {
+        "order": 8,
+        "id": "deploy_demo",
+        "action": "deploy",
+        "description": "Promote build to Demo environment via standard pipeline.",
+        "dependencies": [
+          "pull_request"
+        ],
+        "validation_criteria": "Successful pipeline, no alerts, application health unchanged."
+      },
+      {
+        "order": 9,
+        "id": "demo_validation",
+        "action": "query_kusto",
+        "description": "Run the provided Kusto query in Demo to confirm attributes appear.",
+        "dependencies": [
+          "deploy_demo"
+        ],
+        "validation_criteria": "Query returns expected HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION columns populated for redirect traffic."
+      },
+      {
+        "order": 10,
+        "id": "performance_check",
+        "action": "monitor_metrics",
+        "description": "Review CPU, memory, and request latency dashboards for Demo for 24h; compare P95 latency before/after (<2 % delta).",
+        "dependencies": [
+          "deploy_demo"
+        ],
+        "validation_criteria": "No significant performance regression."
+      },
+      {
+        "order": 11,
+        "id": "prod_rollout",
+        "action": "deploy",
+        "description": "If Demo validation passes, promote build to Prod during low-traffic window.",
+        "dependencies": [
+          "demo_validation",
+          "performance_check"
+        ],
+        "validation_criteria": "Prod spans contain new attributes; no customer impact."
+      },
+      {
+        "order": 12,
+        "id": "post_deploy_monitoring",
+        "action": "observe",
+        "description": "Monitor error budget and telemetry dashboards for 48h; keep Kusto query in alert notebook.",
+        "dependencies": [
+          "prod_rollout"
+        ],
+        "validation_criteria": "SLOs unchanged; no rollback needed."
+      },
+      {
+        "order": 13,
+        "id": "documentation",
+        "action": "update_docs",
+        "description": "Update internal wiki (Telemetry Attributes Matrix) and README with new attributes and sample Kusto queries.",
+        "dependencies": [
+          "prod_rollout"
+        ],
+        "validation_criteria": "Docs merged and announced in #clm-telemetry channel."
+      }
+    ],
+    "contextual_hints": [
+      "Injecting logic at the correct point in the ASP.NET pipeline so that both request and response headers are available before the span ends",
+      "Ensuring the added tags appear only once and on the correct span even when multiple middlewares manipulate Activity objects",
+      "Safely handling redirects implemented outside normal MVC pipeline (e.g., Response.Redirect, custom handlers)",
+      "Validating the change in every environment (Dev, Demo, Prod) with reliable Kusto queries"
+    ]
+  }
+}

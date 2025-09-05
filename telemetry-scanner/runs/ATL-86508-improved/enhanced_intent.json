@@ -1,0 +1,196 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "ExecuteStoredProcedure"
+  },
+  "semantic_description": "Add stored-procedure and database names as span attributes when ExecuteStoredProcedure is invoked.",
+  "search_keywords": [
+    "ExecuteStoredProcedure",
+    "db.operation",
+    "db.name",
+    "span attribute",
+    "stored procedure name"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": "ExecuteStoredProcedure",
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.operation",
+        "value_source": "stored procedure name"
+      },
+      {
+        "name": "db.name",
+        "value_source": "database name"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": {}
+  },
+  "confidence": "IntentConfidence.HIGH",
+  "operation_type": "OperationType.MULTI_FILE",
+  "complexity_score": 4,
+  "estimated_files": 2,
+  "validation_result": "ValidationResult(is_valid=True, confidence=<IntentConfidence.HIGH: 'high'>, issues=[], suggestions=[])",
+  "sub_tasks": [
+    {
+      "order": 1,
+      "name": "Locate ExecuteStoredProcedure implementation & current span creation",
+      "action": "codebase_discovery",
+      "description": "Search the codebase for all ExecuteStoredProcedure definitions / wrappers and the span creation logic that surrounds them.",
+      "expected_files": [
+        "*/DatabaseClient*.cs",
+        "*/SqlRepository*.cs",
+        "*/DataAccess*/ExecuteStoredProcedure*.cs"
+      ],
+      "validation_criteria": [
+        "All sync / async overloads of ExecuteStoredProcedure are listed",
+        "The exact line(s) where a span is started are identified (or confirmed missing)"
+      ]
+    },
+    {
+      "order": 2,
+      "name": "Review OpenTelemetry setup",
+      "action": "locate_configuration",
+      "description": "Identify the startup / DI files where OpenTelemetry (CLM) is configured. Check if a custom TelemetrySource or ActivitySource is already used for DB calls.",
+      "expected_files": [
+        "Startup.cs",
+        "Program.cs",
+        "*TelemetryExtensions.cs",
+        "*OpenTelemetryConfig.cs"
+      ],
+      "validation_criteria": [
+        "Active ActivitySource name(s) for DB calls are known",
+        "Any existing span processors / enrichers for DB are documented"
+      ]
+    },
+    {
+      "order": 3,
+      "name": "High-level design",
+      "action": "design",
+      "dependencies": [
+        1,
+        2
+      ],
+      "description": "Choose the instrumentation point (inside ExecuteStoredProcedure wrapper vs. ActivityEnricher). Decide the safest way to access (a) stored procedure name and (b) database name for both sync & async executions. Verify no PII exposure.",
+      "validation_criteria": [
+        "Design doc / comment in ticket approved by reviewer",
+        "Decision recorded about feature-flagging or guarded enrichment"
+      ]
+    },
+    {
+      "order": 4,
+      "name": "Implement attribute enrichment",
+      "action": "implement_changes",
+      "dependencies": [
+        3
+      ],
+      "description": "1) Capture the procedure name (usually from SqlCommand.CommandText).\n2) Capture database name (SqlConnection.Database).\n3) Add span.SetTag(\"db.operation\", procName) and span.SetTag(\"db.name\", dbName) immediately after span creation.\n4) Handle both sync and async ExecuteStoredProcedure methods.\n5) Guard with null/empty checks and optional feature flag (e.g., TelemetryOptions.IncludeProcName).",
+      "expected_files": [
+        "*/ExecuteStoredProcedure*.cs",
+        "*TelemetryEnricher.cs"
+      ],
+      "validation_criteria": [
+        "Compilation passes locally",
+        "No new analyzer violations",
+        "All overloads contain identical enrichment logic"
+      ]
+    },
+    {
+      "order": 5,
+      "name": "Unit tests",
+      "action": "add_tests",
+      "dependencies": [
+        4
+      ],
+      "description": "Add/extend tests in the Telemetry test project:\n\u2022 Mock ExecuteStoredProcedure call \u2192 assert Activity.Events/Tags include db.operation & db.name.\n\u2022 Verify feature flag off hides attributes.",
+      "expected_files": [
+        "tests/ExecuteStoredProcedureTelemetryTests.cs"
+      ],
+      "validation_criteria": [
+        "New tests pass in CI",
+        "Code coverage for enrichment path \u2265 90%"
+      ]
+    },
+    {
+      "order": 6,
+      "name": "Integration test with Jaeger",
+      "action": "integration_test",
+      "dependencies": [
+        4
+      ],
+      "description": "Run application locally with Jaeger exporter enabled, execute a sample stored procedure, and visually confirm attributes in Jaeger UI.",
+      "validation_criteria": [
+        "Span shows db.operation=<proc_name>",
+        "Span shows db.name=<database>",
+        "No unexpected sensitive values appear"
+      ]
+    },
+    {
+      "order": 7,
+      "name": "Performance & regression checks",
+      "action": "performance_test",
+      "dependencies": [
+        4
+      ],
+      "description": "Benchmark hot path with and without enrichment to ensure <1% overhead and no additional allocations that break budgets.",
+      "validation_criteria": [
+        "Benchmark numbers recorded in ticket",
+        "No GC regressions detected"
+      ]
+    },
+    {
+      "order": 8,
+      "name": "Code review & merge",
+      "action": "code_review",
+      "dependencies": [
+        5,
+        6,
+        7
+      ],
+      "description": "Open PR, get approvals, address comments, and merge to main branch behind feature flag if required.",
+      "validation_criteria": [
+        "Minimum 2 reviewer approvals",
+        "CI pipeline green"
+      ]
+    },
+    {
+      "order": 9,
+      "name": "Documentation update",
+      "action": "docs_update",
+      "dependencies": [
+        8
+      ],
+      "description": "Update internal wiki / README to reflect new attributes, any feature flags, and guidance for querying Jaeger.",
+      "expected_files": [
+        "docs/telemetry.md",
+        "CHANGELOG.md"
+      ],
+      "validation_criteria": [
+        "Docs PR merged",
+        "Changelog entry created"
+      ]
+    },
+    {
+      "order": 10,
+      "name": "Deploy & monitor",
+      "action": "deployment",
+      "dependencies": [
+        8
+      ],
+      "description": "Roll out to staging \u2192 prod. Watch Jaeger dashboards and error logs for 24h. Roll back if issues arise.",
+      "validation_criteria": [
+        "Attributes visible in staging and prod",
+        "No increase in error rate or latency"
+      ]
+    }
+  ],
+  "contextual_hints": [
+    "Obtaining the stored procedure and database names in a reliable way for both sync and async execution paths",
+    "Adding attributes without introducing measurable latency or allocation overhead in hot database call paths"
+  ],
+  "similar_patterns": [
+    "add_span_attributes_for_database_calls"
+  ]
+}

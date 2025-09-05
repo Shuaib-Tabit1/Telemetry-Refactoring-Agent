@@ -1,0 +1,26 @@
+2025-09-04 17:47:41,281 - scanner.pipeline_orchestrator - INFO - Stage ticket_processing: Starting (attempt 1)
+2025-09-04 17:47:41,282 - scanner.pipeline_orchestrator - INFO - Stage ticket_processing: Completed in 0.00s
+2025-09-04 17:47:41,282 - scanner.pipeline_orchestrator - INFO - Stage intent_extraction: Starting (attempt 1)
+2025-09-04 17:47:50,628 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-09-04 17:47:57,184 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-09-04 17:47:57,190 - scanner.pipeline_orchestrator - INFO - Stage intent_extraction: Completed in 15.91s
+2025-09-04 17:47:57,192 - scanner.pipeline_orchestrator - INFO - Stage project_parsing: Starting (attempt 1)
+2025-09-04 17:47:57,206 - scanner.pipeline_orchestrator - INFO - Stage project_parsing: Completed in 0.01s
+2025-09-04 17:47:57,206 - scanner.pipeline_orchestrator - INFO - Stage graph_building: Starting (attempt 1)
+2025-09-04 17:55:06,190 - scanner.pipeline_orchestrator - INFO - Stage graph_building: Completed in 428.98s
+2025-09-04 17:55:06,206 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: mps
+2025-09-04 17:55:06,206 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 17:55:22,053 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 1)
+2025-09-04 17:55:27,202 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Completed in 5.15s
+2025-09-04 17:55:27,204 - scanner.pipeline_orchestrator - INFO - Stage batch_filtering: Starting (attempt 1)
+2025-09-04 17:55:43,142 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-09-04 17:55:43,145 - scanner.pipeline_orchestrator - INFO - Stage batch_filtering: Completed in 15.94s
+2025-09-04 17:55:43,145 - scanner.pipeline_orchestrator - INFO - Stage final_selection: Starting (attempt 1)
+2025-09-04 17:55:43,147 - scanner.pipeline_orchestrator - INFO - Stage final_selection: Completed in 0.00s
+2025-09-04 17:55:43,147 - scanner.pipeline_orchestrator - INFO - Stage patch_generation: Starting (attempt 1)
+2025-09-04 17:55:43,147 - scanner.pipeline_orchestrator - INFO - Stage patch_generation: Completed in 0.00s
+2025-09-04 17:55:43,149 - scanner.pipeline_orchestrator - INFO - Stage report_generation: Starting (attempt 1)
+2025-09-04 17:55:43,150 - scanner.pipeline_orchestrator - INFO - Stage report_generation: Completed in 0.00s
+2025-09-04 18:04:49,881 - scanner.pipeline_orchestrator - INFO - Stage ticket_processing: Starting (attempt 1)
+2025-09-04 18:04:49,883 - scanner.pipeline_orchestrator - INFO - Stage ticket_processing: Completed in 0.00s
+2025-09-04 18:04:49,883 - scanner.pipeline_orchestrator - INFO - Stage intent_extraction: Cache hit

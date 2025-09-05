@@ -1,0 +1,140 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "ExecuteStoredProcedure"
+  },
+  "semantic_description": "Include the executed stored-procedure name as a span attribute for database calls so it can be surfaced in Jaeger traces.",
+  "search_keywords": [
+    "stored procedure",
+    "span attribute",
+    "db.operation",
+    "jaeger",
+    "sprocname"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": "db-client-span",
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "db.operation",
+        "value_source": "stored procedure name"
+      },
+      {
+        "name": "db.name",
+        "value_source": "database name"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": {}
+  },
+  "confidence": "IntentConfidence.HIGH",
+  "operation_type": "OperationType.MULTI_FILE",
+  "complexity_score": 5,
+  "estimated_files": 4,
+  "validation_result": "ValidationResult(is_valid=True, confidence=<IntentConfidence.HIGH: 'high'>, issues=[], suggestions=[])",
+  "sub_tasks": [
+    {
+      "order": 1,
+      "id": "code_baseline_scan",
+      "action": "Locate instrumentation & DB helpers",
+      "description": "1. Grep the solution for `ExecuteStoredProcedure` and any wrappers around ADO / Dapper / EF.\n2. Identify the central helper(s) that create DB spans (OpenTelemetry instrumentation or custom Activity code).\n3. Map call-paths for sync & async execution variants.\n4. Capture a quick trace in a dev environment and confirm that the current span is emitted with no `db.operation` attribute.",
+      "expected_files_or_modules": [
+        "DataAccess/ExecuteStoredProcedure.cs",
+        "Infrastructure/Tracing/TelemetryExtensions.cs",
+        "Startup.cs or Program.cs (OpenTelemetry registration)",
+        "Any *.ActivitySource*.cs"
+      ],
+      "owners": [
+        "telemetry-team"
+      ],
+      "validation_criteria": "All code locations that touch stored-procedure execution are enumerated and documented."
+    },
+    {
+      "order": 2,
+      "id": "schema_design",
+      "action": "Confirm attribute names & privacy guardrails",
+      "description": "1. Align on final attribute keys: use OpenTelemetry DB semantic conventions (`db.operation`, `db.name`).\n2. Decide how to handle dynamic SQL statements that may not be sprocs.\n3. Confirm with security/compliance that exposing sproc & DB names is acceptable or whether redaction rules are needed (e.g. hash or whitelist).",
+      "dependencies": [
+        "code_baseline_scan"
+      ],
+      "validation_criteria": "Attribute schema ratified in ADR-### or Confluence page; security sign-off acquired."
+    },
+    {
+      "order": 3,
+      "id": "implementation",
+      "action": "Enrich span builder",
+      "description": "1. In the ExecuteStoredProcedure helper, extract:\n   \u2022 Stored-procedure name (usually the first token of the command text).\n   \u2022 Database name (via connection.Database).\n2. Attach the values when creating or updating the span/activity.\n3. Ensure TRY / FINALLY so the enrichment runs for success & error paths.\n4. Wrap extraction in null/empty checks to avoid throwing if information is absent.\n5. Put behind a feature toggle `Telemetry.SprocAttributesEnabled` (appsettings) for controlled rollout.",
+      "dependencies": [
+        "schema_design"
+      ],
+      "expected_files_or_modules": [
+        "DataAccess/ExecuteStoredProcedure.cs",
+        "Infrastructure/Tracing/DbSpanEnricher.cs (new)",
+        "appsettings.json"
+      ],
+      "validation_criteria": "Attribute values visible in unit tests and local Jaeger instance."
+    },
+    {
+      "order": 4,
+      "id": "unit_and_integration_tests",
+      "action": "Add test coverage",
+      "description": "1. Unit test the new `DbSpanEnricher` with fake `DbCommand` to assert attributes added.\n2. Integration test with TestContainer / LocalDB to run a stored procedure and capture exported spans using InMemoryExporter.\n3. Add guard test that non-sproc (plain SQL) does not set `db.operation` or sets it to the SQL verb.",
+      "dependencies": [
+        "implementation"
+      ],
+      "expected_files_or_modules": [
+        "tests/Tracing/DbSpanEnricherTests.cs"
+      ],
+      "validation_criteria": "All new tests passing in CI."
+    },
+    {
+      "order": 5,
+      "id": "performance_and_regression_check",
+      "action": "Benchmark enrichment",
+      "description": "Run BenchmarkDotNet or dotTrace sampling to ensure extraction logic < 1\u03bcs per call and no memory allocation spikes. Validate no schema changes in other spans.",
+      "dependencies": [
+        "unit_and_integration_tests"
+      ],
+      "validation_criteria": "\u0394 latency < 0.5 %; no additional GC pressure."
+    },
+    {
+      "order": 6,
+      "id": "documentation",
+      "action": "Update observability docs",
+      "description": "Document new attributes, feature flag, and example Jaeger query `(span[db.operation = \"sp_GetContracts\"])`.",
+      "dependencies": [
+        "implementation"
+      ],
+      "validation_criteria": "Docs merged in README or Observability Wiki."
+    },
+    {
+      "order": 7,
+      "id": "staged_rollout",
+      "action": "Deploy with feature flag OFF then enable gradually",
+      "description": "1. Deploy code to DEV with flag ON, observe traces.\n2. Deploy to STAGE with flag ON for traffic canaries.\n3. Gradually enable in PROD (10 % \u2192 50 % \u2192 100 %) while monitoring error budgets and span counts.",
+      "dependencies": [
+        "performance_and_regression_check",
+        "documentation"
+      ],
+      "validation_criteria": "No increase in DB errors; Jaeger shows attributes for sampled traffic."
+    },
+    {
+      "order": 8,
+      "id": "follow_up",
+      "action": "Rename span (optional secondary goal)",
+      "description": "After attribute rollout is stable, create follow-up ticket to update span name to `(dbname sprocname)` as requested by Yong Cha, leveraging the already captured attributes.",
+      "dependencies": [
+        "staged_rollout"
+      ],
+      "validation_criteria": "New ticket created with reference to this implementation."
+    }
+  ],
+  "contextual_hints": [
+    "Reliably capturing the stored-procedure name from the ExecuteStoredProcedure helper so it is always present (sync / async, success / failure paths).",
+    "Updating or extending existing OpenTelemetry / Jaeger span builder so new attributes propagate without breaking existing trace schemas."
+  ],
+  "similar_patterns": [
+    "db-span attribute enrichment"
+  ]
+}

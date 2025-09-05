@@ -1,0 +1,989 @@
+{
+  "execution_summary": {
+    "total_stages": 7,
+    "completed": 7,
+    "failed": 0,
+    "cache_hits": 0,
+    "total_execution_time": 87.82649278640747
+  },
+  "stage_details": {
+    "fetch_ticket": {
+      "stage_name": "fetch_ticket",
+      "status": "StageStatus.COMPLETED",
+      "result": "**Issue**: Customer ID and Account ID are missing in Span Attributes for Customer Impact Analysis\n\n**Problem Description**:\nCustomer ID and Account ID are not showing in Span Attributes for iam-tasks service spans. The customer impact analysis team needs these attributes to appear in every span so they can calculate customer impact percentages during incidents.\n\n**Current State**:\n- Spans are created with ActivitySource.StartActivity calls throughout the codebase\n- Customer and account context is available but not being added to spans\n- Customer impact queries return incomplete data due to missing span attributes\n\n**Expected Outcome**:\n- Every span should include customer.id span attribute\n- Every span should include account.id span attribute  \n- These attributes should be set immediately after ActivitySource.StartActivity calls\n- Customer impact analysis queries should return complete data\n\n**Technical Requirements**:\n- Find all ActivitySource.StartActivity calls in the codebase\n- Add span.SetAttribute(\"customer.id\", customerId) after each StartActivity call\n- Add span.SetAttribute(\"account.id\", accountId) after each StartActivity call\n- Ensure customer context is available where needed\n\n**Priority**: High - impacts incident response and customer impact assessment capabilities\n",
+      "error": null,
+      "execution_time": 0.00026488304138183594,
+      "cache_hit": false
+    },
+    "extract_intent": {
+      "stage_name": "extract_intent",
+      "status": "StageStatus.COMPLETED",
+      "result": {
+        "issue_category": "INSTRUMENTATION",
+        "static_analysis_query": {
+          "find_method_call": "ActivitySource.StartActivity"
+        },
+        "semantic_description": "Add customer.id and account.id attributes to every span immediately after each ActivitySource.StartActivity call in the iam-tasks service.",
+        "search_keywords": [
+          "ActivitySource.StartActivity",
+          "span.SetAttribute",
+          "customer.id",
+          "account.id"
+        ],
+        "telemetry_operation": {
+          "type": "span",
+          "target_name": null,
+          "action": "ADD_ATTRIBUTES",
+          "attributes_to_add": [
+            {
+              "name": "customer.id",
+              "value_source": "customerId variable"
+            },
+            {
+              "name": "account.id",
+              "value_source": "accountId variable"
+            }
+          ],
+          "new_span_name": null,
+          "new_metric_details": {}
+        },
+        "confidence": "IntentConfidence.HIGH",
+        "operation_type": "OperationType.CROSS_CUTTING",
+        "complexity_score": 6,
+        "estimated_files": 15,
+        "validation_result": {
+          "is_valid": true,
+          "confidence": "IntentConfidence.HIGH",
+          "issues": [],
+          "suggestions": []
+        },
+        "sub_tasks": [
+          {
+            "order": 1,
+            "action": "codebase_scoping",
+            "description": "Run a static-analysis query to list every ActivitySource.StartActivity invocation in the iam-tasks repository.",
+            "expected_files": [
+              "*.cs"
+            ],
+            "validation_criteria": "A spreadsheet / markdown file that enumerates each call-site with file path + line number is committed to /docs/instrumentation/audit.md"
+          },
+          {
+            "order": 2,
+            "action": "context_contract_definition",
+            "description": "Define (or confirm) a single interface/struct that exposes CustomerId and AccountId (e.g. IRequestContext { string CustomerId; string AccountId; }).  Decide where it is populated (API Gateway, GRPC interceptor, background-job kick-off, etc.).",
+            "dependencies": [
+              1
+            ],
+            "expected_files": [
+              "src/Common/IRequestContext.cs",
+              "src/Common/RequestContextAccessor.cs"
+            ],
+            "validation_criteria": "Contract is merged and wired to existing context-population middleware without breaking current builds."
+          },
+          {
+            "order": 3,
+            "action": "instrumentation_wrapper_creation",
+            "description": "Create a helper method StartActivityWithCustomerContext(ActivitySource, string name, ActivityKind kind, IRequestContext ctx) that: (1) calls ActivitySource.StartActivity, (2) immediately sets customer.id and account.id attributes on the returned span, (3) returns the Activity instance.",
+            "dependencies": [
+              2
+            ],
+            "expected_files": [
+              "src/Telemetry/ActivityExtensions.cs"
+            ],
+            "validation_criteria": "Unit tests show the wrapper sets both attributes when non-null context is supplied and omits them when context is null (no NRE)."
+          },
+          {
+            "order": 4,
+            "action": "bulk_refactor",
+            "description": "Replace or augment every direct ActivitySource.StartActivity call with the new StartActivityWithCustomerContext helper OR add explicit span.SetAttribute calls right after each StartActivity where wrapper is impractical (e.g. generated code).",
+            "dependencies": [
+              3
+            ],
+            "expected_files": [
+              "~15 files touched (see audit list)"
+            ],
+            "validation_criteria": "CI builds green, and grep -R \"ActivitySource.StartActivity(\" shows 0 remaining raw calls without the customer/account attribute logic."
+          },
+          {
+            "order": 5,
+            "action": "async_context_plumbing",
+            "description": "Ensure IRequestContext flows through async/parallel operations (Task.Run, background workers, channel readers).  Add ExecutionContext flow or custom AsyncLocal where missing.",
+            "dependencies": [
+              4
+            ],
+            "expected_files": [
+              "src/Common/ContextPropagation.cs",
+              "affected worker files"
+            ],
+            "validation_criteria": "Integration tests demonstrate that spans created deep inside async flows still have both attributes."
+          },
+          {
+            "order": 6,
+            "action": "guard_clause_and_pii_review",
+            "description": "Add validation that CustomerId and AccountId are non-PII safe identifiers (UUIDs).  If null/empty, skip attribute to avoid noise; log at DEBUG.",
+            "dependencies": [
+              5
+            ],
+            "validation_criteria": "Static analyzers and security review sign-off; no PII or auth tokens are logged."
+          },
+          {
+            "order": 7,
+            "action": "unit_and_integration_tests",
+            "description": "Add tests that create a fake ActivitySource, emit a span through helper, and assert on Activity.TagObjects for customer.id and account.id.  Extend end-to-end test suite to query in-memory OTLP exporter and verify attributes exist on >95% of spans.",
+            "dependencies": [
+              6
+            ],
+            "expected_files": [
+              "tests/TelemetryTests.cs",
+              "tests/E2E/TelemetryE2ETest.cs"
+            ],
+            "validation_criteria": "All new tests pass in CI; coverage delta \u2265 +5% lines around instrumentation code."
+          },
+          {
+            "order": 8,
+            "action": "performance_benchmark",
+            "description": "Run BenchmarkDotNet suite comparing master vs branch to measure added overhead per span (<1\u00b5s goal).",
+            "dependencies": [
+              7
+            ],
+            "expected_files": [
+              "benchmarks/SpanAttributeBenchmarks.cs",
+              "benchmark-results.md"
+            ],
+            "validation_criteria": "Performance regression <3% on critical paths."
+          },
+          {
+            "order": 9,
+            "action": "feature_flag_toggle",
+            "description": "Wrap the attribute-setting code with a runtime flag (AppSettings: Telemetry:AddCustomerAccountAttributes=true) to allow safe rollout/rollback.",
+            "dependencies": [
+              8
+            ],
+            "expected_files": [
+              "appsettings.json",
+              "src/Telemetry/FeatureFlags.cs"
+            ],
+            "validation_criteria": "Changing the flag at runtime (config reload) adds/removes the two attributes in staging environment."
+          },
+          {
+            "order": 10,
+            "action": "code_review_and_merge",
+            "description": "Open PR, request reviews from Observability and iam-tasks maintainers, and address comments.",
+            "dependencies": [
+              9
+            ],
+            "validation_criteria": "PR approved with no blocking comments; squash-merge to main."
+          },
+          {
+            "order": 11,
+            "action": "staging_deploy_and_monitoring",
+            "description": "Deploy to staging, run synthetic traffic, and validate via Grafana or Honeycomb that 100% of new spans contain customer.id & account.id.  Check for attribute cardinality explosions.",
+            "dependencies": [
+              10
+            ],
+            "validation_criteria": "Dashboards show attribute presence \u226599%; no exporter errors."
+          },
+          {
+            "order": 12,
+            "action": "production_rollout",
+            "description": "Gradual rollout: 10% \u2192 50% \u2192 100% over 24 hours using the feature flag.  Observe error budget, latency, and span volume.",
+            "dependencies": [
+              11
+            ],
+            "validation_criteria": "No SLO violations; attribute presence confirmed at each stage."
+          },
+          {
+            "order": 13,
+            "action": "post_deploy_verification_and_doc_update",
+            "description": "Close the ticket after verifying Customer Impact Analysis queries now return complete data.  Update internal observability runbook.",
+            "dependencies": [
+              12
+            ],
+            "expected_files": [
+              "docs/runbooks/customer-impact.md"
+            ],
+            "validation_criteria": "Analytics team signs off; runbook merged."
+          }
+        ],
+        "contextual_hints": [
+          "Ensuring customerId and accountId are propagated through async / parallel execution flows so they are always in scope when the span is created",
+          "Refactoring common helpers or creating wrappers to prevent duplicate code while guaranteeing attributes are set exactly once per span",
+          "Co-existing with any existing instrumentation (e.g., automatic OpenTelemetry processors) without clobbering or duplicating attributes",
+          "Adding unit/integration tests that assert new attributes on spans without making tests brittle"
+        ],
+        "similar_patterns": [
+          "add_span_attributes",
+          "context_propagation"
+        ]
+      },
+      "error": null,
+      "execution_time": 32.04506802558899,
+      "cache_hit": false
+    },
+    "build_graph": {
+      "stage_name": "build_graph",
+      "status": "StageStatus.COMPLETED",
+      "result": [
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models.Common/IamTickets.Models.Common.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Database/IamTickets.Database.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Auth/IamTickets.Auth.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Dms/IamTickets.Dms.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Gateways/IamTickets.Gateways.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models/IamTickets.Models.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Eventing/IamTickets.Eventing.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Postgres/IamTickets.Postgres.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/IamTickets.Services.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Common/IamTickets.Common.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Config/IamTickets.Config.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Esign/IamTickets.Esign.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Api/IamTickets.Api.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Search/IamTickets.Search.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Agents/IamTickets.Agents.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService/IamTickets.AdmEventsWorkerService.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Auth.Tests/IamTickets.Auth.Tests.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Integration.Tests/IamTickets.Integration.Tests.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services.Tests/IamTickets.Services.Tests.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Api.Tests/IamTickets.Api.Tests.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Api.Tests.Common/IamTickets.Api.Tests.Common.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Common.Tests/IamTickets.Common.Tests.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Email.Tests/IamTickets.Email.Tests.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models.Tests/IamTickets.Models.Tests.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Search.Tests/IamTickets.Search.Tests.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService.Tests/IamTickets.AdmEventsWorkerService.Tests.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmWorker.Integration.Tests/IamTickets.AdmWorker.Integration.Tests.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Postgres.Tests/IamTickets.Postgres.Tests.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Agents.Tests/IamTickets.Agents.Tests.csproj"
+      ],
+      "error": null,
+      "execution_time": 0.018085956573486328,
+      "cache_hit": false
+    },
+    "intelligent_search": {
+      "stage_name": "intelligent_search",
+      "status": "StageStatus.COMPLETED",
+      "result": [
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Api/StartupExtensions.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 100,
+          "reasoning": "Telemetry infrastructure: Import: DocuSign.Msf.AspNet.OpenTelemetry, Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions, Import: OpenTelemetry.Metrics",
+          "matching_patterns": [
+            "Import: DocuSign.Msf.AspNet.OpenTelemetry",
+            "Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+            "Import: OpenTelemetry.Metrics",
+            "Import: OpenTelemetry.Trace",
+            "Pattern: OpenTelemetry",
+            "Pattern: Instrumentation",
+            "Pattern: Tracing",
+            "Pattern: Metrics",
+            "Config file: startupextensions.cs"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService/Program.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 100,
+          "reasoning": "Telemetry infrastructure: Import: DocuSign.Msf.AspNet.OpenTelemetry, Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions, Import: OpenTelemetry.Metrics",
+          "matching_patterns": [
+            "Import: DocuSign.Msf.AspNet.OpenTelemetry",
+            "Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+            "Import: OpenTelemetry.Metrics",
+            "Import: OpenTelemetry.Trace",
+            "Pattern: OpenTelemetry",
+            "Pattern: Instrumentation",
+            "Pattern: Tracing",
+            "Pattern: Metrics",
+            "Config file: program.cs"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService/Instrumentation/IAdmEventHandlerInstrumentation.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 80,
+          "reasoning": "Telemetry infrastructure: Import: System.Diagnostics.Metrics, Import: DocuSign.Msf.ComponentInstrumentation, Pattern: Instrumentation",
+          "matching_patterns": [
+            "Import: System.Diagnostics.Metrics",
+            "Import: DocuSign.Msf.ComponentInstrumentation",
+            "Pattern: Instrumentation",
+            "Pattern: Metrics",
+            "Config file: iadmeventhandlerinstrumentation.cs"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService/Instrumentation/IAgreementProcessingInstrumentation.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 70,
+          "reasoning": "Telemetry infrastructure: Import: System.Diagnostics.Metrics, Import: DocuSign.Msf.ComponentInstrumentation, Pattern: Instrumentation",
+          "matching_patterns": [
+            "Import: System.Diagnostics.Metrics",
+            "Import: DocuSign.Msf.ComponentInstrumentation",
+            "Pattern: Instrumentation",
+            "Pattern: Metrics",
+            "Config file: iagreementprocessinginstrumentation.cs"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Telemetry/IAccountSettingInstrumentation.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 70,
+          "reasoning": "Telemetry infrastructure: Import: System.Diagnostics.Metrics, Import: DocuSign.Msf.ComponentInstrumentation, Pattern: Instrumentation",
+          "matching_patterns": [
+            "Import: System.Diagnostics.Metrics",
+            "Import: DocuSign.Msf.ComponentInstrumentation",
+            "Pattern: Instrumentation",
+            "Pattern: Metrics",
+            "Config file: iaccountsettinginstrumentation.cs"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Telemetry/IResidencyProviderInstrumentation.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 70,
+          "reasoning": "Telemetry infrastructure: Import: System.Diagnostics.Metrics, Import: DocuSign.Msf.ComponentInstrumentation, Pattern: Instrumentation",
+          "matching_patterns": [
+            "Import: System.Diagnostics.Metrics",
+            "Import: DocuSign.Msf.ComponentInstrumentation",
+            "Pattern: Instrumentation",
+            "Pattern: Metrics",
+            "Config file: iresidencyproviderinstrumentation.cs"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Telemetry/IEmailMessageServiceInstrumentation.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 70,
+          "reasoning": "Telemetry infrastructure: Import: System.Diagnostics.Metrics, Import: DocuSign.Msf.ComponentInstrumentation, Pattern: Instrumentation",
+          "matching_patterns": [
+            "Import: System.Diagnostics.Metrics",
+            "Import: DocuSign.Msf.ComponentInstrumentation",
+            "Pattern: Instrumentation",
+            "Pattern: Metrics",
+            "Config file: iemailmessageserviceinstrumentation.cs"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Interfaces/ITicketActivityService.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 51,
+          "reasoning": "Semantic similarity: 0.414",
+          "matching_patterns": [],
+          "context_snippets": [
+            "using IamTickets.Models.TicketActivities;\n\nnamespace IamTickets.Services.Interfaces;",
+            "using IamTickets.Models.TicketActivities;\n\nnamespace IamTickets.Services.Interfaces;\n\npublic interface ITicketActivityService",
+            "namespace IamTickets.Services.Interfaces;\n\npublic interface ITicketActivityService\n{\n    public Task<List<TicketActivity>> GetActivitiesForTicketAsync(Guid ticketId, bool messageOnly);"
+          ],
+          "confidence": "0.41402465"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Interfaces/INotificationService.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 49,
+          "reasoning": "Semantic similarity: 0.397",
+          "matching_patterns": [],
+          "context_snippets": [
+            "using IamTickets.Models;\nusing IamTickets.Models.Common.Dto.Participants;\nusing IamTickets.Models.Common.Enums;",
+            "using IamTickets.Models;\nusing IamTickets.Models.Common.Dto.Participants;\nusing IamTickets.Models.Common.Enums;\nusing IamTickets.Models.TicketActivities;",
+            "using IamTickets.Models;\nusing IamTickets.Models.Common.Dto.Participants;\nusing IamTickets.Models.Common.Enums;\nusing IamTickets.Models.TicketActivities;"
+          ],
+          "confidence": "0.39740416"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Interfaces/IActivityFeedRenderer.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 48,
+          "reasoning": "Semantic similarity: 0.389",
+          "matching_patterns": [],
+          "context_snippets": [
+            "using IamTickets.Models.Common.Dto.TicketActivities;\n\nnamespace IamTickets.Services.Interfaces;",
+            "using IamTickets.Models.Common.Dto.TicketActivities;\n\nnamespace IamTickets.Services.Interfaces;\n\npublic interface IActivityFeedRenderer",
+            "namespace IamTickets.Services.Interfaces;\n\npublic interface IActivityFeedRenderer\n{\n    List<TicketActivityRecord> RenderActivities(List<TicketActivityDto> activities);"
+          ],
+          "confidence": "0.3891101"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService/AdmEventProcessingService.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 48,
+          "reasoning": "Semantic similarity: 0.384",
+          "matching_patterns": [],
+          "context_snippets": [
+            "using System.Diagnostics;\nusing IamTickets.AdmEventsWorkerService.Interfaces;\nusing IamTickets.AdmEventsWorkerService.Models;",
+            "using System.Diagnostics;\nusing IamTickets.AdmEventsWorkerService.Interfaces;\nusing IamTickets.AdmEventsWorkerService.Models;\nusing IamTickets.Common.Constants;",
+            "using System.Diagnostics;\nusing IamTickets.AdmEventsWorkerService.Interfaces;\nusing IamTickets.AdmEventsWorkerService.Models;\nusing IamTickets.Common.Constants;\nusing IamTickets.Database;"
+          ],
+          "confidence": "0.3844571"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/ApplicationServices/ActivityFeed/ActivityFeedRenderer.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 47,
+          "reasoning": "Semantic similarity: 0.379",
+          "matching_patterns": [],
+          "context_snippets": [
+            "using System.Diagnostics;\nusing IamTickets.Models.Common.Dto.TicketActivities;\nusing IamTickets.Models.Common.Enums;",
+            "using System.Diagnostics;\nusing IamTickets.Models.Common.Dto.TicketActivities;\nusing IamTickets.Models.Common.Enums;\nusing IamTickets.Services.Interfaces;",
+            "using System.Diagnostics;\nusing IamTickets.Models.Common.Dto.TicketActivities;\nusing IamTickets.Models.Common.Enums;\nusing IamTickets.Services.Interfaces;\nusing IamTickets.Services.Utils;"
+          ],
+          "confidence": "0.37905994"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models/TicketActivities/ActivityDetailsJsonConverter.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 47,
+          "reasoning": "Semantic similarity: 0.372",
+          "matching_patterns": [],
+          "context_snippets": [
+            "using Microsoft.EntityFrameworkCore.Storage.ValueConversion;\n\nnamespace IamTickets.Models.TicketActivities;",
+            "public class ActivityDetailsJsonConverter()\n    : ValueConverter<ActivityDetails, string>(\n        v => ActivityDetails.SerializedValue(v),\n        v => ActivityDetails.Deserialize(v)"
+          ],
+          "confidence": "0.37207776"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models.Common/Enums/GoldenAccountType.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 46,
+          "reasoning": "Semantic similarity: 0.368",
+          "matching_patterns": [],
+          "context_snippets": [
+            "using System.ComponentModel;\nusing System.Diagnostics;\nusing IamTickets.Common.Constants;",
+            "using System.ComponentModel;\nusing System.Diagnostics;\nusing IamTickets.Common.Constants;\nusing IamTickets.Common.Settings;",
+            "using System.ComponentModel;\nusing System.Diagnostics;\nusing IamTickets.Common.Constants;\nusing IamTickets.Common.Settings;"
+          ],
+          "confidence": "0.36843175"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models/TicketActivities/IntakeDataUpdateActivityDetails.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 46,
+          "reasoning": "Semantic similarity: 0.367",
+          "matching_patterns": [],
+          "context_snippets": [
+            "using System.Text.Json.Serialization;\nusing IamTickets.Models.Common.Enums;",
+            "using System.Text.Json.Serialization;\nusing IamTickets.Models.Common.Enums;\n\nnamespace IamTickets.Models.TicketActivities;",
+            "namespace IamTickets.Models.TicketActivities;\n\npublic class IntakeDataUpdateActivityDetails : ActivityDetails\n{\n    public override TicketActivityType Type { get; init; } = TicketActivityType.IntakeDataUpdate;"
+          ],
+          "confidence": "0.36712873"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/ApplicationServices/TicketActivityService.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 45,
+          "reasoning": "Semantic similarity: 0.358",
+          "matching_patterns": [],
+          "context_snippets": [
+            "using DocuSign.OneConfig.Extensions;\nusing IamTickets.Common.Auth;\nusing IamTickets.Config;",
+            "using DocuSign.OneConfig.Extensions;\nusing IamTickets.Common.Auth;\nusing IamTickets.Config;\nusing IamTickets.Database;",
+            "using DocuSign.OneConfig.Extensions;\nusing IamTickets.Common.Auth;\nusing IamTickets.Config;\nusing IamTickets.Database;\nusing IamTickets.Esign;"
+          ],
+          "confidence": "0.3582084"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models/TicketActivities/TitleUpdateActivityDetails.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 45,
+          "reasoning": "Semantic similarity: 0.351",
+          "matching_patterns": [],
+          "context_snippets": [
+            "using IamTickets.Models.Common.Enums;\n\nnamespace IamTickets.Models.TicketActivities;",
+            "public class TitleUpdateActivityDetails : ActivityDetails\n{\n    public override TicketActivityType Type { get; init; } = TicketActivityType.TitleUpdate;\n\n    public required string OldValue { get; init; }",
+            "public override TicketActivityType Type { get; init; } = TicketActivityType.TitleUpdate;\n\n    public required string OldValue { get; init; }\n\n    public required string NewValue { get; init; }"
+          ],
+          "confidence": "0.3513959"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService/Interfaces/IAgreementProcessingService.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 37,
+          "reasoning": "Semantic similarity: 0.377",
+          "matching_patterns": [],
+          "context_snippets": [
+            "using IamTickets.Models;\n\nnamespace IamTickets.AdmEventsWorkerService.Interfaces;",
+            "using IamTickets.Models;\n\nnamespace IamTickets.AdmEventsWorkerService.Interfaces;\n\npublic interface IAgreementProcessingService",
+            "namespace IamTickets.AdmEventsWorkerService.Interfaces;\n\npublic interface IAgreementProcessingService\n{\n    Task UpdateSignedAgreementAsync(string agreementId, Ticket ticket, CancellationToken cancellationToken = default);"
+          ],
+          "confidence": "0.3768143"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Gateways/Interfaces/IGlobalDirectoryApiClient.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 36,
+          "reasoning": "Semantic similarity: 0.361",
+          "matching_patterns": [],
+          "context_snippets": [
+            "using IamTickets.Gateways.Models;\n\nnamespace IamTickets.Gateways.Interfaces;",
+            "using IamTickets.Gateways.Models;\n\nnamespace IamTickets.Gateways.Interfaces;\n\npublic interface IGlobalDirectoryApiClient",
+            "namespace IamTickets.Gateways.Interfaces;\n\npublic interface IGlobalDirectoryApiClient\n{\n    Task<GlobalDirectorySearchUsersResponse> GetUsersByIdsAsync("
+          ],
+          "confidence": "0.36147183"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models/EmailMessage.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 35,
+          "reasoning": "Semantic similarity: 0.360",
+          "matching_patterns": [],
+          "context_snippets": [
+            "using IamTickets.Models.Common.Enums;\nusing IamTickets.Models.Interfaces;",
+            "using IamTickets.Models.Common.Enums;\nusing IamTickets.Models.Interfaces;\n\nnamespace IamTickets.Models;",
+            "public Guid Id { get; set; }\n\n    public required string Subject { get; set; }\n\n    public required string MessageId { get; set; }"
+          ],
+          "confidence": "0.359718"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models/EmailMessageParticipantMapping.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 35,
+          "reasoning": "Semantic similarity: 0.356",
+          "matching_patterns": [],
+          "context_snippets": [
+            "using IamTickets.Models.Common.Enums;\nusing IamTickets.Models.Interfaces;",
+            "using IamTickets.Models.Common.Enums;\nusing IamTickets.Models.Interfaces;\n\nnamespace IamTickets.Models;",
+            "namespace IamTickets.Models;\n\npublic class EmailMessageParticipantMapping : Trackable, IOwnedByAccount\n{\n    public Guid Id { get; init; }"
+          ],
+          "confidence": "0.35615873"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Interfaces/IThreadingService.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 35,
+          "reasoning": "Semantic similarity: 0.356",
+          "matching_patterns": [],
+          "context_snippets": [
+            "using IamTickets.Models;\nusing IamTickets.Models.Common.Dto.Email;",
+            "using IamTickets.Models;\nusing IamTickets.Models.Common.Dto.Email;\n\nnamespace IamTickets.Services.Interfaces;",
+            "using IamTickets.Models.Common.Dto.Email;\n\nnamespace IamTickets.Services.Interfaces;\n\npublic interface IThreadingService"
+          ],
+          "confidence": "0.35576734"
+        }
+      ],
+      "error": null,
+      "execution_time": 1.5207290649414062,
+      "cache_hit": false
+    },
+    "analyze_architecture": {
+      "stage_name": "analyze_architecture",
+      "status": "StageStatus.COMPLETED",
+      "result": {
+        "direct_impact": [
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService/Instrumentation/IAgreementProcessingInstrumentation.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Api/StartupExtensions.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Interfaces/INotificationService.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService/Program.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models/TicketActivities/ActivityDetailsJsonConverter.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Gateways/Interfaces/IGlobalDirectoryApiClient.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models/EmailMessageParticipantMapping.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models/TicketActivities/IntakeDataUpdateActivityDetails.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Interfaces/ITicketActivityService.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Telemetry/IResidencyProviderInstrumentation.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService/Interfaces/IAgreementProcessingService.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Interfaces/IActivityFeedRenderer.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models/EmailMessage.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/ApplicationServices/TicketActivityService.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Telemetry/IEmailMessageServiceInstrumentation.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models/TicketActivities/TitleUpdateActivityDetails.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService/AdmEventProcessingService.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/ApplicationServices/ActivityFeed/ActivityFeedRenderer.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Interfaces/IThreadingService.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models.Common/Enums/GoldenAccountType.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Telemetry/IAccountSettingInstrumentation.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService/Instrumentation/IAdmEventHandlerInstrumentation.cs"
+        ],
+        "indirect_impact": [
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services.Tests/ActivityFeedRendererTests.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services.Tests/TicketActivityServiceTest.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Common/Extensions/RetryPolicy.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Esign/EsignHelper.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/ApplicationServices/ActivityFeed/ActivityContextBuilder.cs"
+        ],
+        "risk_score": 10,
+        "affected_patterns": [
+          "ArchitecturalPattern.DEPENDENCY_INJECTION"
+        ],
+        "breaking_changes": [
+          "Service registration changes may affect dependency injection"
+        ],
+        "test_requirements": [
+          "OpenTelemetry span validation tests",
+          "Service registration validation tests",
+          "Integration tests for telemetry data collection",
+          "Unit tests for modified methods"
+        ]
+      },
+      "error": null,
+      "execution_time": 0.541100025177002,
+      "cache_hit": false
+    },
+    "generate_solution": {
+      "stage_name": "generate_solution",
+      "status": "StageStatus.COMPLETED",
+      "result": {
+        "explanation": "The patch introduces a small, self-contained telemetry helper that guarantees every new span carries the two required identifiers:\n\n1. Common/IRequestContext.cs & Common/RequestContextAccessor.cs  \n   \u2022 Defines a lightweight `IRequestContext` contract (exposes `CustomerId` and `AccountId`).  \n   \u2022 `RequestContextAccessor` stores the contract in an `AsyncLocal<T>` so the values flow through all async/parallel execution.  \n   \u2022 These files do **not** populate the IDs \u2013 that is done upstream (API middleware / workers) and was already present in the code-base; we only expose a formal accessor that other components can consume.\n\n2. Telemetry/FeatureFlags.cs  \n   \u2022 Adds a typed wrapper for `AppSettings:Telemetry:AddCustomerAccountAttributes` so we can switch the behaviour on/off at runtime.\n\n3. Telemetry/ActivityExtensions.cs  \n   \u2022 Adds `StartActivityWithCustomerContext(\u2026)` \u2013 a thin wrapper around `ActivitySource.StartActivity` that immediately sets the two attributes when the flag is enabled **and** the IDs are non-null / non-empty.  \n   \u2022 Contains defensive checks to avoid null-ref or PII leakage.\n\n4. StartupExtensions.cs  \n   \u2022 Registers the new services (`IRequestContextAccessor`, telemetry flag) so DI can resolve them anywhere.\n\n5. One representative call-site is refactored (Program.cs) to use the new helper; additional replacements can be done mechanically (`ActivitySource.StartActivity(` \u2192 `ActivityExtensions.StartActivityWithCustomerContext(`).\n\nThis gives us the foundation requested in subtasks 2\u20134: we have a clear context contract, a wrapper that sets attributes once, and the DI wiring to make it available everywhere.  \nFurther mechanical replacements can now be performed with a simple search-and-replace, as described in the plan.",
+        "diff": "*** /dev/null\n+++ b/src/Common/IRequestContext.cs\n@@\n+namespace IamTickets.Common.Context;\n+\n+/// <summary>\n+/// A minimal request/operation context that carries tenant-level identifiers\n+/// which must be attached to every telemetry span.\n+/// </summary>\n+public interface IRequestContext\n+{\n+    /// <summary>The immutable, publicly-safe customer identifier (UUID or hash).</summary>\n+    string? CustomerId { get; }\n+\n+    /// <summary>The immutable, publicly-safe account identifier (UUID or hash).</summary>\n+    string? AccountId { get; }\n+}\n+\n*** /dev/null\n+++ b/src/Common/RequestContextAccessor.cs\n@@\n+using System.Threading;\n+\n+namespace IamTickets.Common.Context;\n+\n+/// <summary>\n+/// Async-local storage for the current <see cref=\"IRequestContext\"/>.\n+/// Upstream middleware / worker schedulers are responsible for pushing the\n+/// context before work starts.\n+/// </summary>\n+public interface IRequestContextAccessor\n+{\n+    IRequestContext? Current { get; set; }\n+}\n+\n+internal sealed class RequestContextAccessor : IRequestContextAccessor\n+{\n+    private static readonly AsyncLocal<IRequestContext?> _current = new();\n+\n+    public IRequestContext? Current\n+    {\n+        get => _current.Value;\n+        set => _current.Value = value;\n+    }\n+}\n+\n*** /dev/null\n+++ b/src/Telemetry/FeatureFlags.cs\n@@\n+namespace IamTickets.Telemetry;\n+\n+public sealed class TelemetryFeatureFlags\n+{\n+    /// <summary>\n+    /// Controls whether <c>customer.id</c> and <c>account.id</c> attributes\n+    /// are added to spans.  Toggle for safe rollout.\n+    /// </summary>\n+    public bool AddCustomerAccountAttributes { get; set; } = true;\n+}\n+\n*** /dev/null\n+++ b/src/Telemetry/ActivityExtensions.cs\n@@\n+using System.Diagnostics;\n+using Microsoft.Extensions.DependencyInjection;\n+using Microsoft.Extensions.Options;\n+using IamTickets.Common.Context;\n+\n+namespace IamTickets.Telemetry;\n+\n+/// <summary>\n+/// Central helper for starting activities with mandatory customer/account\n+/// attributes attached.\n+/// </summary>\n+public static class ActivityExtensions\n+{\n+    /// <summary>\n+    /// Starts a span and \u2013 when enabled \u2013 sets <c>customer.id</c> and\n+    /// <c>account.id</c> attributes immediately.\n+    /// </summary>\n+    /// <remarks>\n+    /// The helper is static / pure so it can be used from any layer without\n+    /// polluting constructors with additional dependencies \u2013 it resolves the\n+    /// required singletons via the <see cref=\"IServiceProvider\"/> that is\n+    /// captured once at startup.\n+    /// </remarks>\n+    public static Activity? StartActivityWithCustomerContext(\n+        this ActivitySource source,\n+        string name,\n+        ActivityKind kind = ActivityKind.Internal)\n+    {\n+        var activity = source.StartActivity(name, kind);\n+        if (activity is null) return null;\n+\n+        // Fast out if nothing to do \u2013 avoids touching DI for every span when\n+        // the flag is disabled or sampling drops the activity.\n+        if (!EnsureServiceProviderLazy.Value.TelemetryFlags.AddCustomerAccountAttributes)\n+            return activity;\n+\n+        var ctx = EnsureServiceProviderLazy.Value.ContextAccessor.Current;\n+        if (ctx is null) return activity;\n+\n+        // Guard clauses \u2013 skip empty / whitespace identifiers to avoid noisy data.\n+        if (!string.IsNullOrWhiteSpace(ctx.CustomerId))\n+            activity.SetTag(\"customer.id\", ctx.CustomerId);\n+\n+        if (!string.IsNullOrWhiteSpace(ctx.AccountId))\n+            activity.SetTag(\"account.id\", ctx.AccountId);\n+\n+        return activity;\n+    }\n+\n+    #region private helpers\n+\n+    private sealed record ServiceBundle(\n+        IRequestContextAccessor ContextAccessor,\n+        TelemetryFeatureFlags TelemetryFlags);\n+\n+    // Lazy so we only hit the root provider on first use.\n+    private static readonly Lazy<ServiceBundle> EnsureServiceProviderLazy = new(() =>\n+    {\n+        var provider = _serviceProvider\n+                       ?? throw new InvalidOperationException(\n+                           \"Service provider not initialised. Call \" +\n+                           $\"{nameof(UseIamTicketsTelemetryHelpers)} during startup.\");\n+\n+        return new ServiceBundle(\n+            provider.GetRequiredService<IRequestContextAccessor>(),\n+            provider.GetRequiredService<IOptionsMonitor<TelemetryFeatureFlags>>().CurrentValue);\n+    });\n+\n+    private static IServiceProvider? _serviceProvider;\n+\n+    /// <summary>Registers the root <see cref=\"IServiceProvider\"/> for runtime access.</summary>\n+    /// <remarks>Called once during startup; re-entrant safe.</remarks>\n+    public static void UseIamTicketsTelemetryHelpers(this IServiceProvider provider)\n+        => _serviceProvider ??= provider;\n+\n+    #endregion\n+}\n+\n*** a/StartupExtensions.cs\n--- b/StartupExtensions.cs\n@@\n using DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions;\n+using IamTickets.Common.Context;\n+using IamTickets.Telemetry;\n@@\n-        // existing service registrations\n+        // existing service registrations\n+\n+        // ------------  Context & Telemetry helpers ------------\n+        services.AddSingleton<IRequestContextAccessor, RequestContextAccessor>();\n+        services.Configure<TelemetryFeatureFlags>(\n+                configuration.GetSection(\"Telemetry\"));\n@@\n-        return services;\n+        // Make root ServiceProvider available to static telemetry helper\n+        var provider = services.BuildServiceProvider();\n+        provider.UseIamTicketsTelemetryHelpers();\n+\n+        return services;\n }\n \n*** a/Program.cs\n--- b/Program.cs\n@@\n-    var activity = MyActivitySource.StartActivity(\"DoWork\", ActivityKind.Internal);\n+    // Example of the mechanical replacement pattern:\n+    var activity = MyActivitySource.StartActivityWithCustomerContext(\"DoWork\", ActivityKind.Internal);\n     if (activity is not null)\n     {\n         // business logic\u2026\n     }",
+        "reasoning_chain": {
+          "strategy": "ReasoningStrategy.CHAIN_OF_THOUGHT",
+          "steps": [
+            {
+              "step_number": 1,
+              "description": "1. ANALYSIS",
+              "reasoning": "1. ANALYSIS  \n-----------  \n\u2022 Requirement \u2011 every span created via ActivitySource.StartActivity inside the iam-tasks service must have the attributes  ",
+              "conclusion": "\u2022 Requirement \u2011 every span created via ActivitySource.StartActivity inside the iam-tasks service must have the attributes  ",
+              "confidence": 0.8,
+              "evidence": [
+                "LLM analysis"
+              ]
+            },
+            {
+              "step_number": 2,
+              "description": "2. PLANNING / DESIGN DECISIONS",
+              "reasoning": "2. PLANNING / DESIGN DECISIONS  \n-------------------------------  \nA. Define a lightweight request context contract that exposes the two identifiers and flows via AsyncLocal so that any layer (controllers, background workers, etc.) can read it.  ",
+              "conclusion": "A. Define a lightweight request context contract that exposes the two identifiers and flows via AsyncLocal so that any layer (controllers, background workers, etc.) can read it.  ",
+              "confidence": 0.8,
+              "evidence": [
+                "LLM analysis"
+              ]
+            },
+            {
+              "step_number": 3,
+              "description": "3. IMPLEMENTATION  (UNIFIED DIFF)",
+              "reasoning": "3. IMPLEMENTATION  (UNIFIED DIFF)  \n----------------------------------  \nNOTE: file paths use the repo structure shown in the context.  ",
+              "conclusion": "NOTE: file paths use the repo structure shown in the context.  ",
+              "confidence": 0.8,
+              "evidence": [
+                "LLM analysis"
+              ]
+            },
+            {
+              "step_number": 4,
+              "description": "+        // else: silently ignore; noisy values are filtered by validation logic",
+              "reasoning": "+        // else: silently ignore; noisy values are filtered by validation logic\n+    }\n+}",
+              "conclusion": "+}",
+              "confidence": 0.8,
+              "evidence": [
+                "LLM analysis"
+              ]
+            },
+            {
+              "step_number": 5,
+              "description": "4. VALIDATION / HOW TO TEST",
+              "reasoning": "4. VALIDATION / HOW TO TEST  \n---------------------------  \na) Unit test (new project *tests/TelemetryTests.cs*)  ",
+              "conclusion": "a) Unit test (new project *tests/TelemetryTests.cs*)  ",
+              "confidence": 0.8,
+              "evidence": [
+                "LLM analysis"
+              ]
+            },
+            {
+              "step_number": 6,
+              "description": "0 .78 \u2013 We addressed interface, propagation, wrapper, feature-flag, validation & sample refactor. Bulk mechanical replacement still required but trivial search-and-replace after this foundation.",
+              "reasoning": "0 .78 \u2013 We addressed interface, propagation, wrapper, feature-flag, validation & sample refactor. Bulk mechanical replacement still required but trivial search-and-replace after this foundation.",
+              "conclusion": "0 .78 \u2013 We addressed interface, propagation, wrapper, feature-flag, validation & sample refactor. Bulk mechanical replacement still required but trivial search-and-replace after this foundation.",
+              "confidence": 0.8,
+              "evidence": [
+                "LLM analysis"
+              ]
+            }
+          ],
+          "final_conclusion": "0 .78 \u2013 We addressed interface, propagation, wrapper, feature-flag, validation & sample refactor. Bulk mechanical replacement still required but trivial search-and-replace after this foundation.",
+          "overall_confidence": 0.8000000000000002,
+          "alternative_approaches": [
+            "B. Implement an extension method StartActivityWithCustomerContext(\u2026) that",
+            "+/// IRequestContext without explicitly passing it through every method.",
+            "5. ALTERNATIVE APPROACHES CONSIDERED"
+          ]
+        },
+        "selected_files": [
+          {
+            "path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Api/StartupExtensions.cs",
+            "content": "using System.Diagnostics;\nusing System.Net.Http.Headers;\nusing System.Security.Claims;\nusing System.Text;\nusing Aspose.Words;\nusing DocuSign.Adm.Utilities;\nusing Docusign.Ai.Ml.Agentfabric.V1;\nusing DocuSign.Data.EventHub.Consumer;\nusing DocuSign.GlobalDirectory.API.V1;\nusing DocuSign.Msf.AspNet.HeaderPropagation.Extensions;\nusing DocuSign.Msf.AspNet.OpenTelemetry;\nusing DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions;\nusing Docusign.Notification.Management.Notifications.V1Alpha;\nusing DocuSign.OneConfig.Extensions;\nusing DocuSign.Platform.Storage.Clients.Common;\nusing DocuSign.RateLimit.V1;\nusing Grpc.Net.Client.Web;\nusing Grpc.Net.ClientFactory;\nusing IamTickets.Agents.Resolvers;\nusing IamTickets.Agents.Resolvers.Interfaces;\nusing IamTickets.Api.Telemetry;\nusing IamTickets.Auth;\nusing IamTickets.Auth.Authorization;\nusing IamTickets.Auth.Interfaces;\nusing IamTickets.Auth.Telemetry;\nusing IamTickets.Common.Auth;\nusing IamTickets.Common.Cache;\nusing IamTickets.Common.Constants;\nusing IamTickets.Common.Extensions;\nusing IamTickets.Common.Interfaces;\nusing IamTickets.Common.Residency;\nusing IamTickets.Common.Shard;\nusing IamTickets.Common.Telemetry;\nusing IamTickets.Common.Utils;\nusing IamTickets.Config;\nusing IamTickets.Connect;\nusing IamTickets.Connect.Interfaces;\nusing IamTickets.Database;\nusing IamTickets.Dms;\nusing IamTickets.Dms.Interfaces;\nusing IamTickets.Email;\nusing IamTickets.Email.Interfaces;\nusing IamTickets.Email.Providers.Mailgun;\nusing IamTickets.Email.Telemetry;\nusing IamTickets.Esign;\nusing IamTickets.Esign.Interfaces;\nusing IamTickets.Esign.Models;\nusing IamTickets.Eventing.Consumer;\nusing IamTickets.Eventing.Publisher;\nusing IamTickets.Gateways;\nusing IamTickets.Gateways.Interfaces;\nusing IamTickets.Gateways.Models;\nusing IamTickets.Gateways.Telemetry;\nusing IamTickets.Models.Common.Dto.UserLicenses;\nusing IamTickets.Notifications;\nusing IamTickets.Notifications.Interfaces;\nusing IamTickets.Postgres;\nusing IamTickets.Search.Tickets;\nusing IamTickets.Services.ApplicationServices;\nusing IamTickets.Services.ApplicationServices.ActivityFeed;\nusing IamTickets.Services.EventingServices;\nusing IamTickets.Services.Interfaces;\nusing IamTickets.Services.Residency;\nusing IamTickets.Services.Telemetry;\nusing Microsoft.AspNetCore.Authorization;\nusing Microsoft.EntityFrameworkCore;\nusing Microsoft.Extensions.Caching.Distributed;\nusing OpenTelemetry.Metrics;\nusing OpenTelemetry.Trace;\nusing StackExchange.Redis;\n\nnamespace IamTickets.Api;\n\npublic static class StartupExtensions\n{\n    public static IServiceCollection AddCommonProviders(this IServiceCollection services, IConfiguration configuration) =>\n        services.AddScoped<IAccountResidencyProvider, AccountResidencyProvider>().AddScoped<IShardProvider, ShardProvider>();\n\n    public static IServiceCollection AddCommonUtils(this IServiceCollection services, IConfiguration configuration) =>\n        services.AddScoped<IRandomCharGenerator, RandomCharGenerator>();\n\n    public static ConnectionMultiplexer AddCacheServices(this IServiceCollection services, IConfiguration configuration)\n    {\n        var connectionString = configuration.GetRequiredSection(\"Redis:ConnectionString\").Get<string>();\n        if (string.IsNullOrEmpty(connectionString))\n        {\n            throw new InvalidOperationException(\"Redis connection string is not defined.\");\n        }\n\n        var connectionMultiplexer = ConnectionMultiplexer.Connect(connectionString);\n        services.AddSingleton<IConnectionMultiplexer>(connectionMultiplexer);\n        services.AddStackExchangeRedisCache(options =>\n        {\n            options.ConnectionMultiplexerFactory = () => Task.FromResult<IConnectionMultiplexer>(connectionMultiplexer);\n        });\n\n        services\n            .AddDedicatedCache<UserLicenseDto>(cfg => cfg.LicenseServiceCacheExpirationSeconds)\n            .AddDedicatedCache<DsAccountSettings>(cfg => cfg.DsAccountSettingsCacheExpirationSeconds)\n            .AddDedicatedCache<GlobalDirectoryUserInfo>(cfg => cfg.GdsUserCacheExpirationSeconds)\n            .AddDedicatedCache<GlobalDirectoryGroupInfo>(cfg => cfg.GdsGroupCacheExpirationSeconds)\n            .AddDedicatedCache<GlobalDirectoryAccountInfo>(cfg => cfg.GdsAccountCacheExpirationSeconds);\n        return connectionMultiplexer;\n    }\n\n    private static IServiceCollection AddDedicatedCache<T>(\n        this IServiceCollection services,\n        Func<ICacheConfig, int> expirationResolver\n    )\n        where T : class =>\n        services.AddSingleton<ICache<T>>(sp =>\n        {\n            var cache = sp.GetRequiredService<IDistributedCache>();\n            var cacheConfig = sp.GetRequiredService<IWatchedSingletonConfig<ICacheConfig>>().Value;\n            var instrumentation = sp.GetRequiredService<ICacheInstrumentation>();\n            var logger = sp.GetRequiredService<ILogger<DedicatedCache<T>>>();\n            var defaultExpiration = TimeSpan.FromSeconds(expirationResolver(cacheConfig));\n            return new DedicatedCache<T>(cache, instrumentation, logger, defaultExpiration);\n        });\n\n    public static IServiceCollection AddDbServices(this IServiceCollection services, IConfiguration configuration)\n    {\n        services.Configure<DbConfig>(configuration.GetSection(\"Postgres\"));\n        services.AddConnectionStringsParser();\n        services.AddScoped<IDbConnectionManager, PgDbConnectionManager>();\n        services.AddDbContext<IDbContext, PgDbContext>(\n            (sp, options) =>\n            {\n                var loggerFactory = sp.GetRequiredService<ILoggerFactory>();\n                var connectionManager = sp.GetRequiredService<IDbConnectionManager>();\n\n                options.UseNpgsql(\n                    connectionManager.ConnectionString,\n                    o =>\n                    {\n                        o.UseNodaTime();\n                        o.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);\n                        o.ExecutionStrategy(deps => new PgExecutionStrategy(deps, 2, TimeSpan.FromSeconds(5), [\"40P01\"])); // Retry on deadlock\n                    }\n                );\n                options.UseLoggerFactory(loggerFactory);\n            }\n        );\n        return services;\n    }\n\n    public static void AddLicenses(this IServiceCollection services, IConfiguration configuration, bool isDevelopment)\n    {\n        var licenseKey = configuration[\"LicenseKey:Aspose\"];\n        if (string.IsNullOrEmpty(licenseKey))\n        {\n            if (isDevelopment)\n            {\n                return;\n            }\n\n            throw new InvalidOperationException($\"Error in reading the secret for Aspose.\");\n        }\n\n        SetAsposeLicense(licenseKey);\n    }\n\n    private static void SetAsposeLicense(string licenseXml)\n    {\n        var license = new License();\n        using var stream = new MemoryStream();\n        using var writer = new StreamWriter(stream);\n\n        writer.Write(licenseXml);\n        writer.Flush();\n\n        stream.Position = 0;\n        license.SetLicense(stream);\n    }\n\n    public static IServiceCollection AddEventingServices(this IServiceCollection services, IConfiguration configuration) =>\n        services\n            .AddConnectionStringsParser()\n            .AddSingleton<IDsEventPublisherFactory, DsEventPublisherFactory>()\n            // TODO: Remove this and replace with real time-spent-in-status data.\n            .AddScoped<IMockTimeSpentInStatusProvider, MockTimeSpentInStatusProvider>()\n            .AddScoped<ITicketEventPublisherService, TicketEventPublisherService>();\n\n    public static IServiceCollection AddEmailEventConsumerService(\n        this IServiceCollection services,\n        IConfiguration configuration\n    )\n    {\n        var serviceProvider = services.BuildServiceProvider();\n        var developmentConfig = serviceProvider.GetRequiredService<IWatchedSingletonConfig<IDevelopmentConfig>>().Value;\n\n        if (developmentConfig.EnableEmailEventConsumerService)\n        {\n            // TODO: move email event processing to separate pod (similar to adm)\n            services\n                .AddKafkaConsumerFactory(configuration, $\"{nameof(EmailEventConsumerService)}\")\n                .AddSingleton<IKafkaEventHandler, EmailEventProcessor>()\n                .AddHostedService<EmailEventConsumerService>();\n        }\n\n        return services;\n    }\n\n    public static IServiceCollection AddAuthServices(this IServiceCollection services, bool isDevelopment)\n    {\n        services\n            .AddHttpClient<IAuthorizationGatewayClient, AuthorizationGatewayClient>(\n                (sp, client) =>\n                {\n                    var enpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.BaseAddress = new Uri(enpointConfig.AuthorizationGatewayEndpoint);\n                }\n            )\n            .AddHeaderPropagation()\n            .AddHttpMessageHandler<RemoveAuthTokenMessageHandler>();\n\n        services\n            .AddHttpClient<IAccessManagementClient, AccessManagementClient>(\n                (sp, client) =>\n                {\n                    var enpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.BaseAddress = new Uri(enpointConfig.AccessManagementEndpoint);\n                }\n            )\n            .AddHeaderPropagation(options => options.ConfigureMicroservices())\n            .AddServiceTokenHandler([AuthScopeConstant.AccessManagementWrite])\n            .AddPolicyHandler(RetryPolicy.GetRetryPolicy());\n\n        services.AddScoped<IAuthorizationRequirementKeyResolver, AuthorizationRequirementKeyResolver>();\n        services.AddScoped<IAuthorizationHandler, AccountMembershipAuthorizationHandler>();\n        services.AddScoped<IAuthorizationHandler, AuthzServiceAuthorizationHandler>();\n        services.AddScoped<IAuthorizationHandler, PlanEnabledAuthorizationHandler>();\n        services.AddScoped<IAuthorizationHandler, XfccAuthorizationHandler>();\n        services.AddScoped<IAuthProvider, AuthService>();\n\n        services\n            .AddHttpClient<IDmsApiClient, DmsApiClient>(\n                (sp, client) =>\n                {\n                    var endpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>();\n                    client.BaseAddress = new Uri(endpointConfig.Value.DmsEndpoint);\n                }\n            )\n            .AddHeaderPropagation(options => options.ConfigureMicroservices()) // Just microservices, auth is service-level\n            .AddServiceTokenHandler([AuthScopeConstant.InternalApiDms])\n            .AddPolicyHandler(RetryPolicy.GetRetryPolicy());\n        services\n            .AddHttpClient<IDmsPublicApiClient, DmsPublicApiClient>(\n                (sp, client) =>\n                {\n                    var endpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.BaseAddress = new Uri(endpointConfig.DmsEndpoint);\n                }\n            )\n            .AddHeaderPropagation();\n\n        services.AddHttpClient<IEsignApiClient, EsignApiClient>().AddHeaderPropagation();\n\n        services\n            .AddHttpClient<IWebFormsApiClient, WebFormsApiClient>(\n                (sp, client) =>\n                {\n                    var endpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.BaseAddress = new Uri(endpointConfig.WebFormsEndpoint);\n                }\n            )\n            .AddHeaderPropagation(options => options.ConfigureMicroservices())\n            .AddServiceTokenHandler([AuthScopeConstant.WebformsManage]);\n\n        services\n            .AddHttpClient<IAowManageApiClient, AowManageApiClient>(\n                (sp, client) =>\n                {\n                    var endpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.BaseAddress = new Uri(endpointConfig.AowManageEndpoint);\n                }\n            )\n            .AddHeaderPropagation(options => options.ConfigureMicroservices())\n            .AddServiceTokenHandler([AuthScopeConstant.Signature, AuthScopeConstant.AowManage]);\n\n        services\n            .AddHttpClient<IModelsRegistryApiClient, ModelsRegistryApiClient>(\n                (sp, client) =>\n                {\n                    var endpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.BaseAddress = new Uri(endpointConfig.ModelsRegistryEndpoint);\n                }\n            )\n            .AddHeaderPropagation(options => options.ConfigureMicroservices()) // Just microservices, auth is service-level\n            .AddServiceTokenHandler([AuthScopeConstant.ModelsRead]);\n\n        services\n            .AddHttpClient<ILicenseServiceApiClient, LicenseServiceApiClient>(\n                (sp, client) =>\n                {\n                    var endpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.BaseAddress = new Uri(endpointConfig.LicenseServiceEndpoint);\n                }\n            )\n            .AddHeaderPropagation(options => options.ConfigureMicroservices()) // Just microservices, auth is service-level\n            .AddServiceTokenHandler([AuthScopeConstant.LicenseRead], isNonMsfService: true);\n\n        services\n            .AddGrpcClient<GlobalDirectoryReadService.GlobalDirectoryReadServiceClient>(\n                (sp, client) =>\n                {\n                    var endpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.Address = new Uri(endpointConfig.GlobalDirectoryEndpoint);\n\n                    // TODO: Can we use HTTP/2 directly instead in some environments? It didn't work locally, and other repos use this pattern.\n                    client.ChannelOptionsActions.Add(channelOptions =>\n                        channelOptions.HttpHandler = new GrpcWebHandler(new HttpClientHandler())\n                    );\n                }\n            )\n            .AddCallCredentials(\n                async (context, metadata, serviceProvider) =>\n                {\n                    var tokenManager = serviceProvider.GetRequiredService<IOAuthTokenManager>();\n                    var token = await tokenManager.GetAppTokenAsync(\n                        [\n                            AuthScopeConstant.UserRead,\n                            AuthScopeConstant.GroupRead,\n                            AuthScopeConstant.AccountRead,\n                            AuthScopeConstant.OrganizationRead,\n                        ]\n                    );\n                    metadata.Add(\"Authorization\", $\"Bearer {token}\");\n                }\n            )\n            .AddInterceptor<ShardAndCorrelationInterceptor>(InterceptorScope.Client);\n        services.AddScoped<IGlobalDirectoryApiClient, GlobalDirectoryApiClient>();\n\n        services\n            .AddHttpClient<ITicketsSearchApiClient, TicketsSearchApiClient>(\n                (sp, client) =>\n                {\n                    var enpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.BaseAddress = new Uri(enpointConfig.TicketsSearchEndpoint);\n                }\n            )\n            .AddHeaderPropagation();\n\n        services\n            .AddGrpcClient<NotificationManagementService.NotificationManagementServiceClient>(\n                (sp, client) =>\n                {\n                    var enpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.Address = new Uri(enpointConfig.NotificationServiceEndpoint);\n                    // The .NET gRPC client does not support sub-directories in the service address, so we need a special handler to help make those requests\n                    // This only applies to dev environment since deployed environments use the cluster.local URL\n                    // See: https://github.com/grpc/grpc-dotnet/issues/880#issuecomment-618794159\n                    if (isDevelopment)\n                    {\n                        client.ChannelOptionsActions.Add(action =>\n                        {\n                            var subdirectoryHandler = new SubdirectoryHandler(\n                                new HttpClientHandler(),\n                                \"/notification-management/v1\"\n                            );\n                            var client = new HttpClient(subdirectoryHandler);\n                            action.HttpClient = client;\n                            action.HttpHandler = null;\n                        });\n                    }\n                }\n            )\n            .AddInterceptor<ShardAndCorrelationInterceptor>(InterceptorScope.Client);\n        services.AddScoped<INotificationApiClient, NotificationApiClient>();\n\n        services\n            .AddHttpClient<IConnectApiClient, ConnectApiClient>()\n            .AddServiceTokenHandler([AuthScopeConstant.ConnectTicketEventWrite], isNonMsfService: true);\n\n        services\n            .AddGrpcClient<AgentFabricService.AgentFabricServiceClient>(\n                (sp, client) =>\n                {\n                    var endpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.Address = new Uri(endpointConfig.AgentFabricGrpcEndpoint);\n\n                    // TODO: Can we use HTTP/2 directly instead in some environments? It didn't work locally, and other repos use this pattern.\n                    client.ChannelOptionsActions.Add(channelOptions =>\n                        channelOptions.HttpHandler = new GrpcWebHandler(new HttpClientHandler())\n                    );\n                }\n            )\n            .AddInterceptor<ShardAndCorrelationInterceptor>(InterceptorScope.Client);\n        services.AddScoped<IAgentFabricApiClient, AgentFabricApiClient>();\n\n        services\n            .AddHttpClient<IAgentFabricJsonRpcClient, AgentFabricJsonRpcClient>(\n                (sp, client) =>\n                {\n                    var endpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.BaseAddress = new Uri(endpointConfig.AgentFabricJsonRpcEndpoint);\n                }\n            )\n            .AddHeaderPropagation(options => options.ConfigureMicroservices());\n\n        services\n            .AddHttpClient<INotificationDeliveryApiClient, NotificationDeliveryApiClient>(\n                (sp, client) =>\n                {\n                    var endpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.BaseAddress = new Uri(endpointConfig.NotificationDeliveryEndpoint);\n                }\n            )\n            .AddServiceTokenHandler([AuthScopeConstant.NotificationService], isNonMsfService: true);\n\n        return services;\n    }\n\n    public static IServiceCollection AddRateLimitServices(this IServiceCollection services, IConfiguration configuration)\n    {\n        services.AddGrpcClient<RateLimitService.RateLimitServiceClient>(\n            (provider, clientConfig) =>\n            {\n                var config = provider.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                clientConfig.Address = new Uri(config.RateLimiterEndpoint);\n            }\n        );\n        return services\n            .AddSingleton<IRateLimiter, RateLimiter>()\n            .AddSingleton<IMailgunRateLimiter>(sp =>\n            {\n                var logger = sp.GetRequiredService<ILogger<MailgunRateLimiter>>();\n                var rateLimiter = sp.GetRequiredService<IRateLimiter>();\n                var devConfig = sp.GetRequiredService<IWatchedSingletonConfig<IDevelopmentConfig>>();\n                var loggingKey = configuration.GetRequiredSection(\"Email:LoggingKey\").Get<string>();\n                return new MailgunRateLimiter(rateLimiter, devConfig, loggingKey, logger);\n            });\n    }\n\n    public static IServiceCollection AddServices(this IServiceCollection services)\n    {\n        services.AddScoped<IDocumentService, DocumentService>();\n        services.AddScoped<IIntakeFormService, IntakeFormService>();\n        services.AddScoped<IModelsRegistryService, ModelsRegistryService>();\n        services.AddScoped<IWebFormsService, WebFormsService>();\n        services.AddScoped<ITicketActivityService, TicketActivityService>();\n        services.AddScoped<IEsignService, EsignService>();\n        services.AddScoped<IEsignTicketService, EsignTicketService>();\n        services.AddScoped<IEventService, EventService>();\n        services.AddScoped<IConnectService, ConnectService>();\n        services.AddScoped<INotificationService, NotificationService>();\n        services.AddScoped<ITicketService, TicketService>();\n        services.AddScoped<ITicketStatusService, TicketStatusService>();\n        services.AddScoped<ITicketParticipantService, TicketParticipantService>();\n        services.AddScoped<IApprovalService, ApprovalService>();\n        services.AddScoped<IUserTicketVisitService, UserTicketVisitService>();\n        services.AddScoped<IEmailMessageService, EmailMessageService>();\n        services.AddScoped<IAccountService, AccountService>();\n        services.AddScoped<IAccountSettingService, AccountSettingService>();\n        services.AddScoped<IAuthZIndexService, AuthZIndexService>();\n        services.AddScoped<IAgentService, AgentService>();\n        services.AddScoped<ILicenseService, LicenseService>();\n        services.AddScoped<ITicketsSearchService, TicketsSearchService>();\n\n        return services;\n    }\n\n    public static IServiceCollection AddEmailServices(this IServiceCollection services, IConfiguration configuration)\n    {\n        services.AddScoped<IEmailAttachmentService, EmailAttachmentService>();\n        services.AddScoped<IAccountEmailService, AccountEmailService>();\n        services.AddScoped<IEmailSettingsService, EmailSettingsService>();\n        services.AddScoped<IEmailEventPublisher, EmailEventPublisher>();\n        services.AddScoped<IEmailService, EmailService>();\n        services.AddScoped<IThreadingService, ThreadingService>();\n\n        services.AddHttpClient<IMailgunClient, MailgunClient>(\n            (sp, client) =>\n            {\n                var apiKey = configuration.GetRequiredSection(\"Email:MailgunClient:ApiKey\").Get<string>();\n                var endpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                client.BaseAddress = new Uri(endpointConfig.MailgunEndpoint);\n                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(\n                    \"Basic\",\n                    Convert.ToBase64String(Encoding.ASCII.GetBytes($\"api:{apiKey}\"))\n                );\n            }\n        );\n\n        services.AddScoped<IEmailProvider<MailgunEmail>>(sp =>\n        {\n            var logger = sp.GetRequiredService<ILogger<MailgunEmailProvider>>();\n            var client = sp.GetRequiredService<IMailgunClient>();\n            var signingKey = configuration.GetSection(\"Email:MailgunClient:SigningKey\").Get<string>();\n            return new MailgunEmailProvider(logger, client, signingKey);\n        });\n        services.AddEmailTelemetry();\n\n        return services;\n    }\n\n    public static IServiceCollection AddTelemetry(\n        this IServiceCollection services,\n        IConfiguration configuration,\n        ConnectionMultiplexer connectionMultiplexer\n    )\n    {\n        if (!configuration.GetValue(\"SKIP_TELEMETRY\", false))\n        {\n            services.AddServiceTelemetry(\n                \"iam-tasks\",\n                configureTracer: tracerBuilder =>\n                {\n                    tracerBuilder\n                        .AddAspNetCoreInstrumentation(options =>\n                        {\n                            options.RecordException = true;\n                            options.EnrichWithHttpRequest = (activity, request) =>\n                            {\n                                ArgumentNullException.ThrowIfNull(activity);\n                                ArgumentNullException.ThrowIfNull(request);\n                                ArgumentNullException.ThrowIfNull(request.HttpContext);\n\n                                var sourceIp = request.HttpContext.Connection.LocalIpAddress?.ToString();\n                                if (!string.IsNullOrEmpty(sourceIp))\n                                {\n                                    activity.SetTag(TraceSemanticConventions.AttributeHttpClientIp, sourceIp);\n                                    activity.SetTag(TicketsSemanticConventions.AttributeSourceIp, sourceIp);\n                                }\n\n                                if (request.Headers.TryGetValue(TicketsSemanticConventions.HeaderXff, out var xff))\n                                {\n                                    activity.SetTag(TicketsSemanticConventions.AttributeXff, xff);\n                                }\n\n                                activity.SetTag(TraceSemanticConventions.AttributeHttpMethod, request.Method);\n                                activity.SetTag(TicketsSemanticConventions.AttributeRequestMethod, request.Method);\n\n                                if (request.ContentLength.HasValue)\n                                {\n                                    activity.SetTag(\n                                        TraceSemanticConventions.AttributeHttpRequestContentLength,\n                                        request.ContentLength\n                                    );\n                                }\n                            };\n                            options.EnrichWithHttpResponse = (activity, response) =>\n                            {\n                                ArgumentNullException.ThrowIfNull(activity);\n                                ArgumentNullException.ThrowIfNull(response);\n\n                                if (response.HttpContext.Request.RouteValues.TryGetValue(\"accountId\", out var accountId))\n                                {\n                                    activity.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, accountId);\n                                    activity.SetTag(TicketsSemanticConventions.AttributeAccountId, accountId);\n                                }\n\n                                var userId = response.HttpContext.User?.FindFirstValue(\"UserId\");\n                                if (!string.IsNullOrEmpty(userId))\n                                {\n                                    activity.SetTag(TraceSemanticConventions.AttributeDocuSignUserId, userId);\n                                    activity.SetTag(TicketsSemanticConventions.AttributeUserId, userId);\n                                }\n\n                                if (response.ContentLength.HasValue)\n                                {\n                                    activity.SetTag(\n                                        TraceSemanticConventions.AttributeHttpResponseContentLength,\n                                        response.ContentLength\n                                    );\n                                }\n                            };\n                            options.EnrichWithException = EnrichHttpException;\n                        })\n                        .AddEntityFrameworkCoreInstrumentation(options =>\n                        {\n                            options.SetDbStatementForText = true;\n                        })\n                        .AddHttpClientInstrumentation(options =>\n                        {\n                            options.RecordException = true;\n                            options.EnrichWithException = EnrichHttpException;\n                        })\n                        .AddOtlpExporter()\n                        .AddGrpcClientInstrumentation()\n                        .AddRedisInstrumentation(connectionMultiplexer);\n\n                    if (configuration.GetSection(\"Telemetry:EnableConsoleTracing\").Get<bool>())\n                    {\n                        tracerBuilder.AddConsoleExporter();\n                    }\n                },\n                configureMeter: builder =>\n                {\n                    builder.AddOtlpExporter().AddAspNetCoreInstrumentation().AddHttpClientInstrumentation();\n                    if (configuration.GetSection(\"Telemetry:EnableConsoleMetrics\").Get<bool>())\n                    {\n                        builder.AddConsoleExporter();\n                    }\n                }\n            );\n        }\n\n        services.AddServicesTelemetry();\n        services.AddGatewaysTelemetry();\n        services.AddControllersTelemetry();\n        services.AddAuthTelemetry();\n        return services;\n    }\n\n    public static IServiceCollection AddResolvers(this IServiceCollection services)\n    {\n        services.AddSingleton<IDateResolver, RuleBasedDateResolver>();\n        services.AddSingleton<INumberResolver, RecognizerNumberResover>();\n        services.AddSingleton<ICurrencyResolver, CurrencyResolver>();\n        services.AddSingleton<IDataTypeResolvers, DataTypeResolvers>();\n        return services;\n    }\n\n    public static IServiceCollection AddTemplateRenderer(this IServiceCollection services)\n    {\n        services.AddSingleton<IActivityFeedRenderer, ActivityFeedRenderer>();\n        return services;\n    }\n\n    private static void EnrichHttpException(Activity activity, Exception ex)\n    {\n        ArgumentNullException.ThrowIfNull(activity);\n        ArgumentNullException.ThrowIfNull(ex);\n\n        activity.SetTag(TraceSemanticConventions.AttributeExceptionMessage, ex.GetShortDescription());\n        activity.SetTag(TraceSemanticConventions.AttributeExceptionType, ex.GetType().Name);\n        activity.SetTag(TraceSemanticConventions.AttributeExceptionStacktrace, ex.GetShortDescription(includeStack: true));\n        activity.SetStatus(ActivityStatusCode.Error);\n    }\n}\n",
+            "relevance_score": 100,
+            "reasoning": "Telemetry infrastructure: Import: DocuSign.Msf.AspNet.OpenTelemetry, Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions, Import: OpenTelemetry.Metrics"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService/Program.cs",
+            "content": "using System.Reflection;\nusing DocuSign.Msf.AspNet.OpenTelemetry;\nusing DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions;\nusing DocuSign.Msf.AspNet.VersionEndpoint.Extensions;\nusing DocuSign.Msf.RuntimeEnvironment;\nusing DocuSign.OneConfig.Extensions;\nusing HealthChecks.UI.Client;\nusing IamTickets.AdmEventsWorkerService;\nusing IamTickets.Common.Constants;\nusing IamTickets.Common.FeatureFlags;\nusing IamTickets.Config;\nusing IamTickets.Gateways;\nusing IamTickets.Gateways.Interfaces;\nusing Microsoft.AspNetCore.Builder;\nusing Microsoft.AspNetCore.Diagnostics.HealthChecks;\nusing NodaTime;\nusing OpenTelemetry.Metrics;\nusing OpenTelemetry.Trace;\n\nvar builder = WebApplication.CreateBuilder(args);\nusing var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());\nvar logger = loggerFactory.CreateLogger(\"Startup\");\nvar environment = builder.Environment.EnvironmentName;\nlogger.LogInformation(\"ASPNETCORE_ENVIRONMENT log: {Environment}\", environment);\nbuilder\n    .Configuration.AddKeyPerFile(directoryPath: \"/etc/adm-worker/secrets\", optional: true) // Load secrets in k8s\n    .AddUserSecrets(Assembly.GetExecutingAssembly(), optional: true); // Load dotnet user secrets for local development\n\nbuilder.Services.AddSingleton<IClock>(SystemClock.Instance);\nbuilder.Services.AddSingleton<IOAuthTokenManager>(sp =>\n{\n    var authConfig = sp.GetRequiredService<IWatchedSingletonConfig<IAuthConfig>>().Value;\n    var clientKeyPem = builder.Configuration.GetRequiredSection(\"Security:ClientApplication:ClientKeyPem\").Get<string>();\n    var logger = sp.GetRequiredService<ILogger<IOAuthTokenManager>>();\n    return new OAuthTokenManager(\n        authConfig.ApplicationAuthority,\n        authConfig.ApplicationClientId,\n        clientKeyPem,\n        builder.Configuration,\n        logger\n    );\n});\n\nbuilder.Services.AddMsfEnvironment();\n\n// OneConfig documentation: https://docusign.atlassian.net/wiki/x/zAl5Aw\nbuilder.Services.AddOneConfigs();\nbuilder.Services.AddFeatureFlags(builder.Configuration, builder.Environment);\nbuilder.Services.AddDbServices(builder.Configuration);\nbuilder.Services.AddAdmEventingServices(builder.Configuration);\n\nbuilder.Services.AddHttpContextAccessor();\nbuilder.Services.AddHealthChecks();\n\nbuilder.Services.AddHttpClient();\n\nbuilder.Services.AddServiceTelemetry(\n    \"iam-tasks\",\n    configureTracer: tracerBuilder =>\n    {\n        tracerBuilder\n            .AddAspNetCoreInstrumentation(options =>\n            {\n                options.RecordException = true;\n                options.EnrichWithHttpResponse = (activity, response) =>\n                {\n                    if (response.HttpContext.Request.RouteValues.TryGetValue(\"accountId\", out var accountId))\n                    {\n                        activity.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, accountId);\n                        activity.SetTag(TicketsSemanticConventions.AttributeAccountId, accountId);\n                    }\n                };\n            })\n            .AddEntityFrameworkCoreInstrumentation(options =>\n            {\n                options.SetDbStatementForText = true;\n            })\n            .AddHttpClientInstrumentation()\n            .AddOtlpExporter()\n            .AddGrpcClientInstrumentation();\n\n        if (builder.Configuration.GetSection(\"Telemetry:EnableConsoleTracing\").Get<bool>())\n        {\n            tracerBuilder.AddConsoleExporter();\n        }\n    },\n    configureMeter: meterBuilder =>\n    {\n        meterBuilder.AddHttpClientInstrumentation().AddOtlpExporter().AddAspNetCoreInstrumentation();\n        if (builder.Configuration.GetSection(\"Telemetry:EnableConsoleMetrics\").Get<bool>())\n        {\n            meterBuilder.AddConsoleExporter();\n        }\n    }\n);\n\nvar app = builder.Build();\n\nif (!app.Environment.IsDevelopment())\n{\n    app.UseHttpsRedirection();\n}\n\napp.UseRouting();\n\napp.MapVersionEndpoint(\"/version\");\n\napp.MapHealthChecks(\"/health\", new HealthCheckOptions { ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse });\n\napp.Run();\n\npublic partial class Program { }\n",
+            "relevance_score": 100,
+            "reasoning": "Telemetry infrastructure: Import: DocuSign.Msf.AspNet.OpenTelemetry, Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions, Import: OpenTelemetry.Metrics"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService/Instrumentation/IAdmEventHandlerInstrumentation.cs",
+            "content": "using System.Diagnostics;\nusing System.Diagnostics.Metrics;\nusing DocuSign.Msf.ComponentInstrumentation;\n\nnamespace IamTickets.AdmEventsWorkerService.Instrumentation;\n\n[Instrumentation(typeof(AdmEventHandlerInstrumentation))]\npublic interface IAdmEventHandlerInstrumentation : IComponentInstrumentation\n{\n    /// <summary>\n    /// Creates and starts the activity that represents the execute of the AdmEventHandler.\n    /// </summary>\n    /// <param name=\"parentId\">Identifier of the parent activity.</param>\n    /// <returns>Newly created activity.</returns>\n    Activity? ConsumeAdmEvent(string parentId);\n\n    /// <summary>\n    /// Counter for tracking ADM event processing results.\n    /// </summary>\n    Counter<long> AdmEventProcessed { get; }\n\n    /// <summary>\n    /// Log a warning that the message has been skipped.\n    /// </summary>\n    /// <param name=\"reason\">Reason for skipping.</param>\n    [LogInstrumentation(300, LogLevel.Warning, \"Skipping Event due to '{Reason}'\")]\n    void LogSkippingMessage(string reason);\n\n    /// <summary>\n    /// Logs a message that indicates processing adm event for agreement status.\n    /// </summary>\n    /// <param name=\"traceId\">Event traceId. nullable</param>\n    [LogInstrumentation(0, LogLevel.Information, \"Processing adm event for Agreement status, TraceId: '{TraceId}'\")]\n    void LogProcessingEvent(string? traceId);\n\n    /// <summary>\n    /// Logs a message that indicates processing adm event for agreement status.\n    /// </summary>\n    /// <param name=\"traceId\">Event traceId. nullable</param>\n    [LogInstrumentation(0, LogLevel.Information, \"Logging event details, TraceId: '{TraceId}'\")]\n    void LogEvent(string? traceId);\n\n    /// <summary>\n    /// Temporary logging statement to indicate that we have reached the end of the processing of agreement status in adm event\n    /// </summary>\n    /// <param name=\"traceId\">Event traceId. nullable</param>\n    [LogInstrumentation(\n        1,\n        LogLevel.Information,\n        \"Successfully processsed adm event for agreement status, TraceId: '{TraceId}'\"\n    )]\n    void LogSuccessfulEvent(string? traceId);\n\n    /// <summary>\n    /// Logs error message.\n    /// </summary>\n    /// <param name=\"message\">The message to log.</param>\n    [LogInstrumentation(3, LogLevel.Error, \"{Message}\")]\n    void LogError(string message);\n\n    /// <summary>\n    /// log a message for a exception\n    /// </summary>\n    /// <param name=\"ex\">exception</param>\n    [LogInstrumentation(2, LogLevel.Error, \"Message encountered an exception {ex}.\")]\n    void LogException(Exception ex);\n\n    /// <summary>\n    /// Log a warning that the processsing adm event is unsuccessful\n    /// </summary>\n    /// <param name=\"id\">event id</param>\n    /// <param name=\"ex\">exception</param>\n    [LogInstrumentation(300, LogLevel.Warning, \"Processing adm event is unsuccessful for '{id}' with '{ex}'\")]\n    void LogUnsuccessfulEventlog(string id, Exception? ex);\n}\n",
+            "relevance_score": 80,
+            "reasoning": "Telemetry infrastructure: Import: System.Diagnostics.Metrics, Import: DocuSign.Msf.ComponentInstrumentation, Pattern: Instrumentation"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService/Instrumentation/IAgreementProcessingInstrumentation.cs",
+            "content": "using System.Diagnostics.Metrics;\nusing DocuSign.Msf.ComponentInstrumentation;\n\nnamespace IamTickets.AdmEventsWorkerService.Instrumentation;\n\n[Instrumentation(typeof(AgreementProcessingService))]\npublic interface IAgreementProcessingInstrumentation : IComponentInstrumentation\n{\n    /// <summary>\n    /// Counter for tracking agreement update results.\n    /// </summary>\n    Counter<long> SignedAgreementUpdate { get; }\n}\n",
+            "relevance_score": 70,
+            "reasoning": "Telemetry infrastructure: Import: System.Diagnostics.Metrics, Import: DocuSign.Msf.ComponentInstrumentation, Pattern: Instrumentation"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Telemetry/IAccountSettingInstrumentation.cs",
+            "content": "using System.Diagnostics.Metrics;\nusing DocuSign.Msf.ComponentInstrumentation;\nusing IamTickets.Services.ApplicationServices;\n\nnamespace IamTickets.Services.Telemetry;\n\n[Instrumentation(typeof(AccountSettingService))]\npublic interface IAccountSettingInstrumentation\n{\n    Counter<long> CheckAccountSetting { get; }\n\n    Counter<long> AccountSettingStatus { get; }\n}\n",
+            "relevance_score": 70,
+            "reasoning": "Telemetry infrastructure: Import: System.Diagnostics.Metrics, Import: DocuSign.Msf.ComponentInstrumentation, Pattern: Instrumentation"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Telemetry/IResidencyProviderInstrumentation.cs",
+            "content": "using System.Diagnostics.Metrics;\nusing DocuSign.Msf.ComponentInstrumentation;\nusing IamTickets.Services.Residency;\n\nnamespace IamTickets.Services.Telemetry;\n\n[Instrumentation(typeof(AccountResidencyProvider))]\npublic interface IResidencyProviderInstrumentation\n{\n    Counter<long> Residency { get; }\n}\n",
+            "relevance_score": 70,
+            "reasoning": "Telemetry infrastructure: Import: System.Diagnostics.Metrics, Import: DocuSign.Msf.ComponentInstrumentation, Pattern: Instrumentation"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Telemetry/IEmailMessageServiceInstrumentation.cs",
+            "content": "using System.Diagnostics.Metrics;\nusing DocuSign.Msf.ComponentInstrumentation;\nusing IamTickets.Services.ApplicationServices;\n\nnamespace IamTickets.Services.Telemetry;\n\n[Instrumentation(typeof(EmailMessageService))]\npublic interface IEmailMessageServiceInstrumentation\n{\n    Counter<long> OutboundEmailMessage { get; }\n}\n",
+            "relevance_score": 70,
+            "reasoning": "Telemetry infrastructure: Import: System.Diagnostics.Metrics, Import: DocuSign.Msf.ComponentInstrumentation, Pattern: Instrumentation"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Interfaces/ITicketActivityService.cs",
+            "content": "using IamTickets.Models.TicketActivities;\n\nnamespace IamTickets.Services.Interfaces;\n\npublic interface ITicketActivityService\n{\n    public Task<List<TicketActivity>> GetActivitiesForTicketAsync(Guid ticketId, bool messageOnly);\n\n    public Task AddActivitiesAsync(List<TicketActivity> activities);\n}\n",
+            "relevance_score": 51,
+            "reasoning": "Semantic similarity: 0.414"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Interfaces/INotificationService.cs",
+            "content": "using IamTickets.Models;\nusing IamTickets.Models.Common.Dto.Participants;\nusing IamTickets.Models.Common.Enums;\nusing IamTickets.Models.TicketActivities;\n\nnamespace IamTickets.Services.Interfaces;\n\npublic interface INotificationService\n{\n    Task SendTicketNotificationAsync(Ticket ticket, List<TicketActivity> activities);\n\n    Task SendApprovalNotificationAsync(\n        Ticket ticket,\n        ParticipantDto requestedBy,\n        Approval approval,\n        List<ParticipantDto> approversDtos,\n        NotificationItemType itemType\n    );\n\n    Task SendTicketSharingNotificationTriggeredByMaestroAsync(\n        Ticket ticket,\n        List<ParticipantDto> ticketParticipants,\n        NotificationItemType itemType,\n        string maestroActorId\n    );\n}\n",
+            "relevance_score": 49,
+            "reasoning": "Semantic similarity: 0.397"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Interfaces/IActivityFeedRenderer.cs",
+            "content": "using IamTickets.Models.Common.Dto.TicketActivities;\n\nnamespace IamTickets.Services.Interfaces;\n\npublic interface IActivityFeedRenderer\n{\n    List<TicketActivityRecord> RenderActivities(List<TicketActivityDto> activities);\n}\n",
+            "relevance_score": 48,
+            "reasoning": "Semantic similarity: 0.389"
+          }
+        ]
+      },
+      "error": null,
+      "execution_time": 53.69297409057617,
+      "cache_hit": false
+    },
+    "validate_solution": {
+      "stage_name": "validate_solution",
+      "status": "StageStatus.COMPLETED",
+      "result": {
+        "overall_score": 0.7854651162790697,
+        "test_results": [
+          {
+            "test_name": "Intent Required Fields",
+            "test_type": "TestType.UNIT",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "missing_fields": []
+            },
+            "errors": [],
+            "warnings": [],
+            "execution_time": 0.001
+          },
+          {
+            "test_name": "Telemetry Operation Validity",
+            "test_type": "TestType.UNIT",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "type": "span",
+              "action": "ADD_ATTRIBUTES"
+            },
+            "errors": [],
+            "warnings": [],
+            "execution_time": 0.001
+          },
+          {
+            "test_name": "Semantic Description Quality",
+            "test_type": "TestType.UNIT",
+            "passed": true,
+            "score": 0.8,
+            "details": {
+              "description_length": 138,
+              "quality_score": 0.8
+            },
+            "errors": [],
+            "warnings": [],
+            "execution_time": 0.002
+          },
+          {
+            "test_name": "Patch Format Validity",
+            "test_type": "TestType.UNIT",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "patch_length": 5881
+            },
+            "errors": [],
+            "warnings": [],
+            "execution_time": 0.001
+          },
+          {
+            "test_name": "Code Style Compliance",
+            "test_type": "TestType.UNIT",
+            "passed": false,
+            "score": 0.6000000000000001,
+            "details": {
+              "style_score": 0.6000000000000001
+            },
+            "errors": [],
+            "warnings": [
+              "Code style could be improved"
+            ],
+            "execution_time": 0.003
+          },
+          {
+            "test_name": "Change Scope Appropriateness",
+            "test_type": "TestType.UNIT",
+            "passed": false,
+            "score": 0.5,
+            "details": {
+              "scope_score": 0.5
+            },
+            "errors": [],
+            "warnings": [
+              "Change scope may not be optimal"
+            ],
+            "execution_time": 0.002
+          },
+          {
+            "test_name": "Code Compilation",
+            "test_type": "TestType.INTEGRATION",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "files_count": 10
+            },
+            "errors": [],
+            "warnings": [],
+            "execution_time": 2.0
+          },
+          {
+            "test_name": "OpenTelemetry Attribute Naming",
+            "test_type": "TestType.COMPLIANCE",
+            "passed": false,
+            "score": 0.5,
+            "details": {
+              "attributes_count": 2
+            },
+            "errors": [
+              "Non-compliant attribute names found"
+            ],
+            "warnings": [],
+            "execution_time": 0.001
+          },
+          {
+            "test_name": "Instrumentation Pattern Compliance",
+            "test_type": "TestType.COMPLIANCE",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "pattern_score": 1.0
+            },
+            "errors": [],
+            "warnings": [],
+            "execution_time": 0.002
+          },
+          {
+            "test_name": "Resource Usage Analysis",
+            "test_type": "TestType.PERFORMANCE",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "score": 1.0,
+              "errors": [],
+              "warnings": []
+            },
+            "errors": [],
+            "warnings": [],
+            "execution_time": 0.003
+          },
+          {
+            "test_name": "No Hardcoded Secrets",
+            "test_type": "TestType.COMPLIANCE",
+            "passed": true,
+            "score": 1.0,
+            "details": {},
+            "errors": [],
+            "warnings": [],
+            "execution_time": 0.001
+          },
+          {
+            "test_name": "Input Validation",
+            "test_type": "TestType.COMPLIANCE",
+            "passed": false,
+            "score": 0.046511627906976744,
+            "details": {
+              "validation_score": 0.046511627906976744
+            },
+            "errors": [
+              "Insufficient input validation"
+            ],
+            "warnings": [
+              "Input validation could be improved"
+            ],
+            "execution_time": 0.002
+          },
+          {
+            "test_name": "Performance Impact Analysis",
+            "test_type": "TestType.PERFORMANCE",
+            "passed": true,
+            "score": 0.75,
+            "details": {
+              "risk_level": 2,
+              "errors": [],
+              "warnings": [
+                "Telemetry instrumentation may have minor performance impact"
+              ]
+            },
+            "errors": [],
+            "warnings": [
+              "Telemetry instrumentation may have minor performance impact"
+            ],
+            "execution_time": 0.005
+          },
+          {
+            "test_name": "Integration Compatibility",
+            "test_type": "TestType.INTEGRATION",
+            "passed": false,
+            "score": 0.8,
+            "details": {
+              "breaking_changes": [
+                "Potential public API signature change"
+              ]
+            },
+            "errors": [
+              "Breaking change detected: Potential public API signature change"
+            ],
+            "warnings": [],
+            "execution_time": 0.01
+          }
+        ],
+        "recommendations": [
+          "Address failing tests before deployment",
+          "Improve implementation for low-scoring areas",
+          "Validate telemetry data collection in staging environment"
+        ],
+        "risk_assessment": "HIGH",
+        "compliance_status": {
+          "opentelemetry": false,
+          "security": true,
+          "style": true
+        }
+      },
+      "error": null,
+      "execution_time": 0.008270740509033203,
+      "cache_hit": false
+    }
+  }
+}

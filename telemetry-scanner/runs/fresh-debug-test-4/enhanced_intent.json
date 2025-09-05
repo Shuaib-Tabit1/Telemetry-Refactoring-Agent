@@ -1,0 +1,197 @@
+{
+  "basic_intent": {
+    "issue_category": "INSTRUMENTATION",
+    "static_analysis_query": {
+      "find_method_call": "SetTag"
+    },
+    "semantic_description": "Add HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION headers as attributes on existing HTTP request spans in the CLM web app.",
+    "search_keywords": [
+      "HTTP_REFERER",
+      "HTTP_RESPONSE_REDIRECT_LOCATION",
+      "SetTag",
+      "ActivitySource",
+      "OpenTelemetry",
+      "redirect"
+    ],
+    "telemetry_operation": {
+      "type": "span",
+      "target_name": null,
+      "action": "ADD_ATTRIBUTES",
+      "attributes_to_add": [
+        {
+          "name": "HTTP_REFERER",
+          "value_source": "Request.Headers[\"Referer\"]"
+        },
+        {
+          "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+          "value_source": "Response.Headers[\"Location\"]"
+        }
+      ],
+      "new_span_name": null,
+      "new_metric_details": {}
+    }
+  },
+  "enhanced_analysis": {
+    "confidence": "high",
+    "operation_type": "multi_file",
+    "complexity_score": 4,
+    "estimated_files": 3,
+    "validation_issues": [],
+    "suggestions": [],
+    "sub_tasks": [
+      {
+        "order": 1,
+        "id": "codebase_discovery",
+        "action": "locate_configuration",
+        "description": "Locate all OpenTelemetry bootstrap / ActivitySource registration code in the clm-web solution so we know where to plug in the enrichment logic.",
+        "expected_files": [
+          "Startup.cs",
+          "Program.cs (.NET 6 minimal host projects only)",
+          "Telemetry/OpenTelemetryExtensions.cs",
+          "Middlewares/*Telemetry*.cs",
+          "any file containing ActivitySource, AddOpenTelemetry(), SetTag(), AddTag()"
+        ],
+        "validation_criteria": "All files that register or modify tracer providers are catalogued in the PR description."
+      },
+      {
+        "order": 2,
+        "id": "spike_proof_of_concept",
+        "action": "create_poc_branch",
+        "description": "Create a short-lived POC branch to verify that enrichment callbacks fire when we add custom tags on both request (OnStart) and response (OnStop).",
+        "dependencies": [
+          "codebase_discovery"
+        ],
+        "validation_criteria": "Local debugger shows attributes on Activity.Current for a redirect request."
+      },
+      {
+        "order": 3,
+        "id": "unit_test_harness",
+        "action": "add_tests",
+        "description": "Add/extend unit or integration tests that hit a sample redirect endpoint and assert the new attributes exist in exported spans (use an in-memory exporter).",
+        "dependencies": [
+          "spike_proof_of_concept"
+        ],
+        "expected_files": [
+          "tests/Telemetry/RedirectInstrumentationTests.cs"
+        ],
+        "validation_criteria": "New tests fail before instrumentation; pass after implementation."
+      },
+      {
+        "order": 4,
+        "id": "implement_request_enrichment",
+        "action": "implement_changes",
+        "description": "Enrich HTTP server spans with header `HTTP_REFERER` at the earliest point in the request pipeline.  Preferred place: existing `ActivityEnrichmentProcessor` or write a dedicated `RefererEnrichmentMiddleware` if none exists.",
+        "dependencies": [
+          "spike_proof_of_concept"
+        ],
+        "expected_code_snippet": "if (!string.IsNullOrWhiteSpace(ctx.Request.Headers[\"Referer\"])) activity.SetTag(\"HTTP_REFERER\", ctx.Request.Headers[\"Referer\"].ToString());",
+        "validation_criteria": "Manual test shows referer attribute present for non-null header; absent (not empty string) when header missing."
+      },
+      {
+        "order": 5,
+        "id": "implement_response_enrichment",
+        "action": "implement_changes",
+        "description": "Capture `Location` header for 3xx responses in the same Activity before it is stopped.  Use a response-wrapping middleware so we can read status code and headers after MVC has executed.",
+        "dependencies": [
+          "implement_request_enrichment"
+        ],
+        "expected_code_snippet": "if (ctx.Response.StatusCode >= 301 && ctx.Response.StatusCode <= 308 && ctx.Response.Headers.ContainsKey(\"Location\")) activity.SetTag(\"HTTP_RESPONSE_REDIRECT_LOCATION\", ctx.Response.Headers[\"Location\"].ToString());",
+        "validation_criteria": "Local test hitting /redirect endpoint shows both new tags."
+      },
+      {
+        "order": 6,
+        "id": "null_handling_and_performance",
+        "action": "code_review",
+        "description": "Verify we guard against null/empty headers, avoid reflection, and do no string allocations unless headers exist.  Confirm middleware is registered after routing but before Activity is stopped.",
+        "dependencies": [
+          "implement_response_enrichment"
+        ],
+        "validation_criteria": "Benchmark shows <0.2 \u00b5s per request overhead; missing headers do not create tags."
+      },
+      {
+        "order": 7,
+        "id": "static_analysis_and_lint",
+        "action": "run_static_analysis",
+        "description": "Run static analyzers and security linters (SonarQube, Roslyn ruleset) to ensure no new warnings.",
+        "dependencies": [
+          "null_handling_and_performance"
+        ],
+        "validation_criteria": "Build is clean; zero new critical / major issues."
+      },
+      {
+        "order": 8,
+        "id": "local_end_to_end_validation",
+        "action": "manual_validation",
+        "description": "Run clm-web locally with OTLP exporter pointing to Jaeger/Zipkin and verify spans contain attributes in UI.",
+        "dependencies": [
+          "static_analysis_and_lint"
+        ],
+        "validation_criteria": "Spans in Jaeger have HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION with correct values."
+      },
+      {
+        "order": 9,
+        "id": "commit_and_pr",
+        "action": "create_pull_request",
+        "description": "Open PR, include design notes, screenshots, and Kusto query examples. Request reviews from observability and CLM owners.",
+        "dependencies": [
+          "local_end_to_end_validation"
+        ],
+        "validation_criteria": "PR approved by at least 2 owners; CI passes."
+      },
+      {
+        "order": 10,
+        "id": "deploy_to_demo",
+        "action": "deploy",
+        "description": "Deploy to Demo environment behind a feature flag `Telemetry.RedirectEnrichment` set to true only in Demo.",
+        "dependencies": [
+          "commit_and_pr"
+        ],
+        "validation_criteria": "Azure DevOps release succeeds; feature flag visible in AppConfig."
+      },
+      {
+        "order": 11,
+        "id": "demo_validation",
+        "action": "run_kusto_query",
+        "description": "Run canonical Kusto query provided in ticket to verify attributes flow into `OtlpSpanEvents`.",
+        "dependencies": [
+          "deploy_to_demo"
+        ],
+        "validation_criteria": "Query returns non-null HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION columns."
+      },
+      {
+        "order": 12,
+        "id": "load_and_perf_test",
+        "action": "execute_performance_tests",
+        "description": "Execute Gatling/JMeter suite to compare p95 latency before/after.  Confirm <1% change.",
+        "dependencies": [
+          "demo_validation"
+        ],
+        "validation_criteria": "Performance impact within agreed tolerance."
+      },
+      {
+        "order": 13,
+        "id": "rollout_to_all_envs",
+        "action": "deploy",
+        "description": "Gradually enable feature flag in Stage \u2192 Prod over two releases once Demo sign-off achieved.",
+        "dependencies": [
+          "load_and_perf_test"
+        ],
+        "validation_criteria": "No errors, live Kusto query matches Demo results, support sign-off."
+      },
+      {
+        "order": 14,
+        "id": "post_deployment_monitoring",
+        "action": "monitor",
+        "description": "Set up temporary alert in Kusto/WCI for missing attributes >5% to catch regressions for 1 week.",
+        "dependencies": [
+          "rollout_to_all_envs"
+        ],
+        "validation_criteria": "No alerts triggered or all investigated."
+      }
+    ],
+    "contextual_hints": [
+      "Capturing the Location header after the framework sets it (post-action, pre-flush) so the span still remains writable",
+      "Ensuring attributes are added only to the root HTTP span (not to nested child spans) to avoid duplication"
+    ]
+  }
+}

@@ -1,0 +1,193 @@
+{
+  "basic_intent": {
+    "issue_category": "INSTRUMENTATION",
+    "static_analysis_query": {
+      "find_method_call": "SetTag"
+    },
+    "semantic_description": "Add HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION headers as tags on existing HTTP request spans in the CLM web application.",
+    "search_keywords": [
+      "HTTP_REFERER",
+      "HTTP_RESPONSE_REDIRECT_LOCATION",
+      "Activity.SetTag",
+      "OpenTelemetry",
+      "middleware"
+    ],
+    "telemetry_operation": {
+      "type": "span",
+      "target_name": "HTTP request span",
+      "action": "ADD_ATTRIBUTES",
+      "attributes_to_add": [
+        {
+          "name": "HTTP_REFERER",
+          "value_source": "Request.Headers[\"Referer\"]"
+        },
+        {
+          "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+          "value_source": "Response.Headers[\"Location\"]"
+        }
+      ],
+      "new_span_name": null,
+      "new_metric_details": {}
+    }
+  },
+  "enhanced_analysis": {
+    "confidence": "high",
+    "operation_type": "multi_file",
+    "complexity_score": 4,
+    "estimated_files": 3,
+    "validation_issues": [],
+    "suggestions": [],
+    "sub_tasks": [
+      {
+        "order": 1,
+        "name": "Inventory & Ownership",
+        "action": "locate_configuration",
+        "description": "Identify where OpenTelemetry is configured and where the ASP.NET request/response pipeline can be extended.",
+        "expected_files": [
+          "Startup.cs / Program.cs",
+          "Telemetry/OpenTelemetryExtensions.cs",
+          "Middleware/*Telemetry*.cs",
+          "ActivitySource initialisation files"
+        ],
+        "owners": [
+          "telemetry-team"
+        ],
+        "validation_criteria": [
+          "Files that add `AddOpenTelemetryTracing()` or `AddAspNetCoreInstrumentation()` are found",
+          "Active ActivitySource name(s) for CLM web app documented"
+        ]
+      },
+      {
+        "order": 2,
+        "name": "Design & POC",
+        "action": "design_middleware",
+        "description": "Decide whether to extend existing middleware or add a new one placed after routing and before exception handling so both request headers and final response are available.",
+        "dependencies": [
+          1
+        ],
+        "artifacts": [
+          "Technical design doc (1-2 pages)",
+          "POC branch with prototype `RedirectTrackingMiddleware`"
+        ],
+        "validation_criteria": [
+          "Design accepted in PR or tech-review meeting",
+          "Prototype confirms tags appear in local console exporter"
+        ]
+      },
+      {
+        "order": 3,
+        "name": "Code Implementation",
+        "action": "implement_changes",
+        "description": "Implement production-ready middleware (or extend existing one) that sets the two tags on the current Activity.",
+        "dependencies": [
+          2
+        ],
+        "code_changes": [
+          "Create/Update file: `Middleware/RedirectTrackingMiddleware.cs`",
+          "Register middleware in `Startup.cs` via `app.UseMiddleware<RedirectTrackingMiddleware>()`"
+        ],
+        "key_logic": [
+          "Activity? activity = Activity.Current;",
+          "if (activity != null && !string.IsNullOrEmpty(ctx.Request.Headers[\"Referer\"])) { activity.SetTag(\"HTTP_REFERER\", ctx.Request.Headers[\"Referer\"].ToString()); }",
+          "await _next(ctx); // wait for response to complete",
+          "if (activity != null && ctx.Response.Headers.ContainsKey(\"Location\") && IsRedirectStatus(ctx.Response.StatusCode)) { activity.SetTag(\"HTTP_RESPONSE_REDIRECT_LOCATION\", ctx.Response.Headers[\"Location\"].ToString()); }"
+        ],
+        "validation_criteria": [
+          "Build succeeds",
+          "Unit tests compile"
+        ]
+      },
+      {
+        "order": 4,
+        "name": "Automated Tests",
+        "action": "add_tests",
+        "description": "Add unit and integration tests to ensure tags are populated correctly.",
+        "dependencies": [
+          3
+        ],
+        "expected_files": [
+          "Middleware/RedirectTrackingMiddlewareTests.cs",
+          "Integration/RedirectTrackingIntegrationTests.cs"
+        ],
+        "validation_criteria": [
+          "Test: Non-redirect request \u279c HTTP_RESPONSE_REDIRECT_LOCATION tag is NOT set",
+          "Test: Redirect request (302) \u279c Tag is set with correct Location header",
+          "Test: Missing Referer \u279c HTTP_REFERER tag not added or added as empty string"
+        ]
+      },
+      {
+        "order": 5,
+        "name": "Static Code Analysis",
+        "action": "run_static_analysis",
+        "description": "Execute internal analyzers to ensure no security or performance issues were introduced.",
+        "dependencies": [
+          4
+        ],
+        "validation_criteria": [
+          "No new critical or high issues introduced",
+          "Middleware passes async/await analyzers"
+        ]
+      },
+      {
+        "order": 6,
+        "name": "Performance & Load Test",
+        "action": "performance_test",
+        "description": "Run existing Gatling/Locust suite on staging to confirm no measurable latency increase.",
+        "dependencies": [
+          5
+        ],
+        "validation_criteria": [
+          "< 1 % increase P95 latency",
+          "CPU/memory overhead within baseline"
+        ]
+      },
+      {
+        "order": 7,
+        "name": "Demo Environment Deployment",
+        "action": "deploy_demo",
+        "description": "Deploy change to Demo environment with feature flag ON for 100 % traffic.",
+        "dependencies": [
+          6
+        ],
+        "validation_criteria": [
+          "Successful Helm/Octopus release",
+          "Live Kusto query shows new columns populated for sample URLs",
+          "Error logs unchanged"
+        ]
+      },
+      {
+        "order": 8,
+        "name": "Production Roll-out",
+        "action": "deploy_prod",
+        "description": "Gradual rollout: 10 % \u279c 50 % \u279c 100 % after monitoring.",
+        "dependencies": [
+          7
+        ],
+        "validation_criteria": [
+          "Kusto dashboard shows tags present across all clusters",
+          "No spike in 5xx or latency"
+        ]
+      },
+      {
+        "order": 9,
+        "name": "Post-Deployment Verification & Documentation",
+        "action": "post_deploy",
+        "description": "Update runbooks and dashboards; notify Support/CS teams.",
+        "dependencies": [
+          8
+        ],
+        "validation_criteria": [
+          "CLM telemetry wiki updated",
+          "PagerDuty runbook references new attributes",
+          "Support acknowledgement in Slack thread"
+        ]
+      }
+    ],
+    "contextual_hints": [
+      "Hooking the response after the framework has assigned the final status and Location header so the redirect URL is never missed",
+      "Making sure the tags are added to the correct Activity without colliding with existing instrumentation",
+      "Verifying behavior for non-redirect responses and edge cases (API calls, SSO handlers, error pages)",
+      "Unit/integration testing when spans are emitted asynchronously"
+    ]
+  }
+}

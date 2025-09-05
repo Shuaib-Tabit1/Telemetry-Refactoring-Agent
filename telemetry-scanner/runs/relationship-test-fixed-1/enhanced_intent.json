@@ -1,0 +1,144 @@
+{
+  "basic_intent": {
+    "issue_category": "INSTRUMENTATION",
+    "static_analysis_query": {
+      "find_method_call": "SetTag"
+    },
+    "semantic_description": "Add HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION headers as attributes on existing incoming HTTP request spans in the CLM web app.",
+    "search_keywords": [
+      "HTTP_REFERER",
+      "HTTP_RESPONSE_REDIRECT_LOCATION",
+      "SetTag",
+      "ActivitySource",
+      "AddTag",
+      "middleware",
+      "OpenTelemetry"
+    ],
+    "telemetry_operation": {
+      "type": "span",
+      "target_name": "Incoming HTTP Request Span",
+      "action": "ADD_ATTRIBUTES",
+      "attributes_to_add": [
+        {
+          "name": "HTTP_REFERER",
+          "value_source": "Request.Headers[\"Referer\"]"
+        },
+        {
+          "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+          "value_source": "Response.Headers[\"Location\"]"
+        }
+      ],
+      "new_span_name": null,
+      "new_metric_details": {}
+    }
+  },
+  "enhanced_analysis": {
+    "confidence": "high",
+    "operation_type": "multi_file",
+    "complexity_score": 4,
+    "estimated_files": 3,
+    "validation_issues": [],
+    "suggestions": [],
+    "sub_tasks": [
+      {
+        "order": 1,
+        "action": "locate_configuration",
+        "description": "Find the OpenTelemetry bootstrap code that registers ActivitySource / AspNet instrumentation for clm-web. Typical locations are Startup.cs, Program.cs, or custom extension classes (e.g. OpenTelemetryConfigExtensions.cs). Also search for AddOpenTelemetryTracing in *.cs files.",
+        "expected_files": [
+          "Startup.cs",
+          "Program.cs",
+          "*Telemetry*.cs",
+          "*Extensions.cs"
+        ],
+        "validation_criteria": "Confirmed single point where AspNetCoreInstrumentation() or ActivitySource is added and span enrichment hooks can be supplied."
+      },
+      {
+        "order": 2,
+        "action": "spike_local_enrichment_hook",
+        "description": "Create (or update) an enrichment delegate that is executed for every Server span. Within that delegate, copy the Request.Headers[\"Referer\"] value into the span tag HTTP_REFERER if it exists.",
+        "dependencies": [
+          1
+        ],
+        "expected_files": [
+          "TelemetryEnrichment.cs",
+          "Startup.cs"
+        ],
+        "validation_criteria": "Local unit test or debugger shows Activity.GetTagItem(\"HTTP_REFERER\") contains the incoming header when present."
+      },
+      {
+        "order": 3,
+        "action": "add_response_redirect_attribute",
+        "description": "Inside the same middleware/enrichment code, subscribe to HttpContext.Response.OnStarting to capture the final status code + Location header. If status code is 301, 302, 303, 307, or 308 and Location header exists, set Activity.SetTag(\"HTTP_RESPONSE_REDIRECT_LOCATION\", locationValue).",
+        "dependencies": [
+          2
+        ],
+        "expected_files": [
+          "TelemetryEnrichment.cs"
+        ],
+        "validation_criteria": "Manual local test hitting a URL that issues 302 populates the redirect tag."
+      },
+      {
+        "order": 4,
+        "action": "null_and_performance_guards",
+        "description": "Add defensive checks: only set tags when header values are non-null/non-empty; ensure no exceptions are thrown when headers missing. Benchmark with a simple load test (e.g. wrk for 1k rps) to confirm <1% overhead compared to baseline.",
+        "dependencies": [
+          3
+        ],
+        "validation_criteria": "Load test passes; no new errors in logs."
+      },
+      {
+        "order": 5,
+        "action": "unit_and_integration_tests",
+        "description": "1) Unit test middleware with mocked HttpContext to verify tags. 2) Integration test in the Demo environment using a feature branch deployment; execute Kusto query provided in ticket to assert tags are present.",
+        "dependencies": [
+          4
+        ],
+        "expected_files": [
+          "TelemetryEnrichmentTests.cs",
+          "Integration/RedirectTelemetryTests.cs"
+        ],
+        "validation_criteria": "All tests green; Kusto shows the attributes."
+      },
+      {
+        "order": 6,
+        "action": "code_review_and_security_check",
+        "description": "Submit PR; reviewers confirm naming matches EXACTLY (HTTP_REFERER, HTTP_RESPONSE_REDIRECT_LOCATION) and no sensitive headers accidentally logged.",
+        "dependencies": [
+          5
+        ],
+        "validation_criteria": "At least two approvals; security team signs off on header exposure."
+      },
+      {
+        "order": 7,
+        "action": "deploy_to_lower_envs",
+        "description": "Promote to Dev \u2192 Demo. Monitor OpenTelemetry exporter throughput & error budgets.",
+        "dependencies": [
+          6
+        ],
+        "validation_criteria": "Kusto query returns values in each environment; no increase in error rate or latency."
+      },
+      {
+        "order": 8,
+        "action": "production_rollout",
+        "description": "Deploy via canary (e.g. 10% of pods for 1 hour) then full rollout. Continue Kusto monitoring plus Grafana latency dashboards.",
+        "dependencies": [
+          7
+        ],
+        "validation_criteria": "After 24 h, attributes visible in Production spans; no performance regression; SLOs intact."
+      },
+      {
+        "order": 9,
+        "action": "documentation_update",
+        "description": "Update internal wiki / observability runbook with the new span attributes and sample queries.",
+        "dependencies": [
+          8
+        ],
+        "validation_criteria": "Docs merged; shared in #telemetry Slack channel."
+      }
+    ],
+    "contextual_hints": [
+      "Finding the precise place in the ASP.NET pipeline where BOTH the incoming headers (Referer) and outgoing headers (Location) are visible on the same Activity instance",
+      "Ensuring the update follows existing OpenTelemetry ActivitySource/SetTag pattern so that auto-instrumentation is not duplicated or skipped by sampling"
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "selected_files": [
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/DetectTypeProcessor.Trace.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/VideoInfoProcessor.Trace.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/DetectTypeProcessor.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/ScmHttpApplication.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/MessageWorkerService/DispatchedWorker.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Engine/WorkflowInstance.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/API.WorkflowActivities/Program.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/AtlasDataManipulationService/Startup.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Core.ServiceFramework/ICoreInstrumentationLifetimeService.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Service/V1/WinsService.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/VideoInfo/VideoInfo.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Core.Types/Enums.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WINS.Protocol/obj/Debug/net48/docusign/workflow/wins/v1alpha1/WinsModels.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WINS.Protocol/obj/Debug/net48/docusign/workflow/wins/v1alpha1/WinsService.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Atlas.Workflow.Client/WorkflowDesignRepository.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain/AIConfiguration/ConfigurationService.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Core.ServiceFramework/AbstractServicedComponent.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain/GlobalSuppressions.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Web/GlobalSuppressions.cs"
+  ],
+  "selection_reasoning": "Confidence for this conclusion: 0.85",
+  "patch_reasoning": "Fallback conclusion due to reasoning error",
+  "diff_length": 944,
+  "explanation_length": 2603
+}

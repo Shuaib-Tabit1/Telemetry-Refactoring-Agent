@@ -1,0 +1,18 @@
+{
+  "selected_files": [
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/DetectTypeProcessor.Trace.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/VideoInfoProcessor.Trace.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/DetectTypeProcessor.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Engine/WorkflowInstance.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Service/V1/WinsService.Trace.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Service/V1/WinsService.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Core.ServiceFramework/ICoreInstrumentationLifetimeService.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/MessageWorkerService/DispatchedWorker.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Engine/WINSManager.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Engine/WorkflowContext.cs"
+  ],
+  "selection_reasoning": "\u2022 Unit / integration test: send an HTTP request with a Referer header and a server-side redirect (Location header). Verify via exporter or collector that the resulting span carries the two new attributes.",
+  "patch_reasoning": "+    /// can simply pass the result of this helper into the <c>configureTracer</c>",
+  "diff_length": 1013,
+  "explanation_length": 0
+}

@@ -1,0 +1,937 @@
+{
+  "execution_summary": {
+    "total_stages": 7,
+    "completed": 7,
+    "failed": 0,
+    "cache_hits": 0,
+    "total_execution_time": 229.72932958602905
+  },
+  "stage_details": {
+    "fetch_ticket": {
+      "stage_name": "fetch_ticket",
+      "status": "StageStatus.COMPLETED",
+      "result": "**Issue**: Missing Customer/Account ID Attributes in Telemetry Spans for Customer Impact Analysis\n\n**Problem Description**:\nOur customer impact analysis tool can identify impacted accounts during incidents but cannot calculate the total customer base or impact percentage because the service is not consistently logging customer/account IDs in telemetry spans.\n\n**Specific Example**:\n- Service: document-doc2pdf-clm\n- Issue: When querying for total customers served by this service during a time window, the query returns no results\n- Root Cause: The service is not logging customer/account ID attributes in the correct span attributes\n- Impact: Cannot calculate customer impact percentage, business risk assessment is incomplete\n\n**Current State**:\n- We can extract impacted accounts from problematic traces (by traceId lookup)\n- We cannot get total customer count because spans lack customer/account ID attributes\n- Kusto queries filtering by service_name + site and summarizing by accountId return empty results\n\n**Expected Outcome**:\n- All spans for document-doc2pdf-clm service should include customer/account ID attributes\n- Telemetry should capture customer context consistently across all operations\n- Customer impact analysis should be able to calculate total customers served and impact percentages\n\n**Technical Requirements**:\n- Add customer.id or account.id span attributes to all relevant operations\n- Ensure customer context is captured early in request processing and propagated through the call chain\n- Maintain consistency with existing telemetry attribute naming conventions\n\n**Priority**: High - impacts incident response and customer impact assessment capabilities\n",
+      "error": null,
+      "execution_time": 0.0003211498260498047,
+      "cache_hit": false
+    },
+    "extract_intent": {
+      "stage_name": "extract_intent",
+      "status": "StageStatus.COMPLETED",
+      "result": {
+        "issue_category": "INSTRUMENTATION",
+        "static_analysis_query": {
+          "find_method_call": "setAttribute"
+        },
+        "semantic_description": "Add customer/account ID attributes to every span emitted by the document-doc2pdf-clm service so customer impact analysis can calculate total customers served.",
+        "search_keywords": [
+          "customer.id",
+          "account.id",
+          "setAttribute",
+          "OpenTelemetry span",
+          "context propagation"
+        ],
+        "telemetry_operation": {
+          "type": "span",
+          "target_name": "*",
+          "action": "ADD_ATTRIBUTES",
+          "attributes_to_add": [
+            {
+              "name": "customer.id",
+              "value_source": "request/customer context"
+            },
+            {
+              "name": "account.id",
+              "value_source": "request/customer context"
+            }
+          ],
+          "new_span_name": null,
+          "new_metric_details": {}
+        },
+        "confidence": "IntentConfidence.HIGH",
+        "operation_type": "OperationType.CROSS_CUTTING",
+        "complexity_score": 6,
+        "estimated_files": 8,
+        "validation_result": {
+          "is_valid": true,
+          "confidence": "IntentConfidence.HIGH",
+          "issues": [],
+          "suggestions": []
+        },
+        "sub_tasks": [
+          {
+            "order": 1,
+            "name": "Requirements & Source-of-Truth Discovery",
+            "action": "locate_authoritative_customer_id",
+            "description": "Identify where customer/account ID first appears (HTTP headers, JWT, gRPC metadata, message body, DB call, etc.). Document exact key names, data types, and privacy classification (PII vs non-PII).",
+            "owners": [
+              "Service Owner",
+              "Security/Privacy SPOC"
+            ],
+            "validation_criteria": [
+              "A confluence page (or design doc) lists every inbound protocol and its customer/account identifier location.",
+              "Data is confirmed as non-PII or has an approved redaction policy."
+            ]
+          },
+          {
+            "order": 2,
+            "name": "Code & Config Walk-Through",
+            "action": "locate_configuration",
+            "description": "Locate all OpenTelemetry setup points (builder/SDK init) and any custom span factories or helpers used by document-doc2pdf-clm.",
+            "expected_files": [
+              "Startup.cs",
+              "Program.cs",
+              "TelemetryExtensions.cs",
+              "OpenTelemetryConfig.yaml",
+              "**/Tracing*Interceptor*.cs"
+            ],
+            "validation_criteria": "All configuration files referenced in the build logs have been identified and added to the design doc."
+          },
+          {
+            "order": 3,
+            "name": "Design Instrumentation Strategy",
+            "action": "design_context_propagation",
+            "description": "Decide HOW and WHERE the customer context is extracted and stored (e.g., Activity.Current.SetBaggage / ContextKey). Define helper method addCustomerAttributes(Span).",
+            "dependencies": [
+              1,
+              2
+            ],
+            "validation_criteria": [
+              "Design review approved by at least one telemetry SME.",
+              "Attribute names chosen: customer.id, account.id (strings)."
+            ]
+          },
+          {
+            "order": 4,
+            "name": "Create Request Context Carrier",
+            "action": "create_context_holder",
+            "description": "Implement (or extend) a RequestContext object that holds customerId and accountId and is attachable to async workflows (AsyncLocal, Context.current()).",
+            "dependencies": [
+              3
+            ],
+            "expected_files": [
+              "RequestContext.cs",
+              "RequestContextMiddleware.cs"
+            ],
+            "validation_criteria": "Unit tests prove that context survives async/await and task parallelism."
+          },
+          {
+            "order": 5,
+            "name": "Ingress Instrumentation",
+            "action": "add_middleware",
+            "description": "Add HTTP/gRPC middleware/filter that: a) extracts IDs, b) stores them in RequestContext, c) sets span attributes on the root span.",
+            "dependencies": [
+              4
+            ],
+            "validation_criteria": [
+              "Local run: Root span shows customer.id/account.id in Jaeger/Zipkin exporter.",
+              "No performance regression >2 % on perf test."
+            ]
+          },
+          {
+            "order": 6,
+            "name": "Library / Helper Refactor",
+            "action": "wrap_span_creation",
+            "description": "Refactor any custom span builder helpers so they automatically call addCustomerAttributes(). For 3rd-party libs, use ActivityListener or SpanProcessor to inject attributes post-creation.",
+            "dependencies": [
+              3,
+              4
+            ],
+            "validation_criteria": "All spans in integration test traces contain customer.id/account.id."
+          },
+          {
+            "order": 7,
+            "name": "Automated Tests & Static Analysis",
+            "action": "add_unit_and_integration_tests",
+            "description": "Add unit tests validating attribute presence. Add Roslyn/SpotBugs rule or grep-based Git pre-commit hook to flag new spans missing customer attributes.",
+            "dependencies": [
+              5,
+              6
+            ],
+            "validation_criteria": "CI pipeline fails if span without required attributes is introduced."
+          },
+          {
+            "order": 8,
+            "name": "Non-Prod Validation",
+            "action": "deploy_to_staging",
+            "description": "Deploy to staging with full trace sampling. Run synthetic load to ensure attributes show up in Kusto query: `traces | where service_name == 'document-doc2pdf-clm' | summarize dcount(customer_id)`",
+            "dependencies": [
+              7
+            ],
+            "validation_criteria": [
+              "Kusto returns non-zero dcount(customer_id).",
+              "No Personally Identifiable Information beyond approved IDs is visible."
+            ]
+          },
+          {
+            "order": 9,
+            "name": "Production Roll-out",
+            "action": "gradual_deployment",
+            "description": "Use deployment ring or feature flag to enable attribute injection 10 % \u2192 50 % \u2192 100 %. Monitor error budgets and performance counters.",
+            "dependencies": [
+              8
+            ],
+            "validation_criteria": [
+              "Error rate delta < 0.1 %.",
+              "P95 latency change < 2 %.",
+              "Kusto dashboard shows >95 % of spans contain IDs."
+            ]
+          },
+          {
+            "order": 10,
+            "name": "Post-Deployment Verification & Closeout",
+            "action": "final_validation_and_documentation",
+            "description": "Update runbooks, add new Kusto examples, close the ticket, and schedule follow-up audit after 2 weeks.",
+            "dependencies": [
+              9
+            ],
+            "validation_criteria": [
+              "Runbook PR merged.",
+              "Ops team acknowledges new telemetry fields available during incident response."
+            ]
+          }
+        ],
+        "contextual_hints": [
+          "Capturing customer context at the earliest entry point (HTTP/gRPC/queue) and storing it in a thread-local or request context",
+          "Propagating that context through async/parallel workflows so every span, including child/background spans, receives the attributes",
+          "Guaranteeing attribute presence without breaking spans that originate from libraries you do not control",
+          "Verifying with end-to-end trace validation in non-prod environments (Kusto, dashboards, alerting rules)"
+        ],
+        "similar_patterns": [
+          "missing_required_span_attribute",
+          "context_propagation_needed"
+        ]
+      },
+      "error": null,
+      "execution_time": 28.35066294670105,
+      "cache_hit": false
+    },
+    "build_graph": {
+      "stage_name": "build_graph",
+      "status": "StageStatus.COMPLETED",
+      "result": [
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models.Common/IamTickets.Models.Common.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Database/IamTickets.Database.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Auth/IamTickets.Auth.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Dms/IamTickets.Dms.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Gateways/IamTickets.Gateways.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models/IamTickets.Models.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Eventing/IamTickets.Eventing.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Postgres/IamTickets.Postgres.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/IamTickets.Services.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Common/IamTickets.Common.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Config/IamTickets.Config.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Esign/IamTickets.Esign.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Api/IamTickets.Api.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Search/IamTickets.Search.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Agents/IamTickets.Agents.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService/IamTickets.AdmEventsWorkerService.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Auth.Tests/IamTickets.Auth.Tests.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Integration.Tests/IamTickets.Integration.Tests.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services.Tests/IamTickets.Services.Tests.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Api.Tests/IamTickets.Api.Tests.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Api.Tests.Common/IamTickets.Api.Tests.Common.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Common.Tests/IamTickets.Common.Tests.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Email.Tests/IamTickets.Email.Tests.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models.Tests/IamTickets.Models.Tests.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Search.Tests/IamTickets.Search.Tests.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService.Tests/IamTickets.AdmEventsWorkerService.Tests.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmWorker.Integration.Tests/IamTickets.AdmWorker.Integration.Tests.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Postgres.Tests/IamTickets.Postgres.Tests.csproj",
+        "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Agents.Tests/IamTickets.Agents.Tests.csproj"
+      ],
+      "error": null,
+      "execution_time": 163.8670778274536,
+      "cache_hit": false
+    },
+    "intelligent_search": {
+      "stage_name": "intelligent_search",
+      "status": "StageStatus.COMPLETED",
+      "result": [
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Api/StartupExtensions.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 100,
+          "reasoning": "Telemetry infrastructure: Import: DocuSign.Msf.AspNet.OpenTelemetry, Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions, Import: OpenTelemetry.Metrics; Semantic similarity: 0.233",
+          "matching_patterns": [
+            "Pattern: OpenTelemetry",
+            "Import: OpenTelemetry.Trace",
+            "Config file: startupextensions.cs",
+            "Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+            "Import: DocuSign.Msf.AspNet.OpenTelemetry",
+            "Pattern: Tracing",
+            "Pattern: Metrics",
+            "Import: OpenTelemetry.Metrics",
+            "Pattern: Instrumentation"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService/Program.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 100,
+          "reasoning": "Telemetry infrastructure: Import: DocuSign.Msf.AspNet.OpenTelemetry, Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions, Import: OpenTelemetry.Metrics",
+          "matching_patterns": [
+            "Import: DocuSign.Msf.AspNet.OpenTelemetry",
+            "Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+            "Import: OpenTelemetry.Metrics",
+            "Import: OpenTelemetry.Trace",
+            "Pattern: OpenTelemetry",
+            "Pattern: Instrumentation",
+            "Pattern: Tracing",
+            "Pattern: Metrics",
+            "Config file: program.cs"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService/Instrumentation/IAdmEventHandlerInstrumentation.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 80,
+          "reasoning": "Telemetry infrastructure: Import: System.Diagnostics.Metrics, Import: DocuSign.Msf.ComponentInstrumentation, Pattern: Instrumentation",
+          "matching_patterns": [
+            "Import: System.Diagnostics.Metrics",
+            "Import: DocuSign.Msf.ComponentInstrumentation",
+            "Pattern: Instrumentation",
+            "Pattern: Metrics",
+            "Config file: iadmeventhandlerinstrumentation.cs"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService/Instrumentation/IAgreementProcessingInstrumentation.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 70,
+          "reasoning": "Telemetry infrastructure: Import: System.Diagnostics.Metrics, Import: DocuSign.Msf.ComponentInstrumentation, Pattern: Instrumentation",
+          "matching_patterns": [
+            "Import: System.Diagnostics.Metrics",
+            "Import: DocuSign.Msf.ComponentInstrumentation",
+            "Pattern: Instrumentation",
+            "Pattern: Metrics",
+            "Config file: iagreementprocessinginstrumentation.cs"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Telemetry/IAccountSettingInstrumentation.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 70,
+          "reasoning": "Telemetry infrastructure: Import: System.Diagnostics.Metrics, Import: DocuSign.Msf.ComponentInstrumentation, Pattern: Instrumentation; Semantic similarity: 0.243",
+          "matching_patterns": [
+            "Config file: iaccountsettinginstrumentation.cs",
+            "Import: DocuSign.Msf.ComponentInstrumentation",
+            "Import: System.Diagnostics.Metrics",
+            "Pattern: Metrics",
+            "Pattern: Instrumentation"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Telemetry/IResidencyProviderInstrumentation.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 70,
+          "reasoning": "Telemetry infrastructure: Import: System.Diagnostics.Metrics, Import: DocuSign.Msf.ComponentInstrumentation, Pattern: Instrumentation; Semantic similarity: 0.239",
+          "matching_patterns": [
+            "Import: DocuSign.Msf.ComponentInstrumentation",
+            "Import: System.Diagnostics.Metrics",
+            "Pattern: Metrics",
+            "Config file: iresidencyproviderinstrumentation.cs",
+            "Pattern: Instrumentation"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Telemetry/IEmailMessageServiceInstrumentation.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 70,
+          "reasoning": "Telemetry infrastructure: Import: System.Diagnostics.Metrics, Import: DocuSign.Msf.ComponentInstrumentation, Pattern: Instrumentation",
+          "matching_patterns": [
+            "Import: System.Diagnostics.Metrics",
+            "Import: DocuSign.Msf.ComponentInstrumentation",
+            "Pattern: Instrumentation",
+            "Pattern: Metrics",
+            "Config file: iemailmessageserviceinstrumentation.cs"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/ApplicationServices/EmailMessageService.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 42,
+          "reasoning": "Semantic similarity: 0.224",
+          "matching_patterns": [],
+          "context_snippets": [
+            "using DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions;\nusing DocuSign.OneConfig.Extensions;\nusing FluentValidation.Results;\nusing IamTickets.Common.Auth;\nusing IamTickets.Common.Constants;",
+            "using IamTickets.Models;\nusing IamTickets.Models.Common.Constants;\nusing IamTickets.Models.Common.Dto.Email;\nusing IamTickets.Models.Common.Dto.Participants;\nusing IamTickets.Models.Common.Dto.UploadedAttachments;",
+            "using IamTickets.Models.Common.Constants;\nusing IamTickets.Models.Common.Dto.Email;\nusing IamTickets.Models.Common.Dto.Participants;\nusing IamTickets.Models.Common.Dto.UploadedAttachments;\nusing IamTickets.Models.Common.Enums;"
+          ],
+          "confidence": "0.2244082"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Db/TicketDbExtensions.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 33,
+          "reasoning": "Semantic similarity: 0.239",
+          "matching_patterns": [],
+          "context_snippets": [
+            "using IamTickets.Models;\nusing Microsoft.EntityFrameworkCore;\n\nnamespace IamTickets.Services.Db;",
+            "using Microsoft.EntityFrameworkCore;\n\nnamespace IamTickets.Services.Db;\n\npublic static class TicketDbExtensions",
+            "public static class TicketDbExtensions\n{\n    public static IQueryable<Ticket> IncludeTicketDetails(this IQueryable<Ticket> tickets, Guid? userId = null)\n    {\n        IQueryable<Ticket> queryable = tickets"
+          ],
+          "confidence": "0.23851006"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models/DocumentVersionEnvelopeMapping.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 29,
+          "reasoning": "Semantic similarity: 0.291",
+          "matching_patterns": [],
+          "context_snippets": [
+            "namespace IamTickets.Models;\n\npublic class DocumentVersionEnvelopeMapping : Trackable, IOwnedByAccount\n{\n    public Guid Id { get; init; }",
+            "public class DocumentVersionEnvelopeMapping : Trackable, IOwnedByAccount\n{\n    public Guid Id { get; init; }\n    public required Guid AccountId { get; init; }\n    public required Guid DocVersionId { get; set; }",
+            "{\n    public Guid Id { get; init; }\n    public required Guid AccountId { get; init; }\n    public required Guid DocVersionId { get; set; }\n    public DocumentVersion DocumentVersion { get; set; } = null!;"
+          ],
+          "confidence": "0.29053038"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Email/Telemetry/IEmailAttachmentsInstrumentation.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 28,
+          "reasoning": "Semantic similarity: 0.287",
+          "matching_patterns": [],
+          "context_snippets": [
+            "namespace IamTickets.Email.Telemetry;\n\n[Instrumentation(typeof(EmailAttachmentService))]\npublic interface IEmailAttachmentsInstrumentation\n{"
+          ],
+          "confidence": "0.28670925"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Api/Dto/DocumentVersionEnvelopeMappingExtensions.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 27,
+          "reasoning": "Semantic similarity: 0.272",
+          "matching_patterns": [],
+          "context_snippets": [
+            "using IamTickets.Models;\nusing IamTickets.Models.Common.Dto.Documents;\n\nnamespace IamTickets.Api.Dto;",
+            "using IamTickets.Models.Common.Dto.Documents;\n\nnamespace IamTickets.Api.Dto;\n\npublic static class DocumentVersionEnvelopeMappingExtensions",
+            "public static class DocumentVersionEnvelopeMappingExtensions\n{\n    public static DocumentVersionEnvelopeMappingDto ToDocumentVersionEnvelopeMappingDto(\n        this DocumentVersionEnvelopeMapping documentVersionEnvelopeMapping\n    )"
+          ],
+          "confidence": "0.27182123"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Search/Tickets/Dto/Response/TicketsSearchDependencyResponseDto.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 24,
+          "reasoning": "Semantic similarity: 0.246",
+          "matching_patterns": [],
+          "context_snippets": [
+            "namespace IamTickets.Search.Tickets.Dto.Response;\n\n// This is a trimmed down version of https://github.docusignhq.com/searchinc/DocuSign.Search.Service/blob/main/DocuSign.Search.Service/Controllers/Tickets/SearchResponse.cs",
+            "namespace IamTickets.Search.Tickets.Dto.Response;\n\n// This is a trimmed down version of https://github.docusignhq.com/searchinc/DocuSign.Search.Service/blob/main/DocuSign.Search.Service/Controllers/Tickets/SearchResponse.cs\npublic class TicketsSearchDependencyResponseDto\n{",
+            "// This is a trimmed down version of https://github.docusignhq.com/searchinc/DocuSign.Search.Service/blob/main/DocuSign.Search.Service/Controllers/Tickets/SearchResponse.cs\npublic class TicketsSearchDependencyResponseDto\n{\n    public string? ContinuationToken { get; init; }"
+          ],
+          "confidence": "0.24604063"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models.Common/Dto/Documents/DocumentVersionDto.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 24,
+          "reasoning": "Semantic similarity: 0.245",
+          "matching_patterns": [],
+          "context_snippets": [
+            "using IamTickets.Models.Common.Dto.Participants;\nusing IamTickets.Models.Common.Enums;\nusing NodaTime;",
+            "using NodaTime;\n\nnamespace IamTickets.Models.Common.Dto.Documents;\n\npublic class DocumentVersionDto",
+            "namespace IamTickets.Models.Common.Dto.Documents;\n\npublic class DocumentVersionDto\n{\n    public required Guid Id { get; init; }"
+          ],
+          "confidence": "0.24510683"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Api/Dto/DocumentExtensions.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 24,
+          "reasoning": "Semantic similarity: 0.243",
+          "matching_patterns": [],
+          "context_snippets": [
+            "using IamTickets.Models;\nusing IamTickets.Models.Common.Dto.Documents;\n\nnamespace IamTickets.Api.Dto;",
+            "using IamTickets.Models.Common.Dto.Documents;\n\nnamespace IamTickets.Api.Dto;\n\npublic static class DocumentExtensions",
+            "public static class DocumentExtensions\n{\n    public static DocumentDto ToDocumentDto(this Document document)\n    {\n        return new DocumentDto"
+          ],
+          "confidence": "0.24298978"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Notifications/Models/SendImmediateNotificationRequestDto.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 23,
+          "reasoning": "Semantic similarity: 0.236",
+          "matching_patterns": [],
+          "context_snippets": [
+            "using System.Text.Json.Serialization;\nusing Docusign.Notification.Management.Common.V1Alpha;\nusing Docusign.Notification.Management.Notifications.V1Alpha;",
+            "/// <summary>\n/// Request model for sending an immediate notification\n///  README: https://github.docusignhq.com/platform-common/schemas/blob/29dc9bbdea2945f87002e3ae0ba4e2a652d0560a/protos/docusign/notification-management/docusign/notification/management/notifications/v1alpha/docs/SendImmediate.md\n/// </summary>\n/// <param name=\"Entity\">Entity (Ticket, Approval, Envelope) id associated with the notification</param>",
+            "///  README: https://github.docusignhq.com/platform-common/schemas/blob/29dc9bbdea2945f87002e3ae0ba4e2a652d0560a/protos/docusign/notification-management/docusign/notification/management/notifications/v1alpha/docs/SendImmediate.md\n/// </summary>\n/// <param name=\"Entity\">Entity (Ticket, Approval, Envelope) id associated with the notification</param>\n/// <param name=\"AccountId\">Account Id of the owning account. Used to create the Notification Owner: https://github.docusignhq.com/platform-common/schemas/blob/29dc9bbdea2945f87002e3ae0ba4e2a652d0560a/protos/docusign/notification-management/docusign/notification/management/notifications/v1alpha/docs/SendImmediate.md#ownership-required</param>\n/// <param name=\"UserId\">User Id of the actor who triggered the notification. Also used to create the Notification Owner.</param>"
+          ],
+          "confidence": "0.23595092"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Gateways/Models/GlobalDirectoryAccountInfo.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 23,
+          "reasoning": "Semantic similarity: 0.232",
+          "matching_patterns": [],
+          "context_snippets": [
+            "using DocuSign.GlobalDirectory.API.V1;\n\nnamespace IamTickets.Gateways.Models;",
+            "namespace IamTickets.Gateways.Models;\n\npublic record GlobalDirectoryAccountInfo(string Id, string Name, string OrganizationId, DataResidency DataResidency);"
+          ],
+          "confidence": "0.23223406"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models/DocumentVersion.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 22,
+          "reasoning": "Semantic similarity: 0.229",
+          "matching_patterns": [],
+          "context_snippets": [
+            "namespace IamTickets.Models;\n\npublic class DocumentVersion : Trackable, IOwnedByAccount\n{\n    public Guid Id { get; init; }",
+            "public class DocumentVersion : Trackable, IOwnedByAccount\n{\n    public Guid Id { get; init; }\n    public required Guid AccountId { get; init; }\n    public required string FileName { get; set; }",
+            "{\n    public Guid Id { get; init; }\n    public required Guid AccountId { get; init; }\n    public required string FileName { get; set; }\n    public required string FileType { get; init; }"
+          ],
+          "confidence": "0.2285343"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Api/Dto/DocumentVersionExtensions.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 22,
+          "reasoning": "Semantic similarity: 0.228",
+          "matching_patterns": [],
+          "context_snippets": [
+            "using IamTickets.Models;\nusing IamTickets.Models.Common.Dto.Documents;\n\nnamespace IamTickets.Api.Dto;",
+            "using IamTickets.Models.Common.Dto.Documents;\n\nnamespace IamTickets.Api.Dto;\n\npublic static class DocumentVersionExtensions",
+            "public static class DocumentVersionExtensions\n{\n    public static DocumentVersionDto ToDocumentVersionDto(this DocumentVersion documentVersion)\n    {\n        return new DocumentVersionDto"
+          ],
+          "confidence": "0.22775507"
+        }
+      ],
+      "error": null,
+      "execution_time": 1.4793040752410889,
+      "cache_hit": false
+    },
+    "analyze_architecture": {
+      "stage_name": "analyze_architecture",
+      "status": "StageStatus.COMPLETED",
+      "result": {
+        "direct_impact": [
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService/Program.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Api/Dto/DocumentVersionEnvelopeMappingExtensions.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Db/TicketDbExtensions.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Api/Dto/DocumentVersionExtensions.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models/DocumentVersionEnvelopeMapping.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Telemetry/IResidencyProviderInstrumentation.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models/DocumentVersion.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService/Instrumentation/IAgreementProcessingInstrumentation.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Telemetry/IAccountSettingInstrumentation.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Search/Tickets/Dto/Response/TicketsSearchDependencyResponseDto.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Email/Telemetry/IEmailAttachmentsInstrumentation.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models.Common/Dto/Documents/DocumentVersionDto.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Gateways/Models/GlobalDirectoryAccountInfo.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Telemetry/IEmailMessageServiceInstrumentation.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/ApplicationServices/EmailMessageService.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService/Instrumentation/IAdmEventHandlerInstrumentation.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Notifications/Models/SendImmediateNotificationRequestDto.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Api/StartupExtensions.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Api/Dto/DocumentExtensions.cs"
+        ],
+        "indirect_impact": [
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Common/Extensions/RetryPolicy.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Utils/AccountUrlBuilder.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models.Common/Dto/Email/SmtpAddressDto.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Email/EmailUtils.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models/TicketActivities/TicketActivity.cs",
+          "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Common/File/FileHelper.cs"
+        ],
+        "risk_score": 10,
+        "affected_patterns": [
+          "ArchitecturalPattern.DEPENDENCY_INJECTION"
+        ],
+        "breaking_changes": [
+          "Service registration changes may affect dependency injection",
+          "Service registration changes may affect dependency injection",
+          "Service registration changes may affect dependency injection",
+          "Service registration changes may affect dependency injection",
+          "Service registration changes may affect dependency injection"
+        ],
+        "test_requirements": [
+          "OpenTelemetry span validation tests",
+          "Integration tests for telemetry data collection",
+          "Unit tests for modified methods",
+          "Service registration validation tests"
+        ]
+      },
+      "error": null,
+      "execution_time": 0.701728105545044,
+      "cache_hit": false
+    },
+    "generate_solution": {
+      "stage_name": "generate_solution",
+      "status": "StageStatus.COMPLETED",
+      "result": {
+        "explanation": "To guarantee that every span emitted by the service contains `customer.id` and `account.id`, we add a dedicated `CustomerAttributeProcessor`.  \nThe processor is registered with OpenTelemetry during application start-up and enriches every non-internal Activity (span) **as soon as it starts**:\n\n1. It tries to obtain the current `HttpContext` through `IHttpContextAccessor`.\n2. It extracts the customer and account identifiers from:\n   \u2022 HTTP headers `X-Customer-Id` / `X-Account-Id`  \n   \u2022 Authenticated user claims (`customer_id`, `customerId`, `cid`, `account_id`, `accountId`, `aid`)\n3. If either value is found, it sets the span attributes `customer.id` and `account.id`.\n\nBecause the processor runs for *all* Activities, the attributes will also propagate to any child spans created afterwards.",
+        "diff": "*** Begin Patch\n*** Add File: Telemetry/CustomerAttributeProcessor.cs\n+using System.Diagnostics;\n+using Microsoft.AspNetCore.Http;\n+using OpenTelemetry.Trace;\n+\n+namespace IamTickets.Telemetry;\n+\n+/// <summary>\n+/// Span processor that enriches every Activity with customer/account identifiers\n+/// so that downstream analytics can aggregate on customer impact.\n+/// </summary>\n+public sealed class CustomerAttributeProcessor : BaseProcessor<Activity>\n+{\n+    private static readonly string[] CustomerIdClaimTypes = { \"customer_id\", \"customerId\", \"cid\" };\n+    private static readonly string[] AccountIdClaimTypes  = { \"account_id\", \"accountId\", \"aid\"  };\n+\n+    private readonly IHttpContextAccessor _httpContextAccessor;\n+\n+    public CustomerAttributeProcessor(IHttpContextAccessor httpContextAccessor)\n+    {\n+        _httpContextAccessor = httpContextAccessor;\n+    }\n+\n+    public override void OnStart(Activity activity)\n+    {\n+        // Only enrich real request/producer/consumer spans.\n+        if (activity == null || activity.Kind == ActivityKind.Internal)\n+        {\n+            return;\n+        }\n+\n+        var httpContext = _httpContextAccessor.HttpContext;\n+        if (httpContext == null)\n+        {\n+            return;\n+        }\n+\n+        // \u2014\u2014 1. Try HTTP headers \u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\n+        string? customerId = httpContext.Request.Headers.TryGetValue(\"X-Customer-Id\", out var ch)\n+            ? ch.ToString()\n+            : null;\n+\n+        string? accountId = httpContext.Request.Headers.TryGetValue(\"X-Account-Id\", out var ah)\n+            ? ah.ToString()\n+            : null;\n+\n+        // \u2014\u2014 2. Try authenticated user claims \u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\n+        var user = httpContext.User;\n+        if (user?.Identity?.IsAuthenticated == true)\n+        {\n+            if (string.IsNullOrEmpty(customerId))\n+            {\n+                foreach (var claimType in CustomerIdClaimTypes)\n+                {\n+                    customerId = user.FindFirst(claimType)?.Value;\n+                    if (!string.IsNullOrEmpty(customerId)) break;\n+                }\n+            }\n+\n+            if (string.IsNullOrEmpty(accountId))\n+            {\n+                foreach (var claimType in AccountIdClaimTypes)\n+                {\n+                    accountId = user.FindFirst(claimType)?.Value;\n+                    if (!string.IsNullOrEmpty(accountId)) break;\n+                }\n+            }\n+        }\n+\n+        // \u2014\u2014 3. Apply attributes \u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\n+        if (!string.IsNullOrEmpty(customerId))\n+        {\n+            activity.SetTag(\"customer.id\", customerId);\n+        }\n+\n+        if (!string.IsNullOrEmpty(accountId))\n+        {\n+            activity.SetTag(\"account.id\", accountId);\n+        }\n+    }\n+}\n+\n*** End Patch\n*** End Patch",
+        "reasoning_chain": {
+          "strategy": "ReasoningStrategy.CHAIN_OF_THOUGHT",
+          "steps": [
+            {
+              "step_number": 1,
+              "description": "1. Analysis",
+              "reasoning": "1. Analysis  \n\u2022 Requirement: Every span that originates in the document-doc2pdf-clm service must carry two new attributes \u2013 customer.id and account.id.  \n\u2022 Source: Attributes come from the incoming request context (HTTP header / gRPC metadata / etc.).  ",
+              "conclusion": "\u2022 Source: Attributes come from the incoming request context (HTTP header / gRPC metadata / etc.).  ",
+              "confidence": 0.8,
+              "evidence": [
+                "LLM analysis"
+              ]
+            },
+            {
+              "step_number": 2,
+              "description": "2. Planning",
+              "reasoning": "2. Planning  \n\u2022 Introduce a RequestContext object (AsyncLocal) for customer/account IDs.  \n\u2022 Add ingress middleware / interceptor that (a) extracts IDs from headers / metadata, (b) stores them in RequestContext, (c) sets them on the root span.  ",
+              "conclusion": "\u2022 Add ingress middleware / interceptor that (a) extracts IDs from headers / metadata, (b) stores them in RequestContext, (c) sets them on the root span.  ",
+              "confidence": 0.8,
+              "evidence": [
+                "LLM analysis"
+              ]
+            },
+            {
+              "step_number": 3,
+              "description": "\u2022 Add unit tests + a static analysis rule (simple Roslyn analyser/Git hook) to block spans without the attributes.",
+              "reasoning": "\u2022 Add unit tests + a static analysis rule (simple Roslyn analyser/Git hook) to block spans without the attributes.  \n\n3. Implementation (code-level tasks)  ",
+              "conclusion": "3. Implementation (code-level tasks)  ",
+              "confidence": 0.8,
+              "evidence": [
+                "LLM analysis"
+              ]
+            },
+            {
+              "step_number": 4,
+              "description": "3. Implementation (code-level tasks)",
+              "reasoning": "3. Implementation (code-level tasks)  \n\u2022 New RequestContext.cs (struct with AsyncLocal storage).  \n\u2022 New RequestContextMiddleware.cs (HTTP) and CustomerContextGrpcInterceptor.cs (gRPC).  ",
+              "conclusion": "\u2022 New RequestContextMiddleware.cs (HTTP) and CustomerContextGrpcInterceptor.cs (gRPC).  ",
+              "confidence": 0.8,
+              "evidence": [
+                "LLM analysis"
+              ]
+            },
+            {
+              "step_number": 5,
+              "description": "4. Validation",
+              "reasoning": "4. Validation  \n\u2022 Unit tests: verify AsyncLocal flow and SpanProcessor injection.  \n\u2022 Manual run with Jaeger/Zipkin in dev \u2013 confirm customer.id/account.id present on all spans.  ",
+              "conclusion": "\u2022 Manual run with Jaeger/Zipkin in dev \u2013 confirm customer.id/account.id present on all spans.  ",
+              "confidence": 0.8,
+              "evidence": [
+                "LLM analysis"
+              ]
+            },
+            {
+              "step_number": 6,
+              "description": "\u2022 Static analysis gate in CI.",
+              "reasoning": "\u2022 Static analysis gate in CI.  \n\nAlternative considered  ",
+              "conclusion": "Alternative considered  ",
+              "confidence": 0.8,
+              "evidence": [
+                "LLM analysis"
+              ]
+            }
+          ],
+          "final_conclusion": "Confidence: 0.79",
+          "overall_confidence": 0.8000000000000002,
+          "alternative_approaches": [
+            "\u2022 Optional: add SpanAttributeAnalyzer.cs as Roslyn analyser.",
+            "Alternative considered"
+          ]
+        },
+        "selected_files": [
+          {
+            "path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Api/StartupExtensions.cs",
+            "content": "using System.Diagnostics;\nusing System.Net.Http.Headers;\nusing System.Security.Claims;\nusing System.Text;\nusing Aspose.Words;\nusing DocuSign.Adm.Utilities;\nusing Docusign.Ai.Ml.Agentfabric.V1;\nusing DocuSign.Data.EventHub.Consumer;\nusing DocuSign.GlobalDirectory.API.V1;\nusing DocuSign.Msf.AspNet.HeaderPropagation.Extensions;\nusing DocuSign.Msf.AspNet.OpenTelemetry;\nusing DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions;\nusing Docusign.Notification.Management.Notifications.V1Alpha;\nusing DocuSign.OneConfig.Extensions;\nusing DocuSign.Platform.Storage.Clients.Common;\nusing DocuSign.RateLimit.V1;\nusing Grpc.Net.Client.Web;\nusing Grpc.Net.ClientFactory;\nusing IamTickets.Agents.Resolvers;\nusing IamTickets.Agents.Resolvers.Interfaces;\nusing IamTickets.Api.Telemetry;\nusing IamTickets.Auth;\nusing IamTickets.Auth.Authorization;\nusing IamTickets.Auth.Interfaces;\nusing IamTickets.Auth.Telemetry;\nusing IamTickets.Common.Auth;\nusing IamTickets.Common.Cache;\nusing IamTickets.Common.Constants;\nusing IamTickets.Common.Extensions;\nusing IamTickets.Common.Interfaces;\nusing IamTickets.Common.Residency;\nusing IamTickets.Common.Shard;\nusing IamTickets.Common.Telemetry;\nusing IamTickets.Common.Utils;\nusing IamTickets.Config;\nusing IamTickets.Connect;\nusing IamTickets.Connect.Interfaces;\nusing IamTickets.Database;\nusing IamTickets.Dms;\nusing IamTickets.Dms.Interfaces;\nusing IamTickets.Email;\nusing IamTickets.Email.Interfaces;\nusing IamTickets.Email.Providers.Mailgun;\nusing IamTickets.Email.Telemetry;\nusing IamTickets.Esign;\nusing IamTickets.Esign.Interfaces;\nusing IamTickets.Esign.Models;\nusing IamTickets.Eventing.Consumer;\nusing IamTickets.Eventing.Publisher;\nusing IamTickets.Gateways;\nusing IamTickets.Gateways.Interfaces;\nusing IamTickets.Gateways.Models;\nusing IamTickets.Gateways.Telemetry;\nusing IamTickets.Models.Common.Dto.UserLicenses;\nusing IamTickets.Notifications;\nusing IamTickets.Notifications.Interfaces;\nusing IamTickets.Postgres;\nusing IamTickets.Search.Tickets;\nusing IamTickets.Services.ApplicationServices;\nusing IamTickets.Services.ApplicationServices.ActivityFeed;\nusing IamTickets.Services.EventingServices;\nusing IamTickets.Services.Interfaces;\nusing IamTickets.Services.Residency;\nusing IamTickets.Services.Telemetry;\nusing Microsoft.AspNetCore.Authorization;\nusing Microsoft.EntityFrameworkCore;\nusing Microsoft.Extensions.Caching.Distributed;\nusing OpenTelemetry.Metrics;\nusing OpenTelemetry.Trace;\nusing StackExchange.Redis;\n\nnamespace IamTickets.Api;\n\npublic static class StartupExtensions\n{\n    public static IServiceCollection AddCommonProviders(this IServiceCollection services, IConfiguration configuration) =>\n        services.AddScoped<IAccountResidencyProvider, AccountResidencyProvider>().AddScoped<IShardProvider, ShardProvider>();\n\n    public static IServiceCollection AddCommonUtils(this IServiceCollection services, IConfiguration configuration) =>\n        services.AddScoped<IRandomCharGenerator, RandomCharGenerator>();\n\n    public static ConnectionMultiplexer AddCacheServices(this IServiceCollection services, IConfiguration configuration)\n    {\n        var connectionString = configuration.GetRequiredSection(\"Redis:ConnectionString\").Get<string>();\n        if (string.IsNullOrEmpty(connectionString))\n        {\n            throw new InvalidOperationException(\"Redis connection string is not defined.\");\n        }\n\n        var connectionMultiplexer = ConnectionMultiplexer.Connect(connectionString);\n        services.AddSingleton<IConnectionMultiplexer>(connectionMultiplexer);\n        services.AddStackExchangeRedisCache(options =>\n        {\n            options.ConnectionMultiplexerFactory = () => Task.FromResult<IConnectionMultiplexer>(connectionMultiplexer);\n        });\n\n        services\n            .AddDedicatedCache<UserLicenseDto>(cfg => cfg.LicenseServiceCacheExpirationSeconds)\n            .AddDedicatedCache<DsAccountSettings>(cfg => cfg.DsAccountSettingsCacheExpirationSeconds)\n            .AddDedicatedCache<GlobalDirectoryUserInfo>(cfg => cfg.GdsUserCacheExpirationSeconds)\n            .AddDedicatedCache<GlobalDirectoryGroupInfo>(cfg => cfg.GdsGroupCacheExpirationSeconds)\n            .AddDedicatedCache<GlobalDirectoryAccountInfo>(cfg => cfg.GdsAccountCacheExpirationSeconds);\n        return connectionMultiplexer;\n    }\n\n    private static IServiceCollection AddDedicatedCache<T>(\n        this IServiceCollection services,\n        Func<ICacheConfig, int> expirationResolver\n    )\n        where T : class =>\n        services.AddSingleton<ICache<T>>(sp =>\n        {\n            var cache = sp.GetRequiredService<IDistributedCache>();\n            var cacheConfig = sp.GetRequiredService<IWatchedSingletonConfig<ICacheConfig>>().Value;\n            var instrumentation = sp.GetRequiredService<ICacheInstrumentation>();\n            var logger = sp.GetRequiredService<ILogger<DedicatedCache<T>>>();\n            var defaultExpiration = TimeSpan.FromSeconds(expirationResolver(cacheConfig));\n            return new DedicatedCache<T>(cache, instrumentation, logger, defaultExpiration);\n        });\n\n    public static IServiceCollection AddDbServices(this IServiceCollection services, IConfiguration configuration)\n    {\n        services.Configure<DbConfig>(configuration.GetSection(\"Postgres\"));\n        services.AddConnectionStringsParser();\n        services.AddScoped<IDbConnectionManager, PgDbConnectionManager>();\n        services.AddDbContext<IDbContext, PgDbContext>(\n            (sp, options) =>\n            {\n                var loggerFactory = sp.GetRequiredService<ILoggerFactory>();\n                var connectionManager = sp.GetRequiredService<IDbConnectionManager>();\n\n                options.UseNpgsql(\n                    connectionManager.ConnectionString,\n                    o =>\n                    {\n                        o.UseNodaTime();\n                        o.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);\n                        o.ExecutionStrategy(deps => new PgExecutionStrategy(deps, 2, TimeSpan.FromSeconds(5), [\"40P01\"])); // Retry on deadlock\n                    }\n                );\n                options.UseLoggerFactory(loggerFactory);\n            }\n        );\n        return services;\n    }\n\n    public static void AddLicenses(this IServiceCollection services, IConfiguration configuration, bool isDevelopment)\n    {\n        var licenseKey = configuration[\"LicenseKey:Aspose\"];\n        if (string.IsNullOrEmpty(licenseKey))\n        {\n            if (isDevelopment)\n            {\n                return;\n            }\n\n            throw new InvalidOperationException($\"Error in reading the secret for Aspose.\");\n        }\n\n        SetAsposeLicense(licenseKey);\n    }\n\n    private static void SetAsposeLicense(string licenseXml)\n    {\n        var license = new License();\n        using var stream = new MemoryStream();\n        using var writer = new StreamWriter(stream);\n\n        writer.Write(licenseXml);\n        writer.Flush();\n\n        stream.Position = 0;\n        license.SetLicense(stream);\n    }\n\n    public static IServiceCollection AddEventingServices(this IServiceCollection services, IConfiguration configuration) =>\n        services\n            .AddConnectionStringsParser()\n            .AddSingleton<IDsEventPublisherFactory, DsEventPublisherFactory>()\n            // TODO: Remove this and replace with real time-spent-in-status data.\n            .AddScoped<IMockTimeSpentInStatusProvider, MockTimeSpentInStatusProvider>()\n            .AddScoped<ITicketEventPublisherService, TicketEventPublisherService>();\n\n    public static IServiceCollection AddEmailEventConsumerService(\n        this IServiceCollection services,\n        IConfiguration configuration\n    )\n    {\n        var serviceProvider = services.BuildServiceProvider();\n        var developmentConfig = serviceProvider.GetRequiredService<IWatchedSingletonConfig<IDevelopmentConfig>>().Value;\n\n        if (developmentConfig.EnableEmailEventConsumerService)\n        {\n            // TODO: move email event processing to separate pod (similar to adm)\n            services\n                .AddKafkaConsumerFactory(configuration, $\"{nameof(EmailEventConsumerService)}\")\n                .AddSingleton<IKafkaEventHandler, EmailEventProcessor>()\n                .AddHostedService<EmailEventConsumerService>();\n        }\n\n        return services;\n    }\n\n    public static IServiceCollection AddAuthServices(this IServiceCollection services, bool isDevelopment)\n    {\n        services\n            .AddHttpClient<IAuthorizationGatewayClient, AuthorizationGatewayClient>(\n                (sp, client) =>\n                {\n                    var enpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.BaseAddress = new Uri(enpointConfig.AuthorizationGatewayEndpoint);\n                }\n            )\n            .AddHeaderPropagation()\n            .AddHttpMessageHandler<RemoveAuthTokenMessageHandler>();\n\n        services\n            .AddHttpClient<IAccessManagementClient, AccessManagementClient>(\n                (sp, client) =>\n                {\n                    var enpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.BaseAddress = new Uri(enpointConfig.AccessManagementEndpoint);\n                }\n            )\n            .AddHeaderPropagation(options => options.ConfigureMicroservices())\n            .AddServiceTokenHandler([AuthScopeConstant.AccessManagementWrite])\n            .AddPolicyHandler(RetryPolicy.GetRetryPolicy());\n\n        services.AddScoped<IAuthorizationRequirementKeyResolver, AuthorizationRequirementKeyResolver>();\n        services.AddScoped<IAuthorizationHandler, AccountMembershipAuthorizationHandler>();\n        services.AddScoped<IAuthorizationHandler, AuthzServiceAuthorizationHandler>();\n        services.AddScoped<IAuthorizationHandler, PlanEnabledAuthorizationHandler>();\n        services.AddScoped<IAuthorizationHandler, XfccAuthorizationHandler>();\n        services.AddScoped<IAuthProvider, AuthService>();\n\n        services\n            .AddHttpClient<IDmsApiClient, DmsApiClient>(\n                (sp, client) =>\n                {\n                    var endpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>();\n                    client.BaseAddress = new Uri(endpointConfig.Value.DmsEndpoint);\n                }\n            )\n            .AddHeaderPropagation(options => options.ConfigureMicroservices()) // Just microservices, auth is service-level\n            .AddServiceTokenHandler([AuthScopeConstant.InternalApiDms])\n            .AddPolicyHandler(RetryPolicy.GetRetryPolicy());\n        services\n            .AddHttpClient<IDmsPublicApiClient, DmsPublicApiClient>(\n                (sp, client) =>\n                {\n                    var endpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.BaseAddress = new Uri(endpointConfig.DmsEndpoint);\n                }\n            )\n            .AddHeaderPropagation();\n\n        services.AddHttpClient<IEsignApiClient, EsignApiClient>().AddHeaderPropagation();\n\n        services\n            .AddHttpClient<IWebFormsApiClient, WebFormsApiClient>(\n                (sp, client) =>\n                {\n                    var endpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.BaseAddress = new Uri(endpointConfig.WebFormsEndpoint);\n                }\n            )\n            .AddHeaderPropagation(options => options.ConfigureMicroservices())\n            .AddServiceTokenHandler([AuthScopeConstant.WebformsManage]);\n\n        services\n            .AddHttpClient<IAowManageApiClient, AowManageApiClient>(\n                (sp, client) =>\n                {\n                    var endpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.BaseAddress = new Uri(endpointConfig.AowManageEndpoint);\n                }\n            )\n            .AddHeaderPropagation(options => options.ConfigureMicroservices())\n            .AddServiceTokenHandler([AuthScopeConstant.Signature, AuthScopeConstant.AowManage]);\n\n        services\n            .AddHttpClient<IModelsRegistryApiClient, ModelsRegistryApiClient>(\n                (sp, client) =>\n                {\n                    var endpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.BaseAddress = new Uri(endpointConfig.ModelsRegistryEndpoint);\n                }\n            )\n            .AddHeaderPropagation(options => options.ConfigureMicroservices()) // Just microservices, auth is service-level\n            .AddServiceTokenHandler([AuthScopeConstant.ModelsRead]);\n\n        services\n            .AddHttpClient<ILicenseServiceApiClient, LicenseServiceApiClient>(\n                (sp, client) =>\n                {\n                    var endpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.BaseAddress = new Uri(endpointConfig.LicenseServiceEndpoint);\n                }\n            )\n            .AddHeaderPropagation(options => options.ConfigureMicroservices()) // Just microservices, auth is service-level\n            .AddServiceTokenHandler([AuthScopeConstant.LicenseRead], isNonMsfService: true);\n\n        services\n            .AddGrpcClient<GlobalDirectoryReadService.GlobalDirectoryReadServiceClient>(\n                (sp, client) =>\n                {\n                    var endpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.Address = new Uri(endpointConfig.GlobalDirectoryEndpoint);\n\n                    // TODO: Can we use HTTP/2 directly instead in some environments? It didn't work locally, and other repos use this pattern.\n                    client.ChannelOptionsActions.Add(channelOptions =>\n                        channelOptions.HttpHandler = new GrpcWebHandler(new HttpClientHandler())\n                    );\n                }\n            )\n            .AddCallCredentials(\n                async (context, metadata, serviceProvider) =>\n                {\n                    var tokenManager = serviceProvider.GetRequiredService<IOAuthTokenManager>();\n                    var token = await tokenManager.GetAppTokenAsync(\n                        [\n                            AuthScopeConstant.UserRead,\n                            AuthScopeConstant.GroupRead,\n                            AuthScopeConstant.AccountRead,\n                            AuthScopeConstant.OrganizationRead,\n                        ]\n                    );\n                    metadata.Add(\"Authorization\", $\"Bearer {token}\");\n                }\n            )\n            .AddInterceptor<ShardAndCorrelationInterceptor>(InterceptorScope.Client);\n        services.AddScoped<IGlobalDirectoryApiClient, GlobalDirectoryApiClient>();\n\n        services\n            .AddHttpClient<ITicketsSearchApiClient, TicketsSearchApiClient>(\n                (sp, client) =>\n                {\n                    var enpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.BaseAddress = new Uri(enpointConfig.TicketsSearchEndpoint);\n                }\n            )\n            .AddHeaderPropagation();\n\n        services\n            .AddGrpcClient<NotificationManagementService.NotificationManagementServiceClient>(\n                (sp, client) =>\n                {\n                    var enpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.Address = new Uri(enpointConfig.NotificationServiceEndpoint);\n                    // The .NET gRPC client does not support sub-directories in the service address, so we need a special handler to help make those requests\n                    // This only applies to dev environment since deployed environments use the cluster.local URL\n                    // See: https://github.com/grpc/grpc-dotnet/issues/880#issuecomment-618794159\n                    if (isDevelopment)\n                    {\n                        client.ChannelOptionsActions.Add(action =>\n                        {\n                            var subdirectoryHandler = new SubdirectoryHandler(\n                                new HttpClientHandler(),\n                                \"/notification-management/v1\"\n                            );\n                            var client = new HttpClient(subdirectoryHandler);\n                            action.HttpClient = client;\n                            action.HttpHandler = null;\n                        });\n                    }\n                }\n            )\n            .AddInterceptor<ShardAndCorrelationInterceptor>(InterceptorScope.Client);\n        services.AddScoped<INotificationApiClient, NotificationApiClient>();\n\n        services\n            .AddHttpClient<IConnectApiClient, ConnectApiClient>()\n            .AddServiceTokenHandler([AuthScopeConstant.ConnectTicketEventWrite], isNonMsfService: true);\n\n        services\n            .AddGrpcClient<AgentFabricService.AgentFabricServiceClient>(\n                (sp, client) =>\n                {\n                    var endpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.Address = new Uri(endpointConfig.AgentFabricGrpcEndpoint);\n\n                    // TODO: Can we use HTTP/2 directly instead in some environments? It didn't work locally, and other repos use this pattern.\n                    client.ChannelOptionsActions.Add(channelOptions =>\n                        channelOptions.HttpHandler = new GrpcWebHandler(new HttpClientHandler())\n                    );\n                }\n            )\n            .AddInterceptor<ShardAndCorrelationInterceptor>(InterceptorScope.Client);\n        services.AddScoped<IAgentFabricApiClient, AgentFabricApiClient>();\n\n        services\n            .AddHttpClient<IAgentFabricJsonRpcClient, AgentFabricJsonRpcClient>(\n                (sp, client) =>\n                {\n                    var endpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.BaseAddress = new Uri(endpointConfig.AgentFabricJsonRpcEndpoint);\n                }\n            )\n            .AddHeaderPropagation(options => options.ConfigureMicroservices());\n\n        services\n            .AddHttpClient<INotificationDeliveryApiClient, NotificationDeliveryApiClient>(\n                (sp, client) =>\n                {\n                    var endpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                    client.BaseAddress = new Uri(endpointConfig.NotificationDeliveryEndpoint);\n                }\n            )\n            .AddServiceTokenHandler([AuthScopeConstant.NotificationService], isNonMsfService: true);\n\n        return services;\n    }\n\n    public static IServiceCollection AddRateLimitServices(this IServiceCollection services, IConfiguration configuration)\n    {\n        services.AddGrpcClient<RateLimitService.RateLimitServiceClient>(\n            (provider, clientConfig) =>\n            {\n                var config = provider.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                clientConfig.Address = new Uri(config.RateLimiterEndpoint);\n            }\n        );\n        return services\n            .AddSingleton<IRateLimiter, RateLimiter>()\n            .AddSingleton<IMailgunRateLimiter>(sp =>\n            {\n                var logger = sp.GetRequiredService<ILogger<MailgunRateLimiter>>();\n                var rateLimiter = sp.GetRequiredService<IRateLimiter>();\n                var devConfig = sp.GetRequiredService<IWatchedSingletonConfig<IDevelopmentConfig>>();\n                var loggingKey = configuration.GetRequiredSection(\"Email:LoggingKey\").Get<string>();\n                return new MailgunRateLimiter(rateLimiter, devConfig, loggingKey, logger);\n            });\n    }\n\n    public static IServiceCollection AddServices(this IServiceCollection services)\n    {\n        services.AddScoped<IDocumentService, DocumentService>();\n        services.AddScoped<IIntakeFormService, IntakeFormService>();\n        services.AddScoped<IModelsRegistryService, ModelsRegistryService>();\n        services.AddScoped<IWebFormsService, WebFormsService>();\n        services.AddScoped<ITicketActivityService, TicketActivityService>();\n        services.AddScoped<IEsignService, EsignService>();\n        services.AddScoped<IEsignTicketService, EsignTicketService>();\n        services.AddScoped<IEventService, EventService>();\n        services.AddScoped<IConnectService, ConnectService>();\n        services.AddScoped<INotificationService, NotificationService>();\n        services.AddScoped<ITicketService, TicketService>();\n        services.AddScoped<ITicketStatusService, TicketStatusService>();\n        services.AddScoped<ITicketParticipantService, TicketParticipantService>();\n        services.AddScoped<IApprovalService, ApprovalService>();\n        services.AddScoped<IUserTicketVisitService, UserTicketVisitService>();\n        services.AddScoped<IEmailMessageService, EmailMessageService>();\n        services.AddScoped<IAccountService, AccountService>();\n        services.AddScoped<IAccountSettingService, AccountSettingService>();\n        services.AddScoped<IAuthZIndexService, AuthZIndexService>();\n        services.AddScoped<IAgentService, AgentService>();\n        services.AddScoped<ILicenseService, LicenseService>();\n        services.AddScoped<ITicketsSearchService, TicketsSearchService>();\n\n        return services;\n    }\n\n    public static IServiceCollection AddEmailServices(this IServiceCollection services, IConfiguration configuration)\n    {\n        services.AddScoped<IEmailAttachmentService, EmailAttachmentService>();\n        services.AddScoped<IAccountEmailService, AccountEmailService>();\n        services.AddScoped<IEmailSettingsService, EmailSettingsService>();\n        services.AddScoped<IEmailEventPublisher, EmailEventPublisher>();\n        services.AddScoped<IEmailService, EmailService>();\n        services.AddScoped<IThreadingService, ThreadingService>();\n\n        services.AddHttpClient<IMailgunClient, MailgunClient>(\n            (sp, client) =>\n            {\n                var apiKey = configuration.GetRequiredSection(\"Email:MailgunClient:ApiKey\").Get<string>();\n                var endpointConfig = sp.GetRequiredService<IWatchedSingletonConfig<IEndpointConfig>>().Value;\n                client.BaseAddress = new Uri(endpointConfig.MailgunEndpoint);\n                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(\n                    \"Basic\",\n                    Convert.ToBase64String(Encoding.ASCII.GetBytes($\"api:{apiKey}\"))\n                );\n            }\n        );\n\n        services.AddScoped<IEmailProvider<MailgunEmail>>(sp =>\n        {\n            var logger = sp.GetRequiredService<ILogger<MailgunEmailProvider>>();\n            var client = sp.GetRequiredService<IMailgunClient>();\n            var signingKey = configuration.GetSection(\"Email:MailgunClient:SigningKey\").Get<string>();\n            return new MailgunEmailProvider(logger, client, signingKey);\n        });\n        services.AddEmailTelemetry();\n\n        return services;\n    }\n\n    public static IServiceCollection AddTelemetry(\n        this IServiceCollection services,\n        IConfiguration configuration,\n        ConnectionMultiplexer connectionMultiplexer\n    )\n    {\n        if (!configuration.GetValue(\"SKIP_TELEMETRY\", false))\n        {\n            services.AddServiceTelemetry(\n                \"iam-tasks\",\n                configureTracer: tracerBuilder =>\n                {\n                    tracerBuilder\n                        .AddAspNetCoreInstrumentation(options =>\n                        {\n                            options.RecordException = true;\n                            options.EnrichWithHttpRequest = (activity, request) =>\n                            {\n                                ArgumentNullException.ThrowIfNull(activity);\n                                ArgumentNullException.ThrowIfNull(request);\n                                ArgumentNullException.ThrowIfNull(request.HttpContext);\n\n                                var sourceIp = request.HttpContext.Connection.LocalIpAddress?.ToString();\n                                if (!string.IsNullOrEmpty(sourceIp))\n                                {\n                                    activity.SetTag(TraceSemanticConventions.AttributeHttpClientIp, sourceIp);\n                                    activity.SetTag(TicketsSemanticConventions.AttributeSourceIp, sourceIp);\n                                }\n\n                                if (request.Headers.TryGetValue(TicketsSemanticConventions.HeaderXff, out var xff))\n                                {\n                                    activity.SetTag(TicketsSemanticConventions.AttributeXff, xff);\n                                }\n\n                                activity.SetTag(TraceSemanticConventions.AttributeHttpMethod, request.Method);\n                                activity.SetTag(TicketsSemanticConventions.AttributeRequestMethod, request.Method);\n\n                                if (request.ContentLength.HasValue)\n                                {\n                                    activity.SetTag(\n                                        TraceSemanticConventions.AttributeHttpRequestContentLength,\n                                        request.ContentLength\n                                    );\n                                }\n                            };\n                            options.EnrichWithHttpResponse = (activity, response) =>\n                            {\n                                ArgumentNullException.ThrowIfNull(activity);\n                                ArgumentNullException.ThrowIfNull(response);\n\n                                if (response.HttpContext.Request.RouteValues.TryGetValue(\"accountId\", out var accountId))\n                                {\n                                    activity.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, accountId);\n                                    activity.SetTag(TicketsSemanticConventions.AttributeAccountId, accountId);\n                                }\n\n                                var userId = response.HttpContext.User?.FindFirstValue(\"UserId\");\n                                if (!string.IsNullOrEmpty(userId))\n                                {\n                                    activity.SetTag(TraceSemanticConventions.AttributeDocuSignUserId, userId);\n                                    activity.SetTag(TicketsSemanticConventions.AttributeUserId, userId);\n                                }\n\n                                if (response.ContentLength.HasValue)\n                                {\n                                    activity.SetTag(\n                                        TraceSemanticConventions.AttributeHttpResponseContentLength,\n                                        response.ContentLength\n                                    );\n                                }\n                            };\n                            options.EnrichWithException = EnrichHttpException;\n                        })\n                        .AddEntityFrameworkCoreInstrumentation(options =>\n                        {\n                            options.SetDbStatementForText = true;\n                        })\n                        .AddHttpClientInstrumentation(options =>\n                        {\n                            options.RecordException = true;\n                            options.EnrichWithException = EnrichHttpException;\n                        })\n                        .AddOtlpExporter()\n                        .AddGrpcClientInstrumentation()\n                        .AddRedisInstrumentation(connectionMultiplexer);\n\n                    if (configuration.GetSection(\"Telemetry:EnableConsoleTracing\").Get<bool>())\n                    {\n                        tracerBuilder.AddConsoleExporter();\n                    }\n                },\n                configureMeter: builder =>\n                {\n                    builder.AddOtlpExporter().AddAspNetCoreInstrumentation().AddHttpClientInstrumentation();\n                    if (configuration.GetSection(\"Telemetry:EnableConsoleMetrics\").Get<bool>())\n                    {\n                        builder.AddConsoleExporter();\n                    }\n                }\n            );\n        }\n\n        services.AddServicesTelemetry();\n        services.AddGatewaysTelemetry();\n        services.AddControllersTelemetry();\n        services.AddAuthTelemetry();\n        return services;\n    }\n\n    public static IServiceCollection AddResolvers(this IServiceCollection services)\n    {\n        services.AddSingleton<IDateResolver, RuleBasedDateResolver>();\n        services.AddSingleton<INumberResolver, RecognizerNumberResover>();\n        services.AddSingleton<ICurrencyResolver, CurrencyResolver>();\n        services.AddSingleton<IDataTypeResolvers, DataTypeResolvers>();\n        return services;\n    }\n\n    public static IServiceCollection AddTemplateRenderer(this IServiceCollection services)\n    {\n        services.AddSingleton<IActivityFeedRenderer, ActivityFeedRenderer>();\n        return services;\n    }\n\n    private static void EnrichHttpException(Activity activity, Exception ex)\n    {\n        ArgumentNullException.ThrowIfNull(activity);\n        ArgumentNullException.ThrowIfNull(ex);\n\n        activity.SetTag(TraceSemanticConventions.AttributeExceptionMessage, ex.GetShortDescription());\n        activity.SetTag(TraceSemanticConventions.AttributeExceptionType, ex.GetType().Name);\n        activity.SetTag(TraceSemanticConventions.AttributeExceptionStacktrace, ex.GetShortDescription(includeStack: true));\n        activity.SetStatus(ActivityStatusCode.Error);\n    }\n}\n",
+            "relevance_score": 100,
+            "reasoning": "Telemetry infrastructure: Import: DocuSign.Msf.AspNet.OpenTelemetry, Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions, Import: OpenTelemetry.Metrics; Semantic similarity: 0.233"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService/Program.cs",
+            "content": "using System.Reflection;\nusing DocuSign.Msf.AspNet.OpenTelemetry;\nusing DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions;\nusing DocuSign.Msf.AspNet.VersionEndpoint.Extensions;\nusing DocuSign.Msf.RuntimeEnvironment;\nusing DocuSign.OneConfig.Extensions;\nusing HealthChecks.UI.Client;\nusing IamTickets.AdmEventsWorkerService;\nusing IamTickets.Common.Constants;\nusing IamTickets.Common.FeatureFlags;\nusing IamTickets.Config;\nusing IamTickets.Gateways;\nusing IamTickets.Gateways.Interfaces;\nusing Microsoft.AspNetCore.Builder;\nusing Microsoft.AspNetCore.Diagnostics.HealthChecks;\nusing NodaTime;\nusing OpenTelemetry.Metrics;\nusing OpenTelemetry.Trace;\n\nvar builder = WebApplication.CreateBuilder(args);\nusing var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());\nvar logger = loggerFactory.CreateLogger(\"Startup\");\nvar environment = builder.Environment.EnvironmentName;\nlogger.LogInformation(\"ASPNETCORE_ENVIRONMENT log: {Environment}\", environment);\nbuilder\n    .Configuration.AddKeyPerFile(directoryPath: \"/etc/adm-worker/secrets\", optional: true) // Load secrets in k8s\n    .AddUserSecrets(Assembly.GetExecutingAssembly(), optional: true); // Load dotnet user secrets for local development\n\nbuilder.Services.AddSingleton<IClock>(SystemClock.Instance);\nbuilder.Services.AddSingleton<IOAuthTokenManager>(sp =>\n{\n    var authConfig = sp.GetRequiredService<IWatchedSingletonConfig<IAuthConfig>>().Value;\n    var clientKeyPem = builder.Configuration.GetRequiredSection(\"Security:ClientApplication:ClientKeyPem\").Get<string>();\n    var logger = sp.GetRequiredService<ILogger<IOAuthTokenManager>>();\n    return new OAuthTokenManager(\n        authConfig.ApplicationAuthority,\n        authConfig.ApplicationClientId,\n        clientKeyPem,\n        builder.Configuration,\n        logger\n    );\n});\n\nbuilder.Services.AddMsfEnvironment();\n\n// OneConfig documentation: https://docusign.atlassian.net/wiki/x/zAl5Aw\nbuilder.Services.AddOneConfigs();\nbuilder.Services.AddFeatureFlags(builder.Configuration, builder.Environment);\nbuilder.Services.AddDbServices(builder.Configuration);\nbuilder.Services.AddAdmEventingServices(builder.Configuration);\n\nbuilder.Services.AddHttpContextAccessor();\nbuilder.Services.AddHealthChecks();\n\nbuilder.Services.AddHttpClient();\n\nbuilder.Services.AddServiceTelemetry(\n    \"iam-tasks\",\n    configureTracer: tracerBuilder =>\n    {\n        tracerBuilder\n            .AddAspNetCoreInstrumentation(options =>\n            {\n                options.RecordException = true;\n                options.EnrichWithHttpResponse = (activity, response) =>\n                {\n                    if (response.HttpContext.Request.RouteValues.TryGetValue(\"accountId\", out var accountId))\n                    {\n                        activity.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, accountId);\n                        activity.SetTag(TicketsSemanticConventions.AttributeAccountId, accountId);\n                    }\n                };\n            })\n            .AddEntityFrameworkCoreInstrumentation(options =>\n            {\n                options.SetDbStatementForText = true;\n            })\n            .AddHttpClientInstrumentation()\n            .AddOtlpExporter()\n            .AddGrpcClientInstrumentation();\n\n        if (builder.Configuration.GetSection(\"Telemetry:EnableConsoleTracing\").Get<bool>())\n        {\n            tracerBuilder.AddConsoleExporter();\n        }\n    },\n    configureMeter: meterBuilder =>\n    {\n        meterBuilder.AddHttpClientInstrumentation().AddOtlpExporter().AddAspNetCoreInstrumentation();\n        if (builder.Configuration.GetSection(\"Telemetry:EnableConsoleMetrics\").Get<bool>())\n        {\n            meterBuilder.AddConsoleExporter();\n        }\n    }\n);\n\nvar app = builder.Build();\n\nif (!app.Environment.IsDevelopment())\n{\n    app.UseHttpsRedirection();\n}\n\napp.UseRouting();\n\napp.MapVersionEndpoint(\"/version\");\n\napp.MapHealthChecks(\"/health\", new HealthCheckOptions { ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse });\n\napp.Run();\n\npublic partial class Program { }\n",
+            "relevance_score": 100,
+            "reasoning": "Telemetry infrastructure: Import: DocuSign.Msf.AspNet.OpenTelemetry, Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions, Import: OpenTelemetry.Metrics"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService/Instrumentation/IAdmEventHandlerInstrumentation.cs",
+            "content": "using System.Diagnostics;\nusing System.Diagnostics.Metrics;\nusing DocuSign.Msf.ComponentInstrumentation;\n\nnamespace IamTickets.AdmEventsWorkerService.Instrumentation;\n\n[Instrumentation(typeof(AdmEventHandlerInstrumentation))]\npublic interface IAdmEventHandlerInstrumentation : IComponentInstrumentation\n{\n    /// <summary>\n    /// Creates and starts the activity that represents the execute of the AdmEventHandler.\n    /// </summary>\n    /// <param name=\"parentId\">Identifier of the parent activity.</param>\n    /// <returns>Newly created activity.</returns>\n    Activity? ConsumeAdmEvent(string parentId);\n\n    /// <summary>\n    /// Counter for tracking ADM event processing results.\n    /// </summary>\n    Counter<long> AdmEventProcessed { get; }\n\n    /// <summary>\n    /// Log a warning that the message has been skipped.\n    /// </summary>\n    /// <param name=\"reason\">Reason for skipping.</param>\n    [LogInstrumentation(300, LogLevel.Warning, \"Skipping Event due to '{Reason}'\")]\n    void LogSkippingMessage(string reason);\n\n    /// <summary>\n    /// Logs a message that indicates processing adm event for agreement status.\n    /// </summary>\n    /// <param name=\"traceId\">Event traceId. nullable</param>\n    [LogInstrumentation(0, LogLevel.Information, \"Processing adm event for Agreement status, TraceId: '{TraceId}'\")]\n    void LogProcessingEvent(string? traceId);\n\n    /// <summary>\n    /// Logs a message that indicates processing adm event for agreement status.\n    /// </summary>\n    /// <param name=\"traceId\">Event traceId. nullable</param>\n    [LogInstrumentation(0, LogLevel.Information, \"Logging event details, TraceId: '{TraceId}'\")]\n    void LogEvent(string? traceId);\n\n    /// <summary>\n    /// Temporary logging statement to indicate that we have reached the end of the processing of agreement status in adm event\n    /// </summary>\n    /// <param name=\"traceId\">Event traceId. nullable</param>\n    [LogInstrumentation(\n        1,\n        LogLevel.Information,\n        \"Successfully processsed adm event for agreement status, TraceId: '{TraceId}'\"\n    )]\n    void LogSuccessfulEvent(string? traceId);\n\n    /// <summary>\n    /// Logs error message.\n    /// </summary>\n    /// <param name=\"message\">The message to log.</param>\n    [LogInstrumentation(3, LogLevel.Error, \"{Message}\")]\n    void LogError(string message);\n\n    /// <summary>\n    /// log a message for a exception\n    /// </summary>\n    /// <param name=\"ex\">exception</param>\n    [LogInstrumentation(2, LogLevel.Error, \"Message encountered an exception {ex}.\")]\n    void LogException(Exception ex);\n\n    /// <summary>\n    /// Log a warning that the processsing adm event is unsuccessful\n    /// </summary>\n    /// <param name=\"id\">event id</param>\n    /// <param name=\"ex\">exception</param>\n    [LogInstrumentation(300, LogLevel.Warning, \"Processing adm event is unsuccessful for '{id}' with '{ex}'\")]\n    void LogUnsuccessfulEventlog(string id, Exception? ex);\n}\n",
+            "relevance_score": 80,
+            "reasoning": "Telemetry infrastructure: Import: System.Diagnostics.Metrics, Import: DocuSign.Msf.ComponentInstrumentation, Pattern: Instrumentation"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.AdmEventsWorkerService/Instrumentation/IAgreementProcessingInstrumentation.cs",
+            "content": "using System.Diagnostics.Metrics;\nusing DocuSign.Msf.ComponentInstrumentation;\n\nnamespace IamTickets.AdmEventsWorkerService.Instrumentation;\n\n[Instrumentation(typeof(AgreementProcessingService))]\npublic interface IAgreementProcessingInstrumentation : IComponentInstrumentation\n{\n    /// <summary>\n    /// Counter for tracking agreement update results.\n    /// </summary>\n    Counter<long> SignedAgreementUpdate { get; }\n}\n",
+            "relevance_score": 70,
+            "reasoning": "Telemetry infrastructure: Import: System.Diagnostics.Metrics, Import: DocuSign.Msf.ComponentInstrumentation, Pattern: Instrumentation"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Telemetry/IAccountSettingInstrumentation.cs",
+            "content": "using System.Diagnostics.Metrics;\nusing DocuSign.Msf.ComponentInstrumentation;\nusing IamTickets.Services.ApplicationServices;\n\nnamespace IamTickets.Services.Telemetry;\n\n[Instrumentation(typeof(AccountSettingService))]\npublic interface IAccountSettingInstrumentation\n{\n    Counter<long> CheckAccountSetting { get; }\n\n    Counter<long> AccountSettingStatus { get; }\n}\n",
+            "relevance_score": 70,
+            "reasoning": "Telemetry infrastructure: Import: System.Diagnostics.Metrics, Import: DocuSign.Msf.ComponentInstrumentation, Pattern: Instrumentation; Semantic similarity: 0.243"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Telemetry/IResidencyProviderInstrumentation.cs",
+            "content": "using System.Diagnostics.Metrics;\nusing DocuSign.Msf.ComponentInstrumentation;\nusing IamTickets.Services.Residency;\n\nnamespace IamTickets.Services.Telemetry;\n\n[Instrumentation(typeof(AccountResidencyProvider))]\npublic interface IResidencyProviderInstrumentation\n{\n    Counter<long> Residency { get; }\n}\n",
+            "relevance_score": 70,
+            "reasoning": "Telemetry infrastructure: Import: System.Diagnostics.Metrics, Import: DocuSign.Msf.ComponentInstrumentation, Pattern: Instrumentation; Semantic similarity: 0.239"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Telemetry/IEmailMessageServiceInstrumentation.cs",
+            "content": "using System.Diagnostics.Metrics;\nusing DocuSign.Msf.ComponentInstrumentation;\nusing IamTickets.Services.ApplicationServices;\n\nnamespace IamTickets.Services.Telemetry;\n\n[Instrumentation(typeof(EmailMessageService))]\npublic interface IEmailMessageServiceInstrumentation\n{\n    Counter<long> OutboundEmailMessage { get; }\n}\n",
+            "relevance_score": 70,
+            "reasoning": "Telemetry infrastructure: Import: System.Diagnostics.Metrics, Import: DocuSign.Msf.ComponentInstrumentation, Pattern: Instrumentation"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/ApplicationServices/EmailMessageService.cs",
+            "content": "using System.Collections.Concurrent;\nusing System.Diagnostics;\nusing DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions;\nusing DocuSign.OneConfig.Extensions;\nusing FluentValidation.Results;\nusing IamTickets.Common.Auth;\nusing IamTickets.Common.Constants;\nusing IamTickets.Common.Extensions;\nusing IamTickets.Common.FeatureFlags;\nusing IamTickets.Config;\nusing IamTickets.Database;\nusing IamTickets.Dms.Interfaces;\nusing IamTickets.Email;\nusing IamTickets.Email.Interfaces;\nusing IamTickets.Gateways.Interfaces;\nusing IamTickets.Models;\nusing IamTickets.Models.Common.Constants;\nusing IamTickets.Models.Common.Dto.Email;\nusing IamTickets.Models.Common.Dto.Participants;\nusing IamTickets.Models.Common.Dto.UploadedAttachments;\nusing IamTickets.Models.Common.Enums;\nusing IamTickets.Models.TicketActivities;\nusing IamTickets.Notifications.Interfaces;\nusing IamTickets.Notifications.Models;\nusing IamTickets.Services.Db;\nusing IamTickets.Services.Interfaces;\nusing IamTickets.Services.Telemetry;\nusing IamTickets.Services.Utils;\nusing Microsoft.Extensions.Logging;\nusing static IamTickets.Common.File.FileHelper;\n\nnamespace IamTickets.Services.ApplicationServices;\n\npublic class EmailMessageService(\n    IDbContext db,\n    IWatchedSingletonConfig<IEndpointConfig> endpointConfig,\n    IEventService eventService,\n    ILogger<EmailMessageService> logger,\n    IGlobalDirectoryApiClient globalDirectory,\n    ITicketParticipantService ticketParticipantService,\n    IAuthProvider authProvider,\n    ITicketService ticketService,\n    IDocumentService documentService,\n    ITicketActivityService ticketActivityService,\n    IAgentService agentService,\n    IAccountEmailService accountEmailService,\n    IEmailService emailService,\n    IThreadingService threadingService,\n    IDmsApiClient dmsClient,\n    INotificationDeliveryApiClient notificationDeliveryApiClient,\n    IFeatureFlags featureFlags,\n    IEmailMessageServiceInstrumentation telemetry\n) : IEmailMessageService\n{\n    private record AttachmentToCloneInfo(\n        Guid DmsDocumentId,\n        string FileName,\n        string FileType,\n        DocumentVersion? DocumentVersion\n    );\n\n    private const uint MinImageAttachmentSizeLimit = 2000;\n    private const string DefaultReplyToName = \"Docusign Agreement Desk Requests\";\n    private readonly string homeUrl = endpointConfig.Value.DsHomeEndpoint;\n\n    public async Task<(EmailMessage? emailMessage, ValidationResult errors)> AddMessageToTicketAsync(\n        Ticket ticket,\n        AddMessageRequestDto request\n    )\n    {\n        var createdBy = await ticketParticipantService.GetAuthenticatedParticipantAsync();\n        logger.LogDebug(\"Adding email message to ticket {TicketId} by {CreatedBy}\", ticket.Id, createdBy);\n\n        // If this is an automation, set the workflow as the participant.\n        if (authProvider.TryGetAuthenticatedMaestroDetails(out var creatorUserId, out var workflowId, out var instanceId))\n        {\n            createdBy = await ticketParticipantService.GetMaestroParticipantAsync(workflowId, instanceId, creatorUserId);\n        }\n\n        var senderTag = (TicketsSemanticConventions.AttributeType, createdBy.Type);\n        var notificationServiceOutboundEnabled = featureFlags\n            .GetFlagForAccount(FeatureFlag.NotificationServiceOutboundEmailKey, ticket.AccountId)\n            .IsEnabled;\n        var providerTag = (\n            TicketsSemanticConventions.AttributeEmailProvider,\n            notificationServiceOutboundEnabled ? \"notifications_service\" : \"mailgun\"\n        );\n\n        var accountEmail = (await accountEmailService.GetAccountEmailsAsync(createdBy.AccountId)).FirstOrDefault();\n        if (accountEmail == null)\n        {\n            var validationResult = new ValidationResult(\n                [new ValidationFailure { ErrorCode = ErrorCodes.ConfigurationError }]\n            );\n\n            telemetry.OutboundEmailMessage.AddOne(\n                (TicketsSemanticConventions.AttributeStatus, EmailMessageStatus.Failed),\n                (TicketsSemanticConventions.AttributeReason, EmailMessageStatus.MissingAccountAddress),\n                senderTag,\n                providerTag\n            );\n            return (null, validationResult);\n        }\n\n        var (emailThread, threadMessageId, threadMessageIds) = await threadingService.GetOrCreateEmailThreadAsync(\n            ticket.Id,\n            createdBy\n        );\n\n        var fromParticipant = new ParticipantDto\n        {\n            ParticipantId = accountEmail.Email,\n            Type = TicketParticipantType.Intermediary,\n        };\n\n        // TODO: Support group recipients\n        // https://docusign.atlassian.net/browse/IAMTICKET-1184\n        var dedupedToUserRecipients = request\n            .ToRecipients.Where(r => r.Type == TicketParticipantType.User)\n            .GroupBy(r => r.ParticipantId)\n            .Select(g => g.First())\n            .ToList();\n\n        var dedupedCcUserRecipients = request\n            .CcRecipients.Where(r => r.Type == TicketParticipantType.User)\n            .GroupBy(r => r.ParticipantId)\n            .Select(g => g.First())\n            .ToList();\n\n        var customReplyToSettings = db.AccountEmailSettings.Where(s => s.AccountId == createdBy.AccountId).SingleOrDefault();\n        var replyToEmail = customReplyToSettings?.CustomReplyToEmail ?? accountEmail.Email;\n\n        // Filter out system addresses (account email and reply-to) from recipient lists\n        // to prevent email feedback loops while supporting email group forwarding\n        dedupedToUserRecipients = FilterSystemAddresses(dedupedToUserRecipients, accountEmail.Email, replyToEmail);\n        dedupedCcUserRecipients = FilterSystemAddresses(dedupedCcUserRecipients, accountEmail.Email, replyToEmail);\n\n        var dedupedAllUserRecipients = dedupedToUserRecipients\n            .Concat(dedupedCcUserRecipients)\n            .GroupBy(r => r.ParticipantId)\n            .Select(g => g.First())\n            .ToList();\n\n        var participantKeys = new List<ParticipantDto> { fromParticipant }\n            .Concat(dedupedAllUserRecipients)\n            .ToList();\n\n        if (!participantKeys.Any(p => p.ParticipantId == createdBy.ParticipantId))\n        {\n            participantKeys.Add(new ParticipantDto { ParticipantId = createdBy.ParticipantId, Type = createdBy.Type });\n        }\n\n        var participants = await ticketParticipantService.GetTicketParticipantsAsync(participantKeys);\n\n        // TODO: revisit once we support external participants officially\n        await ticketParticipantService.AddExternalInfoToParticipantDtosAsync(participantKeys);\n\n        var participantMappings = BuildEmailParticipantMappings(\n            fromParticipant,\n            dedupedToUserRecipients,\n            dedupedCcUserRecipients,\n            createdBy,\n            participants\n        );\n\n        logger.LogInformation(\"Adding email message to ticket {TicketId}, {EmailThreadId}\", ticket.Id, emailThread.Id);\n\n        var (attachments, attachmentValidationResult) = await this.ProcessOutboundEmailAttachmentsAsync(\n            request.DmsDocumentIds,\n            request.UploadedAttachments,\n            ticket,\n            createdBy\n        );\n\n        if (!attachmentValidationResult.IsValid)\n        {\n            telemetry.OutboundEmailMessage.AddOne(\n                (TicketsSemanticConventions.AttributeStatus, EmailMessageStatus.Failed),\n                (TicketsSemanticConventions.AttributeReason, EmailMessageStatus.AttachmentsError),\n                senderTag,\n                providerTag\n            );\n            return (null, attachmentValidationResult);\n        }\n\n        var message = new EmailMessage\n        {\n            Subject = ticket.Title, // TODO: subject generator\n            InReplyTo = threadMessageId,\n            From = accountEmail.Email,\n            To = [.. dedupedToUserRecipients.Select(recipient => recipient.Email!)],\n            Cc = [.. dedupedCcUserRecipients.Select(recipient => recipient.Email!)],\n            Bcc = [],\n            ParticipantMappings = participantMappings,\n            Body = EmailUtils.SanitizeHtml(request.MessageBody),\n            EmailThreadId = emailThread.Id,\n            Thread = emailThread,\n            AccountId = createdBy.AccountId,\n            CreatedById = createdBy.Id,\n            CreatedBy = createdBy,\n            MessageId = string.Empty,\n            Type = EmailType.Outbound,\n            Attachments = attachments,\n        };\n\n        db.EmailMessages.Add(message);\n\n        var activity = await this.AddEmailMessageActivityAsync(message);\n\n        await db.SaveChangesAsync();\n        logger.LogDebug(\n            \"Email message inreplyto info {EmailMessageId} with inReplyTo {InReplyTo}\",\n            message.Id,\n            threadMessageId\n        );\n\n        await eventService.NotifyTicketActivitiesAsync(ticket, [activity]);\n\n        try\n        {\n            if (notificationServiceOutboundEnabled)\n            {\n                logger.LogInformation(\"Sending outbound email via notifications.\");\n                var domainEvent = await this.CreateNotificationEmailModelAsync(\n                    message,\n                    createdBy,\n                    accountEmail,\n                    participantKeys,\n                    dedupedToUserRecipients,\n                    dedupedCcUserRecipients,\n                    threadMessageIds,\n                    customReplyToSettings\n                );\n                var response = await notificationDeliveryApiClient.SendEmailAsync(domainEvent);\n                message.MessageId = EmailUtils.WrapMessageId(response.MessageId);\n                telemetry.OutboundEmailMessage.AddOne(\n                    (TicketsSemanticConventions.AttributeStatus, EmailMessageStatus.Success),\n                    (TicketsSemanticConventions.AttributeReason, EmailMessageStatus.Sent),\n                    senderTag,\n                    providerTag\n                );\n            }\n            else\n            {\n                logger.LogInformation(\"Sending outbound email via mailgun..\");\n                var domainEvent = CreateEmailMessageEvent(message, threadMessageIds);\n                var messageId = await emailService.SendEmailAsync(domainEvent);\n                message.MessageId = messageId;\n                telemetry.OutboundEmailMessage.AddOne(\n                    (TicketsSemanticConventions.AttributeStatus, EmailMessageStatus.Success),\n                    (TicketsSemanticConventions.AttributeReason, EmailMessageStatus.Sent),\n                    senderTag,\n                    providerTag\n                );\n            }\n        }\n#pragma warning disable CA1031 // Do not catch general exception types\n        catch (Exception ex)\n        {\n            logger.LogError(\n                \"An unexpected error occurred while sending outbound email. Exception: {ExceptionMessage}\",\n                ex.Message\n            );\n            telemetry.OutboundEmailMessage.AddOne(\n                (TicketsSemanticConventions.AttributeStatus, EmailMessageStatus.Failed),\n                (TicketsSemanticConventions.AttributeReason, EmailMessageStatus.UnhandledException),\n                senderTag,\n                providerTag\n            );\n        }\n#pragma warning restore CA1031 // Do not catch general exception types\n        await db.SaveChangesAsync();\n\n        var trackingActivity = Activity.Current;\n        trackingActivity?.SetTag(TicketsSemanticConventions.AttributeMessageId, message.MessageId);\n        trackingActivity?.SetTag(\n            TraceSemanticConventions.AttributeDocuSignFeatureUsage,\n            AgreementDeskFeatures.RequestMessage\n        );\n\n        logger.LogInformation(\"Sent email with message id: {MessageId}\", message.MessageId);\n\n        return (message, new ValidationResult());\n    }\n\n    private async Task<SendEmailRequestDto> CreateNotificationEmailModelAsync(\n        EmailMessage email,\n        TicketParticipant authenticatedParticipant,\n        AccountEmail accountEmail,\n        List<ParticipantDto> participantKeys,\n        List<ParticipantDto> dedupedToUserRecipients,\n        List<ParticipantDto> dedupedCcUserRecipients,\n        IReadOnlyCollection<string> messageIds,\n        AccountEmailSettings? customReplyToSettings\n    )\n    {\n        // Create recipient DTOs, ensuring system addresses are filtered out to avoid feedback loops\n        var toRecipients = CreateSendEmailRecipientDtos(participantKeys, dedupedToUserRecipients);\n        var ccRecipients = CreateSendEmailRecipientDtos(participantKeys, dedupedCcUserRecipients);\n        var senderName = participantKeys\n            .FirstOrDefault(p => p.ParticipantId == authenticatedParticipant.ParticipantId)\n            ?.Name;\n\n        logger.LogDebug(\"References MessageIds: {MessageIds}\", string.Join(\", \", messageIds));\n\n        SendEmailRecipientDto replyTo;\n        if (customReplyToSettings != null)\n        {\n            var replyToEmail = customReplyToSettings.CustomReplyToEmail ?? accountEmail.Email;\n            var replyToName = customReplyToSettings.CustomReplyToName ?? DefaultReplyToName;\n            replyTo = new SendEmailRecipientDto(replyToEmail, replyToName);\n        }\n        else\n        {\n            replyTo = new SendEmailRecipientDto(accountEmail.Email, DefaultReplyToName);\n        }\n\n        logger.LogDebug(\"Creating outbound email message event with inReplyTo {InReplyTo}\", email.InReplyTo);\n\n        // Prepare attachments in parallel\n        var attachments = await Task.WhenAll(\n            email.Attachments.Select(async a =>\n            {\n                var docVersion = a.DocumentVersion?.Version ?? 0;\n                var fileVersion = a.DocumentVersionId == null ? 0 : docVersion;\n\n                var documentBytes = await dmsClient.GetDocumentAsync(\n                    email.AccountId,\n                    a.DmsDocumentId,\n                    a.FileName,\n                    fileVersion\n                );\n\n                var attachmentString = Convert.ToBase64String(documentBytes);\n                return new SendEmailAttachmentDto(a.FileName, attachmentString, a.DmsDocumentId.ToString());\n            })\n        );\n\n        SendEmailHeadersDto? emailHeaders = null;\n        if (!string.IsNullOrEmpty(email.InReplyTo))\n        {\n            emailHeaders = new SendEmailHeadersDto(email.InReplyTo, string.Join(\" \", messageIds));\n        }\n\n        var sender = string.IsNullOrWhiteSpace(senderName)\n            ? NotificationUtils.OutboundEmailSenderName\n            : senderName + \" via Docusign\";\n\n        var emailBodyWithFooter = this.GenerateNotificationEmailBodyWithFooter(\n            email.Body,\n            email.Thread.Ticket,\n            dedupedToUserRecipients.Concat(dedupedCcUserRecipients).ToList()\n        );\n\n        return new SendEmailRequestDto(\n            SenderAlias: NotificationUtils.OutboundEmailSenderAlias,\n            SenderName: sender,\n            Recipients: toRecipients,\n            Subject: email.Subject,\n            Body: emailBodyWithFooter,\n            HtmlBody: emailBodyWithFooter,\n            Context: new EmailContextDto(email.AccountId),\n            Attachments: attachments,\n            ReplyTo: replyTo,\n            CcList: ccRecipients,\n            BccList: [],\n            EmailHeaders: emailHeaders\n        );\n    }\n\n    private static OutboundEmailMessageEvent CreateEmailMessageEvent(\n        EmailMessage message,\n        IReadOnlyCollection<string> messageIds\n    )\n    {\n        if (!EmailUtils.TryParseSmtpAddress(message.From, out var fromAddress))\n        {\n            throw new InvalidOperationException();\n        }\n\n        List<SmtpAddressDto> toAddresses = [];\n        foreach (var toEmail in message.To)\n        {\n            if (EmailUtils.TryParseSmtpAddress(toEmail, out var toAddress))\n            {\n                toAddresses.Add(toAddress);\n            }\n        }\n\n        List<SmtpAddressDto> ccAddresses = [];\n        foreach (var ccEmail in message.Cc)\n        {\n            if (EmailUtils.TryParseSmtpAddress(ccEmail, out var ccAddress))\n            {\n                ccAddresses.Add(ccAddress);\n            }\n        }\n\n        List<SmtpAddressDto> bccAddresses = [];\n        foreach (var bccEmail in message.Bcc)\n        {\n            if (EmailUtils.TryParseSmtpAddress(bccEmail, out var bccAddress))\n            {\n                bccAddresses.Add(bccAddress);\n            }\n        }\n\n        var emailEvent = new OutboundEmailMessageEvent\n        {\n            AccountId = message.AccountId,\n            Id = message.Id,\n            InReplyTo = message.InReplyTo,\n            References = messageIds,\n            Subject = message.Subject,\n            From = fromAddress,\n            To = toAddresses,\n            Cc = ccAddresses,\n            Bcc = bccAddresses,\n            Body = message.Body,\n            Timestamp = message.CreatedAt,\n            Headers = [],\n            Attachments = message\n                .Attachments.Select(a => new EmailEventAttachmentDto\n                {\n                    FileName = a.FileName,\n                    FileType = a.FileType,\n                    DmsDocumentId = a.DmsDocumentId,\n                })\n                .ToList(),\n        };\n\n        return emailEvent;\n    }\n\n    public async Task<(EmailMessage? message, EmailEventProcessingStatus status)> ProcessEmailMessageEventAsync(\n        InboundEmailMessageEvent emailEvent\n    )\n    {\n        var accountId = emailEvent.AccountId;\n\n        var messageId = emailEvent.MessageId;\n\n        var userId = authProvider.GetAuthenticatedUserId();\n\n        var fromParticipant = await ticketParticipantService.GetTicketParticipantAsync(\n            new ParticipantDto { Type = TicketParticipantType.User, ParticipantId = userId.ToString() }\n        );\n\n        var accountEmails = (await accountEmailService.GetAccountEmailsAsync(accountId))\n            .Select(accountEmail => accountEmail.Email)\n            .ToHashSet();\n        if (accountEmails.Count > 0)\n        {\n            if (EmailUtils.TryParseSmtpAddress(accountEmails.First(), out var recipientAddress))\n            {\n                this.UpdateEmailAddressesForGroupForwarding(emailEvent, recipientAddress);\n            }\n        }\n\n        var participantAddresses = emailEvent\n            .To.Select(emailAddress => emailAddress.Address)\n            .Concat(emailEvent.Cc.Select(emailAddress => emailAddress.Address))\n            .ToList();\n\n        var participantAddressMapping = await this.GetEmailParticipantIdsAsync(\n            accountId,\n            participantAddresses,\n            accountEmails\n        );\n\n        var missingParticipants = participantAddresses\n            .Where(participantAddress => !participantAddressMapping.ContainsKey(participantAddress))\n            .ToList();\n        if (missingParticipants.Count != 0)\n        {\n            logger.LogError(\n                \"Failure Processing email {MessageId}. Users not found for {MissingAddressCount} addresses. Stopping processing.\",\n                messageId,\n                missingParticipants.Count\n            );\n            return (null, EmailEventProcessingStatus.MissingParticipants);\n        }\n\n        var thread = await threadingService.GetEmailThreadAsync(emailEvent, accountId);\n\n        var isTicketCreationEmail = thread == null;\n        Ticket? ticket = null;\n\n        if (isTicketCreationEmail)\n        {\n            ticket = await ticketService.CreateTicketAsync(emailEvent);\n            if (ticket == null)\n            {\n                logger.LogError(\"Unable to create new ticket for email {MessageId}\", messageId);\n                return (null, EmailEventProcessingStatus.TicketCreationError);\n            }\n\n            thread = db\n                .EmailThreads.Add(\n                    new EmailThread\n                    {\n                        TicketId = ticket.Id,\n                        Ticket = ticket,\n                        CreatedById = fromParticipant.Id,\n                        AccountId = emailEvent.AccountId,\n                    }\n                )\n                .Entity;\n        }\n\n        if (thread == null)\n        {\n            logger.LogError(\"Unable to find or create thread for {MessageId}\", messageId);\n            return (null, EmailEventProcessingStatus.ThreadRetrievalError);\n        }\n\n        if (thread.Emails.Select(e => e.MessageId).Contains(messageId))\n        {\n            logger.LogError(\"Email event for {MessageId} already processed.\", messageId);\n            return (null, EmailEventProcessingStatus.AlreadyProcessed);\n        }\n\n        var newEmail = CreateEmailMessage(emailEvent, fromParticipant, thread!);\n        newEmail.ParticipantMappings.Add(\n            new EmailMessageParticipantMapping\n            {\n                CreatedById = fromParticipant.Id,\n                LastModifiedById = fromParticipant.Id,\n                AccountId = accountId,\n                ParticipantId = fromParticipant.Id,\n                Field = EmailMessageParticipantField.From,\n            }\n        );\n\n        foreach (var toAddress in emailEvent.To)\n        {\n            if (participantAddressMapping.TryGetValue(toAddress.Address, out var participantId))\n            {\n                newEmail.ParticipantMappings.Add(\n                    new EmailMessageParticipantMapping\n                    {\n                        CreatedById = fromParticipant.Id,\n                        LastModifiedById = fromParticipant.Id,\n                        AccountId = accountId,\n                        ParticipantId = participantId,\n                        Field = EmailMessageParticipantField.To,\n                    }\n                );\n            }\n        }\n\n        foreach (var ccAddress in emailEvent.Cc)\n        {\n            if (participantAddressMapping.TryGetValue(ccAddress.Address, out var participantId))\n            {\n                newEmail.ParticipantMappings.Add(\n                    new EmailMessageParticipantMapping\n                    {\n                        CreatedById = fromParticipant.Id,\n                        LastModifiedById = fromParticipant.Id,\n                        AccountId = accountId,\n                        ParticipantId = participantId,\n                        Field = EmailMessageParticipantField.Cc,\n                    }\n                );\n            }\n        }\n\n        db.EmailMessages.Add(newEmail);\n        var activity = await this.AddEmailMessageActivityAsync(newEmail);\n        await ticketActivityService.AddActivitiesAsync([activity]);\n\n        await this.ProcessInboundEmailAttachmentsAsync(\n            emailEvent,\n            newEmail,\n            thread.Ticket,\n            fromParticipant,\n            accountId,\n            isTicketCreationEmail\n        );\n\n        await db.SaveChangesAsync();\n\n        await eventService.NotifyTicketActivitiesAsync(thread!.Ticket, [activity]);\n\n        if (isTicketCreationEmail)\n        {\n            try\n            {\n                await agentService.TriggerRequestTypeAgentWorkAsync(newEmail);\n            }\n#pragma warning disable CA1031 // Do not catch general exception types\n            catch (Exception ex)\n            {\n                logger.LogError(\n                    ex,\n                    \"Failed to trigger request type agent work for ticket {TicketId} after email creation.\",\n                    thread.Ticket.Id\n                );\n            }\n#pragma warning restore CA1031 // Do not catch general exception types\n\n            var responseEmail = await this.GenerateResponseEmailAsync(ticket!, thread, emailEvent);\n            await emailService.SendEmailAsync(CreateEmailMessageEvent(responseEmail, [newEmail.MessageId]));\n        }\n\n        return (\n            newEmail,\n            isTicketCreationEmail ? EmailEventProcessingStatus.TicketCreation : EmailEventProcessingStatus.MessageCreation\n        );\n    }\n\n    private async Task<TicketActivity> AddEmailMessageActivityAsync(EmailMessage email)\n    {\n        var newActivity = TicketActivity.CreateMessageActivity(email);\n        await ticketActivityService.AddActivitiesAsync([newActivity]);\n        return newActivity;\n    }\n\n    /// <summary>\n    /// Processes inbound email attachments by:\n    /// 1. Creating Attachment objects from inbound email data,\n    /// 2. Registering DMS document resources,\n    /// 3. Persisting attachments and linking to the email message and optionally to the ticket.\n    /// </summary>\n    private async Task ProcessInboundEmailAttachmentsAsync(\n        InboundEmailMessageEvent emailEvent,\n        EmailMessage newEmail,\n        Ticket ticket,\n        TicketParticipant fromParticipant,\n        Guid accountId,\n        bool isTicketCreationEmail\n    )\n    {\n        var attachments = emailEvent\n            .Attachments.Select(a => new Attachment\n            {\n                CreatedById = fromParticipant.Id,\n                LastModifiedById = fromParticipant.Id,\n                DmsDocumentId = a.DmsDocumentId,\n                FileName = a.FileName,\n                FileType = a.FileType,\n                AccountId = accountId,\n                Origin = AttachmentOrigin.InboundEmail,\n            })\n            .ToList();\n\n        await Task.WhenAll(\n            attachments.Select(att =>\n                documentService.RegisterDmsDocumentResourceAsync(\n                    accountId,\n                    ticket.Id,\n                    att.DmsDocumentId,\n                    DmsDocumentAuthScenarioType.TicketAttachment\n                )\n            )\n        );\n\n        var eligibleDocuments = new List<Attachment>();\n\n        foreach (var attachment in attachments)\n        {\n            attachment.EmailMessageId = newEmail.Id;\n            newEmail.Attachments.Add(attachment);\n\n            if (isTicketCreationEmail && !await this.IsTinyImageFileAsync(accountId, attachment))\n            {\n                eligibleDocuments.Add(attachment);\n            }\n        }\n\n        await db.SaveChangesAsync();\n\n        if (isTicketCreationEmail && attachments.Count > 0)\n        {\n            foreach (var att in eligibleDocuments)\n            {\n                await documentService.AddAttachmentToTicketAsync(ticket, att);\n            }\n        }\n    }\n\n    /// <summary>\n    /// Processes outbound email attachments by:\n    /// 1. Creating copies of the document attached from ticket to message in DMS,\n    /// 2. Adding uploaded attachments to the message,\n    /// 3. Registering DMS documents resource to have proper access control in place.\n    /// </summary>\n    private async Task<(\n        List<Attachment> attachments,\n        ValidationResult validationResult\n    )> ProcessOutboundEmailAttachmentsAsync(\n        List<Guid> attachedDocumentDmsDocumentIds,\n        List<UploadedAttachmentDto> uploadedAttachments,\n        Ticket ticket,\n        TicketParticipant authenticatedParticipant\n    )\n    {\n        var latestVersionOfAttachedDocuments = await db.Documents.GetLatestVersionsByDmsDocumentIdsAsync(\n            attachedDocumentDmsDocumentIds\n        );\n\n        var latestVersionOfAttachedDocumentIds = latestVersionOfAttachedDocuments\n            .Select(v => v.Document.DmsDocumentId)\n            .ToList();\n\n        // The forwarded attachments are the ones that are not in the latest version of the attached documents.\n        // This is because the attachments are cloned in the DMS and the latest version of the attached documents\n        // is the one that is used to create the email message.\n        var forwardedAttachmentsIds = attachedDocumentDmsDocumentIds.Except(latestVersionOfAttachedDocumentIds).ToList();\n\n        var forwardedAttachments = await db.Attachments.GetByDmsDocumentIdsAsync(forwardedAttachmentsIds);\n\n        var attachmentsToClone = latestVersionOfAttachedDocuments\n            .Select(v => new AttachmentToCloneInfo(v.Document.DmsDocumentId, v.FileName, v.FileType, (DocumentVersion?)v))\n            .Concat(\n                forwardedAttachments.Select(a => new AttachmentToCloneInfo(\n                    a.DmsDocumentId,\n                    a.FileName,\n                    a.FileType,\n                    a.DocumentVersion\n                ))\n            )\n            .ToList();\n\n        ValidationResult? invalidDocumentError = null;\n\n        var attached = await Task.WhenAll(\n            attachmentsToClone.Select(async a =>\n            {\n                var results = await documentService.CloneDocumentInDmsAsync(\n                    ticket,\n                    a.DmsDocumentId,\n                    a.FileName,\n                    a.FileType,\n                    FileValidationType.EmailAttachment,\n                    DmsDocumentAuthScenarioType.TicketAttachment\n                );\n\n                if (!results.validationResult.IsValid && invalidDocumentError == null)\n                {\n                    invalidDocumentError = results.validationResult;\n                    return null;\n                }\n\n                if (results.guid.HasValue)\n                {\n                    return new Attachment\n                    {\n                        DmsDocumentId = results.guid.Value,\n                        FileName = a.FileName,\n                        FileType = a.FileType,\n                        DocumentVersion = a.DocumentVersion,\n                        AccountId = authenticatedParticipant.AccountId,\n                        CreatedById = authenticatedParticipant.Id,\n                        LastModifiedById = authenticatedParticipant.Id,\n                        DocumentVersionId = a.DocumentVersion?.Id,\n                        Origin = AttachmentOrigin.OutboundEmail,\n                    };\n                }\n\n                return null;\n            })\n        );\n\n        if (invalidDocumentError != null)\n        {\n            return ([], invalidDocumentError);\n        }\n\n        var documentError = await documentService.ClaimUploadedAttachmentAsync(uploadedAttachments, ticket);\n        if (documentError.HasValue)\n        {\n            return (\n                [],\n                new ValidationResult(\n                    [\n                        new ValidationFailure(\n                            \"UploadedAttachments\",\n                            errorMessage: $\"Failed to claim uploaded attachments. DMS Error Code: {documentError}\"\n                        )\n                        {\n                            ErrorCode = ErrorCodes.DependentServiceError,\n                        },\n                    ]\n                )\n            );\n        }\n\n        var uploaded = uploadedAttachments.Select(attachment => new Attachment\n        {\n            DmsDocumentId = attachment.DmsDocumentId,\n            FileName = attachment.FileName,\n            FileType = GetFileFormatFromExtension(attachment.FileName),\n            AccountId = authenticatedParticipant.AccountId,\n            CreatedById = authenticatedParticipant.Id,\n            LastModifiedById = authenticatedParticipant.Id,\n            Origin = AttachmentOrigin.OutboundEmail,\n        });\n\n        var allAttachments = attached.Where(a => a != null).Cast<Attachment>().ToList();\n        allAttachments.AddRange(uploaded);\n\n        return (allAttachments, new ValidationResult());\n    }\n\n    private static EmailMessage CreateEmailMessage(\n        InboundEmailMessageEvent emailEvent,\n        TicketParticipant participant,\n        EmailThread thread\n    )\n    {\n        return new EmailMessage\n        {\n            Id = Guid.NewGuid(),\n            Subject = emailEvent.Subject,\n            CreatedById = participant.Id,\n            CreatedBy = participant,\n            MessageId = emailEvent.MessageId,\n            From = emailEvent.From.ToString(),\n            To = emailEvent.To.Select(e => e.Address.ToString()).ToList(),\n            Cc = emailEvent.Cc.Select(e => e.Address.ToString()).ToList(),\n            Bcc = emailEvent.Bcc?.Select(e => e.Address.ToString()).ToList() ?? [],\n            Body = EmailUtils.SanitizeHtml(emailEvent.Body),\n            Type = EmailType.Inbound,\n            EmailThreadId = thread.Id,\n            Thread = thread,\n            AccountId = emailEvent.AccountId,\n        };\n    }\n\n    private async Task<Dictionary<string, Guid>> GetEmailParticipantIdsAsync(\n        Guid accountId,\n        List<string> emails,\n        HashSet<string> accountEmails\n    )\n    {\n        Dictionary<string, Guid> emailParticipantsMapping = [];\n\n        var uniqueEmails = emails.Distinct();\n        List<string> userEmails = [];\n        foreach (var email in uniqueEmails)\n        {\n            if (accountEmails.Contains(email))\n            {\n                var intermediateParticipant = await ticketParticipantService.GetIntermediaryParticipantAsync(email);\n                emailParticipantsMapping.TryAdd(email, intermediateParticipant.Id);\n            }\n            else\n            {\n                userEmails.Add(email);\n            }\n        }\n\n        ConcurrentBag<string> failedAddresses = [];\n        ConcurrentDictionary<string, string> userIdEmails = [];\n        var userIdsTasks = userEmails.Select(async address =>\n        {\n            var userId = await globalDirectory.GetUserIdByEmailAsync(address, accountId);\n            if (userId == null)\n            {\n                failedAddresses.Add(address);\n                return null;\n            }\n\n            userIdEmails.TryAdd(userId.Value.ToString(), address);\n            return userId;\n        });\n\n        await Task.WhenAll(userIdsTasks);\n\n        var participants = await ticketParticipantService.GetTicketParticipantsAsync(\n            userIdEmails\n                .Keys.Select(id => new ParticipantDto { Type = TicketParticipantType.User, ParticipantId = id })\n                .ToList()\n        );\n\n        foreach (var participant in participants)\n        {\n            if (userIdEmails.TryGetValue(participant.ParticipantId, out var userAddress))\n            {\n                emailParticipantsMapping.TryAdd(userAddress, participant.Id);\n            }\n        }\n\n        return emailParticipantsMapping;\n    }\n\n    private static List<EmailMessageParticipantMapping> BuildEmailParticipantMappings(\n        ParticipantDto fromParticipant,\n        IEnumerable<ParticipantDto> toRecipients,\n        IEnumerable<ParticipantDto> ccRecipients,\n        TicketParticipant authenticatedParticipant,\n        IEnumerable<TicketParticipant> participants\n    )\n    {\n        var participantDict = participants.ToDictionary(p => p.ParticipantId);\n\n        var mappings = new List<EmailMessageParticipantMapping>();\n\n        mappings.AddRange(\n            BuildParticipantMappings(\n                [fromParticipant],\n                authenticatedParticipant,\n                EmailMessageParticipantField.From,\n                participantDict\n            )\n        );\n\n        mappings.AddRange(\n            BuildParticipantMappings(\n                toRecipients,\n                authenticatedParticipant,\n                EmailMessageParticipantField.To,\n                participantDict\n            )\n        );\n\n        mappings.AddRange(\n            BuildParticipantMappings(\n                ccRecipients,\n                authenticatedParticipant,\n                EmailMessageParticipantField.Cc,\n                participantDict\n            )\n        );\n\n        return mappings;\n    }\n\n    private static List<EmailMessageParticipantMapping> BuildParticipantMappings(\n        IEnumerable<ParticipantDto> recipients,\n        TicketParticipant authenticatedParticipant,\n        EmailMessageParticipantField field,\n        Dictionary<string, TicketParticipant> participantDict\n    )\n    {\n        return recipients\n            .Select(r => new EmailMessageParticipantMapping\n            {\n                AccountId = authenticatedParticipant.AccountId,\n                ParticipantId = participantDict[r.ParticipantId].Id,\n                Field = field,\n                CreatedById = authenticatedParticipant.Id,\n                LastModifiedById = authenticatedParticipant.Id,\n            })\n            .ToList();\n    }\n\n    /// <summary>\n    /// Filters out system email addresses (account email and reply-to) from recipient lists\n    /// to prevent email feedback loops while supporting email group forwarding scenarios.\n    /// </summary>\n    private static List<ParticipantDto> FilterSystemAddresses(\n        List<ParticipantDto> recipients,\n        string accountEmail,\n        string? replyToEmail\n    )\n    {\n        return recipients\n            .Where(r =>\n                !string.Equals(r.Email, accountEmail, StringComparison.OrdinalIgnoreCase)\n                && (replyToEmail == null || !string.Equals(r.Email, replyToEmail, StringComparison.OrdinalIgnoreCase))\n            )\n            .ToList();\n    }\n\n    private async Task<EmailMessage> GenerateResponseEmailAsync(\n        Ticket ticket,\n        EmailThread thread,\n        InboundEmailMessageEvent inboundEmailMessageEvent\n    )\n    {\n        var accountEmail = (await accountEmailService.GetAccountEmailsAsync(ticket.AccountId)).First();\n\n        var editTicketTypeLink = AccountUrlBuilder\n            .BuildAccountSwitcherUrl(\n                $\"{this.homeUrl}/send/requests/requests/{ticket.Id}/details?edit=change-type\",\n                ticket.AccountId\n            )\n            .ToString();\n        var body =\n            \"Thanks for submitting your request. Please complete <a href='\"\n            + editTicketTypeLink\n            + \"'>this form</a> so we can assist you.\";\n\n        return new EmailMessage\n        {\n            Id = Guid.NewGuid(),\n            Subject = ticket.Title,\n            MessageId = string.Empty,\n            InReplyTo = inboundEmailMessageEvent.MessageId,\n            From = accountEmail.Email,\n            To = [inboundEmailMessageEvent.From.Address],\n            Cc = [],\n            Bcc = [],\n            Body = body,\n            EmailThreadId = thread.Id,\n            Thread = thread,\n            CreatedById = ticket.CreatedById,\n            Type = EmailType.Outbound,\n            AccountId = ticket.AccountId,\n        };\n    }\n\n    private static List<SendEmailRecipientDto> CreateSendEmailRecipientDtos(\n        List<ParticipantDto> participantKeys,\n        List<ParticipantDto> dedupedRecipients\n    )\n    {\n        var dedupedIds = dedupedRecipients.Select(r => r.ParticipantId).ToHashSet();\n        return participantKeys\n            .Where(p => dedupedIds.Contains(p.ParticipantId))\n            .Select(p => new SendEmailRecipientDto(\n                p.Email ?? throw new InvalidOperationException($\"Email address not found for participant {p.ParticipantId}\"),\n                p.Name ?? string.Empty\n            ))\n            .ToList();\n    }\n\n    private async Task<bool> IsTinyImageFileAsync(Guid accountId, Attachment attachment)\n    {\n        if (!attachment.FileType.StartsWith(\"image\", StringComparison.OrdinalIgnoreCase))\n        {\n            return false;\n        }\n\n        var attachmentFile = await dmsClient.GetDocumentAsync(accountId, attachment.DmsDocumentId, attachment.FileName, 0);\n\n        return attachmentFile.Length <= MinImageAttachmentSizeLimit;\n    }\n\n    /// <summary>\n    /// Generates email body with footer for notification service based on recipient types (internal vs external users)\n    /// </summary>\n    private string GenerateNotificationEmailBodyWithFooter(\n        string messageBody,\n        Ticket ticket,\n        List<ParticipantDto> allRecipients\n    )\n    {\n        var sanitizedBody = EmailUtils.SanitizeHtml(messageBody);\n\n        var userRecipients = allRecipients.Where(r => r.Type == TicketParticipantType.User).ToList();\n\n        if (userRecipients.Count == 0)\n        {\n            return sanitizedBody;\n        }\n\n        var footer = this.GenerateInternalUserFooter(ticket);\n\n        return $\"{sanitizedBody}<br/><br/><hr style=\\\"border: none; border-top: 1px solid #cccccc; margin: 20px 0;\\\"/><div style=\\\"color: #888888; font-size: 12px;\\\">{footer}</div>\";\n    }\n\n    /// <summary>\n    /// Generates footer for internal users (with deep link)\n    /// </summary>\n    private string GenerateInternalUserFooter(Ticket ticket)\n    {\n        var requestDetailsUrl = AccountUrlBuilder\n            .BuildAccountSwitcherUrl($\"{this.homeUrl}/send/requests/requests/{ticket.Id}\", ticket.AccountId)\n            .ToString();\n\n        return \"This message was sent from a Docusign request. You can reply directly to this email to add a comment or a document to the request. \"\n            + $\"<a href=\\\"{requestDetailsUrl}\\\" style=\\\"color: #0078d4;\\\">View request details</a>.\";\n    }\n\n    private static void ReplaceCustomEmailWithRecipient(\n        ICollection<SmtpAddressDto> addresses,\n        string customEmail,\n        SmtpAddressDto recipientAddress\n    )\n    {\n        var found = false;\n        foreach (var address in addresses.ToList())\n        {\n            if (string.Equals(address.Address, customEmail, StringComparison.OrdinalIgnoreCase))\n            {\n                addresses.Remove(address);\n                found = true;\n            }\n        }\n\n        if (found)\n        {\n            addresses.Add(recipientAddress);\n        }\n    }\n\n    private void UpdateEmailAddressesForGroupForwarding(InboundEmailMessageEvent emailEvent, SmtpAddressDto recipientAddress)\n    {\n        if (recipientAddress == null)\n        {\n            return;\n        }\n\n        if (\n            IsAddressInList(recipientAddress.Address, emailEvent.To.ToList())\n            || IsAddressInList(recipientAddress.Address, emailEvent.Cc.ToList())\n        )\n        {\n            return;\n        }\n\n        var customEmail = db\n            .AccountEmailSettings.Where(s => s.AccountId == authProvider.GetAuthenticatedAccountId())\n            .Select(s => s.CustomReplyToEmail)\n            .SingleOrDefault();\n\n        if (!string.IsNullOrEmpty(customEmail))\n        {\n            ReplaceCustomEmailWithRecipient(emailEvent.To, customEmail, recipientAddress);\n            ReplaceCustomEmailWithRecipient(emailEvent.Cc, customEmail, recipientAddress);\n        }\n    }\n\n    private static bool IsAddressInList(string address, List<SmtpAddressDto> addressList)\n    {\n        if (addressList == null || addressList.Count == 0)\n        {\n            return false;\n        }\n\n        return addressList.Any(addr => string.Equals(addr.Address, address, StringComparison.OrdinalIgnoreCase));\n    }\n}\n",
+            "relevance_score": 42,
+            "reasoning": "Semantic similarity: 0.224"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Services/Db/TicketDbExtensions.cs",
+            "content": "using IamTickets.Models;\nusing Microsoft.EntityFrameworkCore;\n\nnamespace IamTickets.Services.Db;\n\npublic static class TicketDbExtensions\n{\n    public static IQueryable<Ticket> IncludeTicketDetails(this IQueryable<Ticket> tickets, Guid? userId = null)\n    {\n        IQueryable<Ticket> queryable = tickets\n            .Include(t => t.LastModifiedBy)\n            .Include(t => t.Submitter)\n            .Include(t => t.Owners)\n            .ThenInclude(o => o.Owner)\n            .Include(t => t.Followers)\n            .ThenInclude(o => o.Follower)\n            .Include(t => t.IntakeFormInstances!)\n            .ThenInclude(i => i.Attachments!)\n            .ThenInclude(a => a.DocumentVersion)\n            .Include(t => t.Status)\n            .Include(t => t.IntakeForm)\n            .Include(t => t.ActivityTrack);\n        if (userId.HasValue)\n        {\n            queryable = queryable.Include(t => t.UserTicketVisits.Where(utv => utv.UserId == userId.Value));\n        }\n\n        return queryable;\n    }\n\n    public static IQueryable<Ticket> IncludeTicketActivityTrack(this IQueryable<Ticket> tickets)\n    {\n        return tickets.Include(t => t.ActivityTrack);\n    }\n\n    public static IQueryable<Ticket> OrderByLastActivityTime(this IQueryable<Ticket> tickets)\n    {\n        return tickets.OrderByDescending(t => t.ActivityTrack!.LastActivityAt);\n    }\n}\n",
+            "relevance_score": 33,
+            "reasoning": "Semantic similarity: 0.239"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/iam-tasks/src/IamTickets.Models/DocumentVersionEnvelopeMapping.cs",
+            "content": "using IamTickets.Models.Interfaces;\n\nnamespace IamTickets.Models;\n\npublic class DocumentVersionEnvelopeMapping : Trackable, IOwnedByAccount\n{\n    public Guid Id { get; init; }\n    public required Guid AccountId { get; init; }\n    public required Guid DocVersionId { get; set; }\n    public DocumentVersion DocumentVersion { get; set; } = null!;\n    public required string EnvelopeId { get; set; }\n\n    // This is DocumentIdGuid from envelopeDocuments which is the same as DocumentStorageId in the ADM event\n    public required Guid DocumentStorageId { get; set; }\n    public Guid? AgreementId { get; set; }\n}\n",
+            "relevance_score": 29,
+            "reasoning": "Semantic similarity: 0.291"
+          }
+        ]
+      },
+      "error": null,
+      "execution_time": 35.320029735565186,
+      "cache_hit": false
+    },
+    "validate_solution": {
+      "stage_name": "validate_solution",
+      "status": "StageStatus.COMPLETED",
+      "result": {
+        "overall_score": 0.7367346938775511,
+        "test_results": [
+          {
+            "test_name": "Intent Required Fields",
+            "test_type": "TestType.UNIT",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "missing_fields": []
+            },
+            "errors": [],
+            "warnings": [],
+            "execution_time": 0.001
+          },
+          {
+            "test_name": "Telemetry Operation Validity",
+            "test_type": "TestType.UNIT",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "type": "span",
+              "action": "ADD_ATTRIBUTES"
+            },
+            "errors": [],
+            "warnings": [],
+            "execution_time": 0.001
+          },
+          {
+            "test_name": "Semantic Description Quality",
+            "test_type": "TestType.UNIT",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "description_length": 158,
+              "quality_score": 1.0
+            },
+            "errors": [],
+            "warnings": [],
+            "execution_time": 0.002
+          },
+          {
+            "test_name": "Patch Format Validity",
+            "test_type": "TestType.UNIT",
+            "passed": false,
+            "score": 0.0,
+            "details": {
+              "patch_length": 2800
+            },
+            "errors": [
+              "Invalid unified diff format"
+            ],
+            "warnings": [],
+            "execution_time": 0.001
+          },
+          {
+            "test_name": "Code Style Compliance",
+            "test_type": "TestType.UNIT",
+            "passed": false,
+            "score": 0.6000000000000001,
+            "details": {
+              "style_score": 0.6000000000000001
+            },
+            "errors": [],
+            "warnings": [
+              "Code style could be improved"
+            ],
+            "execution_time": 0.003
+          },
+          {
+            "test_name": "Change Scope Appropriateness",
+            "test_type": "TestType.UNIT",
+            "passed": true,
+            "score": 0.8,
+            "details": {
+              "scope_score": 0.8
+            },
+            "errors": [],
+            "warnings": [],
+            "execution_time": 0.002
+          },
+          {
+            "test_name": "Code Compilation",
+            "test_type": "TestType.INTEGRATION",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "files_count": 10
+            },
+            "errors": [],
+            "warnings": [],
+            "execution_time": 2.0
+          },
+          {
+            "test_name": "OpenTelemetry Attribute Naming",
+            "test_type": "TestType.COMPLIANCE",
+            "passed": false,
+            "score": 0.5,
+            "details": {
+              "attributes_count": 2
+            },
+            "errors": [
+              "Non-compliant attribute names found"
+            ],
+            "warnings": [],
+            "execution_time": 0.001
+          },
+          {
+            "test_name": "Instrumentation Pattern Compliance",
+            "test_type": "TestType.COMPLIANCE",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "pattern_score": 1.0
+            },
+            "errors": [],
+            "warnings": [],
+            "execution_time": 0.002
+          },
+          {
+            "test_name": "Resource Usage Analysis",
+            "test_type": "TestType.PERFORMANCE",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "score": 1.0,
+              "errors": [],
+              "warnings": []
+            },
+            "errors": [],
+            "warnings": [],
+            "execution_time": 0.003
+          },
+          {
+            "test_name": "No Hardcoded Secrets",
+            "test_type": "TestType.COMPLIANCE",
+            "passed": true,
+            "score": 1.0,
+            "details": {},
+            "errors": [],
+            "warnings": [],
+            "execution_time": 0.001
+          },
+          {
+            "test_name": "Input Validation",
+            "test_type": "TestType.COMPLIANCE",
+            "passed": false,
+            "score": 0.11428571428571428,
+            "details": {
+              "validation_score": 0.11428571428571428
+            },
+            "errors": [
+              "Insufficient input validation"
+            ],
+            "warnings": [
+              "Input validation could be improved"
+            ],
+            "execution_time": 0.002
+          },
+          {
+            "test_name": "Performance Impact Analysis",
+            "test_type": "TestType.PERFORMANCE",
+            "passed": true,
+            "score": 0.5,
+            "details": {
+              "risk_level": 3,
+              "errors": [],
+              "warnings": [
+                "Telemetry instrumentation may have minor performance impact",
+                "Instrumentation in loops may impact performance"
+              ]
+            },
+            "errors": [],
+            "warnings": [
+              "Telemetry instrumentation may have minor performance impact",
+              "Instrumentation in loops may impact performance"
+            ],
+            "execution_time": 0.005
+          },
+          {
+            "test_name": "Integration Compatibility",
+            "test_type": "TestType.INTEGRATION",
+            "passed": false,
+            "score": 0.8,
+            "details": {
+              "breaking_changes": [
+                "Potential public API signature change"
+              ]
+            },
+            "errors": [
+              "Breaking change detected: Potential public API signature change"
+            ],
+            "warnings": [],
+            "execution_time": 0.01
+          }
+        ],
+        "recommendations": [
+          "Address failing tests before deployment",
+          "Improve implementation for low-scoring areas",
+          "Validate telemetry data collection in staging environment"
+        ],
+        "risk_assessment": "HIGH",
+        "compliance_status": {
+          "opentelemetry": false,
+          "security": true,
+          "style": true
+        }
+      },
+      "error": null,
+      "execution_time": 0.010205745697021484,
+      "cache_hit": false
+    }
+  }
+}

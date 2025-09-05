@@ -1,0 +1,18 @@
+{
+  "selected_files": [
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/DetectTypeProcessor.Trace.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/VideoInfoProcessor.Trace.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/DetectTypeProcessor.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/MessageWorkerService/DispatchedWorker.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Service/V1/WinsService.Trace.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/API.GateKeeper/Middlewares/LogAsyncRequestHttpMiddleware.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/API.WorkflowActivities/Program.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Engine/WorkflowInstance.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Atlas.Workflow.Activities/Telemetry/WorkflowEventWorkload.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/API.DocuSignInternal/Global.asax.cs"
+  ],
+  "selection_reasoning": "Confidence the selected files are the correct insertion points: 0.85",
+  "patch_reasoning": "Overall: 0.79 \u2013 change is confined to a single well-known middleware that processes every request, meeting telemetry requirement across the GateKeeper web API.",
+  "diff_length": 501,
+  "explanation_length": 1717
+}

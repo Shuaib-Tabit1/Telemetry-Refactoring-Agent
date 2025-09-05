@@ -1,0 +1,17 @@
+2025-08-28 14:42:05,044 - scanner.pipeline_orchestrator - INFO - Stage ticket_processing: Starting (attempt 1)
+2025-08-28 14:42:05,044 - scanner.pipeline_orchestrator - INFO - Stage ticket_processing: Completed in 0.00s
+2025-08-28 14:42:05,045 - scanner.pipeline_orchestrator - INFO - Stage intent_extraction: Starting (attempt 1)
+2025-08-28 14:42:14,881 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-28 14:42:21,226 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-28 14:42:34,277 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-28 14:42:34,282 - scanner.pipeline_orchestrator - INFO - Stage intent_extraction: Completed in 29.24s
+2025-08-28 14:42:34,284 - scanner.pipeline_orchestrator - INFO - Stage project_parsing: Starting (attempt 1)
+2025-08-28 14:42:34,299 - scanner.pipeline_orchestrator - INFO - Stage project_parsing: Completed in 0.01s
+2025-08-28 14:42:34,299 - scanner.pipeline_orchestrator - INFO - Stage graph_building: Starting (attempt 1)
+2025-08-28 14:42:34,444 - scanner.pipeline_orchestrator - WARNING - Stage graph_building: Attempt 1 failed: 'CodeGraphManager' object has no attribute '_graph_cache'
+2025-08-28 14:42:35,446 - scanner.pipeline_orchestrator - INFO - Stage graph_building: Starting (attempt 2)
+2025-08-28 14:42:35,585 - scanner.pipeline_orchestrator - WARNING - Stage graph_building: Attempt 2 failed: 'CodeGraphManager' object has no attribute '_graph_cache'
+2025-08-28 14:42:37,587 - scanner.pipeline_orchestrator - INFO - Stage graph_building: Starting (attempt 3)
+2025-08-28 14:42:37,755 - scanner.pipeline_orchestrator - WARNING - Stage graph_building: Attempt 3 failed: 'CodeGraphManager' object has no attribute '_graph_cache'
+2025-08-28 14:42:41,756 - scanner.pipeline_orchestrator - INFO - Stage graph_building: Starting (attempt 4)
+2025-08-28 14:42:41,913 - scanner.pipeline_orchestrator - WARNING - Stage graph_building: Attempt 4 failed: 'CodeGraphManager' object has no attribute '_graph_cache'

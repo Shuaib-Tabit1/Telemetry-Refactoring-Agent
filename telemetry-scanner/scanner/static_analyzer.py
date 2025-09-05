@@ -9,7 +9,53 @@ from typing import List, Dict, Any, Optional, Tuple
 # IMPORTANT: Update this path to point to your compiled C# tool
 ROSLYN_TOOL_PATH = "~/Documents/TRA/CodeGraphBuilder/bin/Release/net9.0/CodeGraphBuilder.dll"
 # Path where the code graph will be saved/read
-CODE_GRAPH_PATH = "codegraph.json"
+# Define a function to get the best available code graph path
+def get_best_code_graph_path() -> str:
+    """Find the best available code graph file."""
+    print("[DEBUG] get_best_code_graph_path: Starting search for best code graph...")
+    
+    # First try the main codegraph.json
+    main_graph = Path("codegraph.json")
+    print(f"[DEBUG] get_best_code_graph_path: Checking main graph: {main_graph}")
+    if main_graph.exists():
+        size = main_graph.stat().st_size
+        print(f"[DEBUG] get_best_code_graph_path: Main graph exists, size: {size} bytes")
+        if size > 100:  # Non-empty file
+            print(f"[DEBUG] get_best_code_graph_path: Using main graph: {main_graph}")
+            return str(main_graph)
+        else:
+            print(f"[DEBUG] get_best_code_graph_path: Main graph too small ({size} bytes), looking for cached graphs")
+    else:
+        print(f"[DEBUG] get_best_code_graph_path: Main graph does not exist")
+    
+    # Look for cached code graphs
+    cache_dir = Path(".cache/code-graphs")
+    print(f"[DEBUG] get_best_code_graph_path: Checking cache directory: {cache_dir}")
+    if cache_dir.exists():
+        print(f"[DEBUG] get_best_code_graph_path: Cache directory exists")
+        # Find the most recent atlas-monorepo graph
+        atlas_graphs = list(cache_dir.glob("atlas-monorepo-*.json"))
+        print(f"[DEBUG] get_best_code_graph_path: Found {len(atlas_graphs)} atlas graphs: {[g.name for g in atlas_graphs]}")
+        if atlas_graphs:
+            # Use the most recent one (by name, which should be timestamp-based)
+            latest_graph = max(atlas_graphs, key=lambda x: x.name)
+            size = latest_graph.stat().st_size
+            print(f"[DEBUG] get_best_code_graph_path: Latest graph: {latest_graph}, size: {size} bytes")
+            if size > 100:  # Non-empty file
+                print(f"[DEBUG] get_best_code_graph_path: Using cached graph: {latest_graph}")
+                return str(latest_graph)
+            else:
+                print(f"[DEBUG] get_best_code_graph_path: Latest graph too small ({size} bytes)")
+        else:
+            print(f"[DEBUG] get_best_code_graph_path: No atlas graphs found in cache")
+    else:
+        print(f"[DEBUG] get_best_code_graph_path: Cache directory does not exist")
+    
+    print(f"[DEBUG] get_best_code_graph_path: Falling back to default: codegraph.json")
+    return "codegraph.json"  # Fallback to default
+
+CODE_GRAPH_PATH = get_best_code_graph_path()
+print(f"[DEBUG] static_analyzer: CODE_GRAPH_PATH set to: {CODE_GRAPH_PATH}")
 # Cache directory
 CACHE_DIR = Path(".cache/code-graphs")
 
@@ -300,38 +346,89 @@ def build_monorepo_graph(project_paths: List[str], force_rebuild: bool = False):
 # (The 'expand_with_code_graph' function also needs this fix)
 def expand_with_code_graph(seed_files: List[Path]) -> List[Path]:
     """
-    Takes a list of seed files and uses the pre-built code graph to find all related files.
+    Takes a list of seed files and uses the cached code graph to find all related files efficiently.
     """
+    print(f"[DEBUG] expand_with_code_graph: Starting expansion with {len(seed_files)} seed files")
+    print(f"[DEBUG] expand_with_code_graph: Seed files: {[str(f) for f in seed_files]}")
+    
     if not seed_files:
+        print(f"[DEBUG] expand_with_code_graph: No seed files provided, returning empty list")
         return []
         
-    print(f"Expanding {len(seed_files)} seed file(s) with the Code Graph...")
+    print(f"Expanding {len(seed_files)} seed file(s) with cached Code Graph...")
     
-    # --- NEW: Expand the user path here as well ---
-    expanded_tool_path = str(Path(ROSLYN_TOOL_PATH).expanduser())
+    # Use the cached code graph manager for efficient expansion
+    print(f"[DEBUG] expand_with_code_graph: Importing code_graph_manager")
+    from .code_graph_manager import code_graph_manager
     
-    command = [
-        "dotnet",
-        expanded_tool_path, # Use the corrected, expanded path
-        "query",
-        "--graph-file",
-        CODE_GRAPH_PATH,
-        "--seed-files"
-    ]
-    # Convert paths to strings, resolve them, and replace backslashes with forward slashes
-    command.extend([str(p.resolve()).replace('\\', '/') for p in seed_files])
-
-    try:
-        result = subprocess.run(command, capture_output=True, text=True, check=True)
-        expanded_paths_str = json.loads(result.stdout)
-        expanded_paths = [Path(p) for p in expanded_paths_str]
-        print(f"Code Graph expanded the list to {len(expanded_paths)} total files.")
-        return expanded_paths
-    except FileNotFoundError:
-        print(f"Warning: Code graph file not found at '{CODE_GRAPH_PATH}'. Skipping expansion.")
+    print(f"[DEBUG] expand_with_code_graph: Loading graph data from: {CODE_GRAPH_PATH}")
+    graph_data = code_graph_manager.get_graph_data(CODE_GRAPH_PATH)
+    if not graph_data:
+        print(f"[DEBUG] expand_with_code_graph: Failed to load graph data, using seed files only")
+        print(f"Warning: Could not load code graph from '{CODE_GRAPH_PATH}'. Using seed files only.")
         return seed_files
-    except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
-        print(f"Code Graph expansion failed: {e.stderr}")
-        return seed_files
+    
+    print(f"[DEBUG] expand_with_code_graph: Graph data loaded successfully")
+    print(f"[DEBUG] expand_with_code_graph: Dependency graph has {graph_data.dependency_graph.number_of_nodes()} nodes, {graph_data.dependency_graph.number_of_edges()} edges")
+    
+    # Convert seed files to strings for comparison
+    seed_files_str = {str(f.resolve()) for f in seed_files}
+    expanded_files = set(seed_files_str)  # Start with seed files
+    print(f"[DEBUG] expand_with_code_graph: Seed files as strings: {list(seed_files_str)}")
+    
+    # Use the dependency graph for efficient expansion
+    dependency_graph = graph_data.dependency_graph
+    
+    # For each seed file, find all connected files (both predecessors and successors)
+    for seed_file_str in seed_files_str:
+        print(f"[DEBUG] expand_with_code_graph: Processing seed file: {seed_file_str}")
+        if seed_file_str in dependency_graph:
+            print(f"[DEBUG] expand_with_code_graph: Seed file found in dependency graph")
+            
+            # Add files that depend on this seed file (predecessors)
+            predecessors = set(dependency_graph.predecessors(seed_file_str))
+            print(f"[DEBUG] expand_with_code_graph: Found {len(predecessors)} predecessors")
+            expanded_files.update(predecessors)
+            
+            # Add files that this seed file depends on (successors)
+            successors = set(dependency_graph.successors(seed_file_str))
+            print(f"[DEBUG] expand_with_code_graph: Found {len(successors)} successors")
+            expanded_files.update(successors)
+            
+            # Add second-degree connections for better coverage
+            connected_files = list(predecessors) + list(successors)
+            print(f"[DEBUG] expand_with_code_graph: Processing {len(connected_files)} connected files for second-degree connections")
+            second_level_count = 0
+            for connected_file in connected_files:
+                if connected_file in dependency_graph:
+                    # Add one more level of connections
+                    second_level = set(dependency_graph.predecessors(connected_file))
+                    second_level.update(dependency_graph.successors(connected_file))
+                    second_level_count += len(second_level)
+                    expanded_files.update(second_level)
+            print(f"[DEBUG] expand_with_code_graph: Added {second_level_count} second-degree connections")
+        else:
+            print(f"[DEBUG] expand_with_code_graph: Seed file NOT found in dependency graph")
+    
+    print(f"[DEBUG] expand_with_code_graph: Total expanded files before filtering: {len(expanded_files)}")
+    
+    # Convert back to Path objects and filter existing files
+    result_files = []
+    skipped_files = []
+    for file_str in expanded_files:
+        try:
+            path_obj = Path(file_str)
+            if path_obj.exists():
+                result_files.append(path_obj)
+            else:
+                skipped_files.append(file_str)
+        except Exception as e:
+            print(f"[DEBUG] expand_with_code_graph: Error processing file {file_str}: {e}")
+            skipped_files.append(file_str)
+    
+    print(f"[DEBUG] expand_with_code_graph: Final result: {len(result_files)} existing files")
+    print(f"[DEBUG] expand_with_code_graph: Skipped {len(skipped_files)} non-existing files")
+    print(f"✅ Code Graph expanded {len(seed_files)} seed files to {len(result_files)} total files using cached data")
+    return result_files
 
 # (run_static_analysis can be removed as we are using the graph-based approach)

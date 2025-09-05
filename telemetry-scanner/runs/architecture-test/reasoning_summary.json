@@ -1,0 +1,18 @@
+{
+  "selected_files": [
+    "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Engine/WorkflowInstance.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Core.ServiceFramework/AbstractServicedComponent.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/VideoInfo/VideoInfo.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Service/V1/WinsService.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/DetectTypeProcessor.Trace.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/CustomRules/DocumentRules/DocumentRuleAnalyzer.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/ESignatureService/ESignatureComponent.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain/Repository/AgreementRepository/AgreementRepository.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain/Model/SecurityTable.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/API.Content/Global.asax.cs"
+  ],
+  "selection_reasoning": "These files give us direct access to the HTTP pipeline and any tracing helpers, enabling us to attach HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION to the existing HTTP request span.",
+  "patch_reasoning": "\u2022 DelegatingHandler \u2013 discarded because Global.asax already available and simpler.",
+  "diff_length": 801,
+  "explanation_length": 2198
+}

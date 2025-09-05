@@ -1,0 +1,21 @@
+*** Begin Patch
+*** Add File: Context/ICurrentCustomerContext.cs
++namespace IamTickets.Context;
++
++/// <summary>
++/// Exposes the customer/account identifiers that must be attached to every span.
++/// </summary>
++public interface ICurrentCustomerContext
++{
++    /// <summary>
++    /// Current customer identifier (nullable when the request is unauthenticated).
++    /// </summary>
++    string? CustomerId { get; }
++
++    /// <summary>
++    /// Current account identifier (nullable when the request is unauthenticated).
++    /// </summary>
++    string? AccountId { get; }
++}
+
+*** End Patch

@@ -1,0 +1,19 @@
+{
+  "overall_score": 0.6333333333333333,
+  "risk_assessment": "HIGH",
+  "compliance_status": {
+    "opentelemetry": false,
+    "security": true,
+    "style": true
+  },
+  "recommendations": [
+    "Address failing tests before deployment",
+    "Improve implementation for low-scoring areas",
+    "Validate telemetry data collection in staging environment"
+  ],
+  "test_summary": {
+    "total_tests": 12,
+    "passed_tests": 7,
+    "failed_tests": 5
+  }
+}

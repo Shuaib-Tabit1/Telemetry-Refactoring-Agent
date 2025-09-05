@@ -1,0 +1,18 @@
+{
+  "selected_files": [
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/DetectTypeProcessor.Trace.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/VideoInfoProcessor.Trace.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/DetectTypeProcessor.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Engine/WorkflowInstance.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Service/V1/WinsService.Trace.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/MessageWorkerService/DispatchedWorker.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/ScmHttpApplication.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Core.Types/Constants.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain/Persistence/Model/QueueStatePersistence.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WebSoap/WebServices/v3/SpringCMService.asmx.cs"
+  ],
+  "selection_reasoning": "\u2022 Adding attributes inside individual Controller/Handler classes, but those are not listed in the candidate set.",
+  "patch_reasoning": "No behavioural change outside telemetry \u2013 existing functionality remains intact.",
+  "diff_length": 424,
+  "explanation_length": 2028
+}

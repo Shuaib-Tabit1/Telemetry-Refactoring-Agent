@@ -1,0 +1,150 @@
+{
+  "basic_intent": {
+    "issue_category": "INSTRUMENTATION",
+    "static_analysis_query": {
+      "find_method_call": "SetTag"
+    },
+    "semantic_description": "Add HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION headers as attributes to existing HTTP server spans in the CLM web application.",
+    "search_keywords": [
+      "HTTP_REFERER",
+      "HTTP_RESPONSE_REDIRECT_LOCATION",
+      "SetTag",
+      "ActivitySource",
+      "OpenTelemetry",
+      "middleware"
+    ],
+    "telemetry_operation": {
+      "type": "span",
+      "target_name": null,
+      "action": "ADD_ATTRIBUTES",
+      "attributes_to_add": [
+        {
+          "name": "HTTP_REFERER",
+          "value_source": "Request.Headers[\"Referer\"]"
+        },
+        {
+          "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+          "value_source": "Response.Headers[\"Location\"]"
+        }
+      ],
+      "new_span_name": null,
+      "new_metric_details": {}
+    }
+  },
+  "enhanced_analysis": {
+    "confidence": "high",
+    "operation_type": "multi_file",
+    "complexity_score": 4,
+    "estimated_files": 3,
+    "validation_issues": [],
+    "suggestions": [],
+    "sub_tasks": [
+      {
+        "order": 1,
+        "name": "Locate Telemetry Boot-Strap Code",
+        "action": "locate_configuration",
+        "description": "Search the CLM web solution for the OpenTelemetry bootstrap (AddOpenTelemetry, ActivitySource, AddAspNetCoreInstrumentation, etc.). Identify the exact file where custom ASP.NET enrichment is already happening or can be added.",
+        "search_keywords": [
+          "AddOpenTelemetry",
+          "AddAspNetCoreInstrumentation",
+          "ActivitySource",
+          "SetTag"
+        ],
+        "expected_files": [
+          "Startup.cs",
+          "Program.cs",
+          "TelemetryExtensions.cs",
+          "TracingConfig.cs"
+        ],
+        "validation_criteria": "The place in the pipeline where an Activity/Span is available for enrichment is clearly identified."
+      },
+      {
+        "order": 2,
+        "name": "Decide Injection Point",
+        "action": "design",
+        "description": "Choose the safest single point that sees both the inbound request and final outbound response. 80% of our codebases already add a custom ASP.NET Core middleware for correlation IDs\u2014re-use that if available; otherwise create `RedirectEnrichmentMiddleware` right after `UseRouting()` and before `UseEndpoints()`.",
+        "dependencies": [
+          1
+        ],
+        "validation_criteria": "Middleware location diagram added to PR description showing request flow and confirming no double-instrumentation."
+      },
+      {
+        "order": 3,
+        "name": "Implement Middleware / Enricher",
+        "action": "implement_changes",
+        "description": "Inside the chosen middleware do:\n\u2022 At request entry: read `context.Request.Headers[\"Referer\"]`; if not null/empty add `activity.SetTag(\"HTTP_REFERER\", referer)`.\n\u2022 Execute `await _next(context)`.\n\u2022 After `_next`: if `context.Response.StatusCode` in [301,302,303,307,308] and `context.Response.Headers[\"Location\"]` exists, add `activity.SetTag(\"HTTP_RESPONSE_REDIRECT_LOCATION\", location)`.\n\u2022 Guard with `if (Activity.Current != null)`.\n\u2022 Null-safety: only set tag when value is not null or empty.\n\u2022 Attribute names must exactly match ticket.",
+        "code_snippets": [
+          "var activity = Activity.Current;",
+          "if (!string.IsNullOrEmpty(referer)) activity?.SetTag(\"HTTP_REFERER\", referer);",
+          "if (redirectCodes.Contains(ctx.Response.StatusCode)) activity?.SetTag(\"HTTP_RESPONSE_REDIRECT_LOCATION\", location);"
+        ],
+        "expected_files_modified": [
+          "RedirectEnrichmentMiddleware.cs",
+          "Startup.cs (Register middleware)"
+        ],
+        "dependencies": [
+          2
+        ],
+        "validation_criteria": "Project builds locally and unit tests compile."
+      },
+      {
+        "order": 4,
+        "name": "Unit / Integration Tests",
+        "action": "test",
+        "description": "Add a minimal integration test using WebApplicationFactory that issues:\n\u2022 a normal request with Referer header \u2192 assert span attribute.\n\u2022 a controller that returns Redirect(\"/target\") \u2192 assert both status code 302 and location tag present.\nUse `OpenTelemetry.Instrumentation.AspNetCore.Tests` pattern with an `InMemoryExporter`.",
+        "expected_files_added": [
+          "RedirectEnrichmentTests.cs"
+        ],
+        "dependencies": [
+          3
+        ],
+        "validation_criteria": "Tests pass in CI, confirm tags captured."
+      },
+      {
+        "order": 5,
+        "name": "Performance / Allocation Check",
+        "action": "perf_review",
+        "description": "Run `dotnet-counters` or existing k6 perf suite for 5k RPS against a dev build. Verify no noticeable increase (>2 %) in Gen2 collections or average latency.",
+        "dependencies": [
+          3
+        ],
+        "validation_criteria": "Perf numbers attached to PR and approved by perf champion."
+      },
+      {
+        "order": 6,
+        "name": "Deploy to Demo Environment",
+        "action": "deploy_demo",
+        "description": "Merge feature branch behind feature flag `Telemetry.RedirectAttributes`. Publish to Demo slot. Turn flag on only for Demo.",
+        "dependencies": [
+          4,
+          5
+        ],
+        "validation_criteria": "Deployment pipeline green."
+      },
+      {
+        "order": 7,
+        "name": "Live Validation in Demo",
+        "action": "validate_kusto",
+        "description": "Run the expected Kusto query from ticket. Confirm that for /clm/Documents/BrowseDocuments.aspx spans now include HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION when appropriate. Attach screenshots to ticket.",
+        "dependencies": [
+          6
+        ],
+        "validation_criteria": "Attributes visible in OtlpSpanEvents; no null-reference exceptions in logs."
+      },
+      {
+        "order": 8,
+        "name": "Rollout to All Environments",
+        "action": "deploy_prod",
+        "description": "Gradually enable the feature flag: QA \u2192 Stage \u2192 Prod. Monitor Application Insights failures and latency dashboards for 24 h after each stage.",
+        "dependencies": [
+          7
+        ],
+        "validation_criteria": "No error spike (<1 % increase) and attributes confirmed in Prod Kusto."
+      }
+    ],
+    "contextual_hints": [
+      "Finding the exact point in the existing OpenTelemetry setup where the Activity object is still in scope after the response status code is known",
+      "Guaranteeing that enrichment runs for every request without introducing double-instrumentation when other middleware also calls SetTag"
+    ]
+  }
+}

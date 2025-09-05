@@ -1,0 +1,167 @@
+{
+  "basic_intent": {
+    "issue_category": "INSTRUMENTATION",
+    "static_analysis_query": {
+      "find_method_call": "SetTag"
+    },
+    "semantic_description": "Add HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION attributes to existing CLM web application HTTP request spans.",
+    "search_keywords": [
+      "HTTP_REFERER",
+      "HTTP_RESPONSE_REDIRECT_LOCATION",
+      "SetTag",
+      "ActivitySource",
+      "OpenTelemetry",
+      "middleware"
+    ],
+    "telemetry_operation": {
+      "type": "span",
+      "target_name": "clm-web http request span",
+      "action": "ADD_ATTRIBUTES",
+      "attributes_to_add": [
+        {
+          "name": "HTTP_REFERER",
+          "value_source": "Request.Headers[\"Referer\"]"
+        },
+        {
+          "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+          "value_source": "Response.Headers[\"Location\"]"
+        }
+      ],
+      "new_span_name": null,
+      "new_metric_details": {}
+    }
+  },
+  "enhanced_analysis": {
+    "confidence": "high",
+    "operation_type": "multi_file",
+    "complexity_score": 4,
+    "estimated_files": 3,
+    "validation_issues": [],
+    "suggestions": [],
+    "sub_tasks": [
+      {
+        "order": 1,
+        "name": "Codebase discovery & ownership confirmation",
+        "action": "locate_configuration",
+        "description": "Search the clm-web solution for existing OpenTelemetry registration, ActivitySource creation, and any custom ASP.NET middleware that already uses Activity/SetTag. Confirm which team owns each file.",
+        "commands_or_tools": [
+          "ripgrep -i \"ActivitySource\" src/",
+          "ripgrep -i \"SetTag(\" src/",
+          "ripgrep -i \"UseOpenTelemetry\" src/",
+          "grep \"services.AddOpenTelemetry\" -R src/"
+        ],
+        "expected_files": [
+          "Startup.cs / Program.cs (.NET 6+)",
+          "TelemetryExtensions.cs (or similar)",
+          "RequestTrackingMiddleware.cs (if already present)"
+        ],
+        "validation_criteria": "List of candidate files & owners is posted in ticket comments"
+      },
+      {
+        "order": 2,
+        "name": "Design & decision: enrichment point",
+        "action": "design_change",
+        "description": "Decide whether to: (a) extend existing enrichment delegate, (b) add another IHostedService, or (c) introduce dedicated middleware. Pick the solution that attaches BOTH request and response headers to the same Activity instance with minimal perf impact.",
+        "inputs": [
+          "Findings from step 1",
+          "OTel .NET docs"
+        ],
+        "output": "Short design document linked to the ticket",
+        "validation_criteria": "Design doc reviewed & \ud83d\udc4d by at least 1 senior eng and 1 SRE"
+      },
+      {
+        "order": 3,
+        "name": "Implementation \u2013 request header enrichment",
+        "action": "implement_changes",
+        "dependencies": [
+          2
+        ],
+        "description": "Inside chosen enrichment hook obtain `HttpContext.Request.Headers[\"Referer\"]`. If the header exists and is not empty, call `activity.SetTag(\"HTTP_REFERER\", refererValue)`.",
+        "code_snippet": "// inside enrichment delegate\nvar referer = context.Request.Headers[\"Referer\"].FirstOrDefault();\nif (!string.IsNullOrEmpty(referer))\n    activity.SetTag(\"HTTP_REFERER\", referer);\nelse\n    activity.SetTag(\"HTTP_REFERER\", string.Empty);",
+        "validation_criteria": "Unit test verifies tag exists for a mocked request with Referer header"
+      },
+      {
+        "order": 4,
+        "name": "Implementation \u2013 response redirect enrichment",
+        "action": "implement_changes",
+        "dependencies": [
+          2
+        ],
+        "description": "Augment/insert terminal middleware so that after `await _next(context)` completes, we can read `context.Response.StatusCode` and `context.Response.Headers[\"Location\"]`. When status code is 3xx (301,302,303,307,308) and Location header present, set the tag.",
+        "code_snippet": "// after next middleware\nif (context.Response.StatusCode >= 300 && context.Response.StatusCode < 400)\n{\n    var location = context.Response.Headers[\"Location\"].FirstOrDefault();\n    if (!string.IsNullOrEmpty(location))\n        activity.SetTag(\"HTTP_RESPONSE_REDIRECT_LOCATION\", location);\n}\n",
+        "edge_cases": [
+          "Location header missing \u2013 set tag to empty string",
+          "Async redirects where response has not yet started \u2013 ensure middleware order allows reading header"
+        ],
+        "validation_criteria": "Unit test covers 302 + Location case and 200 case (tag absent)"
+      },
+      {
+        "order": 5,
+        "name": "Static code analysis & security review",
+        "action": "static_analysis",
+        "dependencies": [
+          3,
+          4
+        ],
+        "description": "Run `dotnet format`, `dotnet build -warnaserror`, and company security linter to ensure no sensitive data leakage beyond header contents already logged elsewhere.",
+        "validation_criteria": "No new critical or high security warnings"
+      },
+      {
+        "order": 6,
+        "name": "Performance sanity test",
+        "action": "bench_test",
+        "dependencies": [
+          4
+        ],
+        "description": "Run k6/locust load test (1k RPS for 5 minutes) comparing baseline vs branch. Acceptable extra latency \u2264 0.5 ms per request and <1 % CPU.",
+        "validation_criteria": "Results attached to ticket; thresholds not exceeded"
+      },
+      {
+        "order": 7,
+        "name": "Merge & deploy to Demo",
+        "action": "deploy_demo",
+        "dependencies": [
+          5,
+          6
+        ],
+        "description": "Open PR, obtain 2 approvals, squash-merge. CI/CD pipeline auto-deploys to Demo env.",
+        "validation_criteria": "Deployment completes with green pipeline"
+      },
+      {
+        "order": 8,
+        "name": "In-flight verification in Kusto",
+        "action": "observe_telemetry",
+        "dependencies": [
+          7
+        ],
+        "description": "Run the expected query: \n```kusto\nOtlpSpanEvents\n| where Environment == \"Demo\"\n| where url_path == \"/clm/Documents/BrowseDocuments.aspx\"\n| where http_status_code > 200\n| project Timestamp,url_path,http_status_code,HTTP_REFERER,HTTP_RESPONSE_REDIRECT_LOCATION\n| take 20\n```",
+        "validation_criteria": "Both attributes populate for at least 10 distinct requests"
+      },
+      {
+        "order": 9,
+        "name": "Rollout to all environments",
+        "action": "deploy_prod",
+        "dependencies": [
+          8
+        ],
+        "description": "Progressive promotion: Demo \u2192 UAT \u2192 Prod with 1-hour observation window each.",
+        "validation_criteria": "No error spike, no P95 latency regression >2 %"
+      },
+      {
+        "order": 10,
+        "name": "Post-deployment monitoring & knowledge base update",
+        "action": "post_monitor",
+        "dependencies": [
+          9
+        ],
+        "description": "Add alert in Grafana/Kusto to watch for drop-to-zero of new tags. Update internal wiki page for CLM telemetry conventions.",
+        "validation_criteria": "Alert configured; wiki link added to ticket \u2013 ticket closed"
+      }
+    ],
+    "contextual_hints": [
+      "Hooking the logic at the correct point in the ASP.NET pipeline so that BOTH the incoming request headers and the final response headers are available on the same Activity instance",
+      "Ensuring tags are added only once and are always present for redirect responses, including async/streaming scenarios",
+      "Gracefully handling missing or empty headers without throwing, and avoiding null-ref exceptions in hot code paths"
+    ]
+  }
+}

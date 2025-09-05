@@ -1,0 +1,21 @@
+2025-08-28 14:47:27,241 - scanner.pipeline_orchestrator - INFO - Stage ticket_processing: Starting (attempt 1)
+2025-08-28 14:47:27,242 - scanner.pipeline_orchestrator - INFO - Stage ticket_processing: Completed in 0.00s
+2025-08-28 14:47:27,242 - scanner.pipeline_orchestrator - INFO - Stage intent_extraction: Starting (attempt 1)
+2025-08-28 14:47:37,012 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-28 14:47:43,842 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-28 14:48:01,373 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-28 14:48:01,379 - scanner.pipeline_orchestrator - INFO - Stage intent_extraction: Completed in 34.13s
+2025-08-28 14:48:01,380 - scanner.pipeline_orchestrator - INFO - Stage project_parsing: Starting (attempt 1)
+2025-08-28 14:48:01,388 - scanner.pipeline_orchestrator - INFO - Stage project_parsing: Completed in 0.01s
+2025-08-28 14:48:01,389 - scanner.pipeline_orchestrator - INFO - Stage graph_building: Starting (attempt 1)
+2025-08-28 14:54:32,291 - scanner.pipeline_orchestrator - INFO - Stage graph_building: Completed in 390.90s
+2025-08-28 14:54:32,334 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: mps
+2025-08-28 14:54:32,335 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-08-28 14:54:48,725 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 1)
+2025-08-28 14:54:51,898 - scanner.pipeline_orchestrator - WARNING - Stage intelligent_search: Attempt 1 failed: 'dict' object has no attribute 'lower'
+2025-08-28 14:54:52,900 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 2)
+2025-08-28 14:54:56,093 - scanner.pipeline_orchestrator - WARNING - Stage intelligent_search: Attempt 2 failed: 'dict' object has no attribute 'lower'
+2025-08-28 14:54:58,094 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 3)
+2025-08-28 14:55:01,248 - scanner.pipeline_orchestrator - WARNING - Stage intelligent_search: Attempt 3 failed: 'dict' object has no attribute 'lower'
+2025-08-28 14:55:05,249 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 4)
+2025-08-28 14:55:08,396 - scanner.pipeline_orchestrator - WARNING - Stage intelligent_search: Attempt 4 failed: 'dict' object has no attribute 'lower'

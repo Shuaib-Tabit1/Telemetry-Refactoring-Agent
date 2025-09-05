@@ -1,0 +1,173 @@
+{
+  "basic_intent": {
+    "issue_category": "INSTRUMENTATION",
+    "static_analysis_query": {
+      "find_method_call": "SetTag"
+    },
+    "semantic_description": "Add HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION attributes to existing HTTP request spans in the CLM web app.",
+    "search_keywords": [
+      "HTTP_REFERER",
+      "HTTP_RESPONSE_REDIRECT_LOCATION",
+      "SetTag",
+      "Activity",
+      "OpenTelemetry",
+      "redirect"
+    ],
+    "telemetry_operation": {
+      "type": "span",
+      "target_name": "HTTP request span",
+      "action": "ADD_ATTRIBUTES",
+      "attributes_to_add": [
+        {
+          "name": "HTTP_REFERER",
+          "value_source": "Request.Headers[\"Referer\"]"
+        },
+        {
+          "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+          "value_source": "Response.Headers[\"Location\"]"
+        }
+      ],
+      "new_span_name": null,
+      "new_metric_details": {}
+    }
+  },
+  "enhanced_analysis": {
+    "confidence": "high",
+    "operation_type": "multi_file",
+    "complexity_score": 4,
+    "estimated_files": 2,
+    "validation_issues": [],
+    "suggestions": [],
+    "sub_tasks": [
+      {
+        "order": 1,
+        "action": "code_discovery",
+        "description": "Locate all OpenTelemetry/Activity instrumentation initialization code in clm-web (Startup.cs, Program.cs, *OpenTelemetry*.cs, *Telemetry*.cs). Confirm where the ASP-NET Core `AspNetCoreInstrumentationOptions.Enrich` or custom middleware is defined.",
+        "expected_files": [
+          "src/clm-web/Startup.cs",
+          "src/clm-web/Telemetry/OpenTelemetryExtensions.cs",
+          "src/clm-web/Middleware/RequestActivityMiddleware.cs"
+        ],
+        "validation_criteria": [
+          "File(s) with AddOpenTelemetryTracing() or ActivitySource detected",
+          "Current Enrich/SetTag logic understood"
+        ]
+      },
+      {
+        "order": 2,
+        "action": "design_capture_logic",
+        "description": "Decide where to inject the two new tags. Prefer a single point that already has access to both HttpContext.Request and HttpContext.Response (custom middleware or AspNetCoreInstrumentationOptions.Enrich delegate). Sketch pseudo-code and review with team.",
+        "dependencies": [
+          1
+        ],
+        "validation_criteria": [
+          "Design document / PR comment approved by senior dev",
+          "Confirms tags will be set on the existing server span (not a child span)"
+        ]
+      },
+      {
+        "order": 3,
+        "action": "implement_HTTP_REFERER_tag",
+        "description": "In the chosen enrichment location, read `context.Request.Headers[\"Referer\"]` and, if non-empty, call `activity.SetTag(\"HTTP_REFERER\", refererValue)`.",
+        "dependencies": [
+          2
+        ],
+        "expected_code_snippet": "if (!string.IsNullOrWhiteSpace(referer)) activity.SetTag(\"HTTP_REFERER\", referer);",
+        "validation_criteria": [
+          "Null / empty handled gracefully",
+          "No duplicate tag keys"
+        ]
+      },
+      {
+        "order": 4,
+        "action": "implement_HTTP_RESPONSE_REDIRECT_LOCATION_tag",
+        "description": "Hook `HttpContext.Response.OnStarting` (or equivalent) so the final response headers are available. If `context.Response.StatusCode` is 301,302,303,307,308 and `Location` header exists, set `activity.SetTag(\"HTTP_RESPONSE_REDIRECT_LOCATION\", locationValue)`.",
+        "dependencies": [
+          2
+        ],
+        "validation_criteria": [
+          "Tag set only for redirect status codes",
+          "Works for both sync and async redirect helpers (e.g., Redirect(), ChallengeResult etc.)"
+        ]
+      },
+      {
+        "order": 5,
+        "action": "unit_and_integration_tests",
+        "description": "Add automated tests using in-memory TestServer to verify: (a) normal 200 request has HTTP_REFERER tag when header passed, (b) redirect response has both tags, (c) missing headers do not add empty tags.",
+        "dependencies": [
+          3,
+          4
+        ],
+        "expected_files": [
+          "tests/TelemetryMiddlewareTests.cs"
+        ],
+        "validation_criteria": [
+          "All new tests pass locally and in CI pipeline"
+        ]
+      },
+      {
+        "order": 6,
+        "action": "local_manual_validation",
+        "description": "Run clm-web locally with OTLP exporter pointed to local collector/Jaeger. Generate test traffic with and without referer and redirect. Inspect spans in Jaeger to confirm new attributes.",
+        "dependencies": [
+          5
+        ],
+        "validation_criteria": [
+          "Both attributes visible with correct values in Jaeger or Zipkin"
+        ]
+      },
+      {
+        "order": 7,
+        "action": "code_review_and_security_check",
+        "description": "Open PR, request review from telemetry and security/privacy champions to ensure URL data exposure is acceptable.",
+        "dependencies": [
+          6
+        ],
+        "validation_criteria": [
+          "At least two approvals including security",
+          "No PII concerns raised"
+        ]
+      },
+      {
+        "order": 8,
+        "action": "deploy_to_demo",
+        "description": "Release build to Demo environment behind kill switch feature flag `Telemetry.HttpRedirectTags` (true by default).",
+        "dependencies": [
+          7
+        ],
+        "validation_criteria": [
+          "Deployment successful",
+          "Feature flag toggles tags on/off in real time"
+        ]
+      },
+      {
+        "order": 9,
+        "action": "post_deploy_validation_demo",
+        "description": "Execute expected Kusto query and confirm columns HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION populated for /clm/Documents/BrowseDocuments.aspx and SSOEndpoint.ashx routes.",
+        "dependencies": [
+          8
+        ],
+        "validation_criteria": [
+          "Kusto returns >0 rows with non-null attribute values",
+          "No performance alerts triggered (CPU, latency)"
+        ]
+      },
+      {
+        "order": 10,
+        "action": "rollout_to_all_environments",
+        "description": "Stage \u2192 Prod promotion once Demo soak test (24h) passes. Monitor dashboards and error budget.",
+        "dependencies": [
+          9
+        ],
+        "validation_criteria": [
+          "Attributes present in all envs",
+          "No regression detected in Apdex or error rate"
+        ]
+      }
+    ],
+    "contextual_hints": [
+      "Capturing the final Response.Headers[\"Location\"] value after it is set but before the span ends (may require hooking into OnStarting or similar ASP.NET events)",
+      "Making sure the new tags land on the existing HTTP server span rather than creating duplicate spans or child spans"
+    ]
+  }
+}

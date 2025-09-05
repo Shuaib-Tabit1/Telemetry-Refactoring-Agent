@@ -1,0 +1,225 @@
+{
+  "basic_intent": {
+    "issue_category": "INSTRUMENTATION",
+    "static_analysis_query": {
+      "find_method_call": "SetTag"
+    },
+    "semantic_description": "Add HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION tags to existing HTTP request spans in the CLM web application.",
+    "search_keywords": [
+      "HTTP_REFERER",
+      "HTTP_RESPONSE_REDIRECT_LOCATION",
+      "SetTag",
+      "ActivitySource",
+      "OpenTelemetry"
+    ],
+    "telemetry_operation": {
+      "type": "span",
+      "target_name": "http-request",
+      "action": "ADD_ATTRIBUTES",
+      "attributes_to_add": [
+        {
+          "name": "HTTP_REFERER",
+          "value_source": "Request.Headers[\"Referer\"]"
+        },
+        {
+          "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+          "value_source": "Response.Headers[\"Location\"]"
+        }
+      ],
+      "new_span_name": null,
+      "new_metric_details": {}
+    }
+  },
+  "enhanced_analysis": {
+    "confidence": "high",
+    "operation_type": "multi_file",
+    "complexity_score": 4,
+    "estimated_files": 4,
+    "validation_issues": [],
+    "suggestions": [],
+    "sub_tasks": [
+      {
+        "order": 1,
+        "name": "Codebase reconnaissance",
+        "action": "locate_configuration",
+        "description": "Identify where HTTP-server spans are currently created or enriched.",
+        "tasks": [
+          "Search for ActivitySource/SetTag/AddTag in clm-web solution.",
+          "Locate OpenTelemetry builder (e.g. AddOpenTelemetry(), TracerProviderBuilder).",
+          "Locate any custom ASP.NET middleware already enriching spans."
+        ],
+        "expected_files": [
+          "Startup.cs|Program.cs",
+          "Telemetry/TelemetryExtensions.cs",
+          "Middleware/*Telemetry*.cs",
+          "appsettings*.json (OTLP exporter settings)"
+        ],
+        "owner": "Dev",
+        "validation_criteria": "Files and lines that own current span enrichment are documented."
+      },
+      {
+        "order": 2,
+        "name": "Decide enrichment technique",
+        "action": "design",
+        "description": "Pick the lowest-risk way to add two tags.",
+        "tasks": [
+          "Compare two options: (a) new custom middleware, (b) OTEL ASP.NET Enrich option.",
+          "Ensure selected technique runs BEFORE span is ended and AFTER response headers are final.",
+          "Document chosen approach in design note."
+        ],
+        "dependencies": [
+          1
+        ],
+        "owner": "Dev + Lead",
+        "validation_criteria": "Design note approved in PR discussion."
+      },
+      {
+        "order": 3,
+        "name": "Implement request header enrichment (HTTP_REFERER)",
+        "action": "code_change",
+        "description": "Read Referer header and set tag on current Activity.",
+        "code_snippet": "if (Activity.Current != null) { var referer = context.Request.Headers[\"Referer\"].FirstOrDefault(); if (!string.IsNullOrEmpty(referer)) Activity.Current.SetTag(\"HTTP_REFERER\", referer); }",
+        "special_notes": [
+          "Header key is \"Referer\", NOT \"Referrer\".",
+          "Do NOT create a child span."
+        ],
+        "dependencies": [
+          2
+        ],
+        "owner": "Dev",
+        "validation_criteria": "Unit test shows tag present when header exists; absent when header missing."
+      },
+      {
+        "order": 4,
+        "name": "Implement response header enrichment (HTTP_RESPONSE_REDIRECT_LOCATION)",
+        "action": "code_change",
+        "description": "Capture Location header for 30x responses using HttpContext.Response.OnStarting().",
+        "code_snippet": "context.Response.OnStarting(state => { var ctx = (HttpContext)state; if (Activity.Current != null && ctx.Response.StatusCode >= 300 && ctx.Response.StatusCode < 400) { var loc = ctx.Response.Headers[\"Location\"].FirstOrDefault(); if (!string.IsNullOrEmpty(loc)) Activity.Current.SetTag(\"HTTP_RESPONSE_REDIRECT_LOCATION\", loc); } return Task.CompletedTask; }, context);",
+        "dependencies": [
+          3
+        ],
+        "owner": "Dev",
+        "validation_criteria": "Integration test issues 302 response and verifies both status and tag."
+      },
+      {
+        "order": 5,
+        "name": "Null/Sensitive-data handling",
+        "action": "hardening",
+        "description": "Add defensive checks and optional regex redaction if URL contains tokens.",
+        "tasks": [
+          "Trim strings to max 2 kB.",
+          "Use TryAddTag extension pattern to avoid overwriting existing values."
+        ],
+        "dependencies": [
+          3,
+          4
+        ],
+        "owner": "Dev",
+        "validation_criteria": "Security review confirms no PII leakage."
+      },
+      {
+        "order": 6,
+        "name": "Update unit & integration tests",
+        "action": "test",
+        "description": "Extend TelemetryTests to cover new tags.",
+        "tasks": [
+          "Mock HttpContext with Referer + 302 Location header.",
+          "Assert tags appear in exported Activity.",
+          "Run dotnet test in CI."
+        ],
+        "dependencies": [
+          3,
+          4
+        ],
+        "owner": "QA",
+        "validation_criteria": "Pipeline passes; coverage delta >= 5%."
+      },
+      {
+        "order": 7,
+        "name": "Local & Dev environment validation",
+        "action": "manual_test",
+        "description": "Run clm-web locally; hit redirect pages; verify tags in OTLP debugger or console exporter.",
+        "dependencies": [
+          6
+        ],
+        "owner": "Dev",
+        "validation_criteria": "Both tags visible with correct values."
+      },
+      {
+        "order": 8,
+        "name": "Confirm exporter is not dropping custom tags",
+        "action": "config_review",
+        "description": "Check any attribute filters in OpenTelemetry Collector pipeline.",
+        "tasks": [
+          "Search for \"include_attributes\" / \"exclude_attributes\".",
+          "Update config map if needed."
+        ],
+        "dependencies": [
+          7
+        ],
+        "owner": "SRE",
+        "validation_criteria": "Tags survive end-to-end flow to Application Insights / Kusto."
+      },
+      {
+        "order": 9,
+        "name": "Pull Request & Security review",
+        "action": "code_review",
+        "description": "Open PR, add screenshots of working Kusto query.",
+        "dependencies": [
+          8
+        ],
+        "owner": "Dev + Security",
+        "validation_criteria": "PR approved with at least two reviewers."
+      },
+      {
+        "order": 10,
+        "name": "Deploy to Demo environment",
+        "action": "deploy",
+        "description": "Release clm-web build to Demo slot.",
+        "dependencies": [
+          9
+        ],
+        "owner": "Release Eng.",
+        "validation_criteria": "Successful Helm/ADO pipeline; site healthy."
+      },
+      {
+        "order": 11,
+        "name": "Post-deployment verification",
+        "action": "observability_check",
+        "description": "Run expected Kusto query and attach results in ticket.",
+        "kusto_query": "OtlpSpanEvents | where Environment == \"Demo\" | where url_path == \"/clm/Documents/BrowseDocuments.aspx\" | where http_status_code > 200 | project Timestamp, url_path, http_status_code, HTTP_REFERER, HTTP_RESPONSE_REDIRECT_LOCATION",
+        "dependencies": [
+          10
+        ],
+        "owner": "SRE",
+        "validation_criteria": "Query returns at least one row with both new columns non-null."
+      },
+      {
+        "order": 12,
+        "name": "Promote to all environments",
+        "action": "deploy_all",
+        "description": "Roll out to Stage and Prod following standard waves.",
+        "dependencies": [
+          11
+        ],
+        "owner": "Release Eng.",
+        "validation_criteria": "No error-rate regression; tags visible in Prod."
+      },
+      {
+        "order": 13,
+        "name": "Documentation & Close ticket",
+        "action": "doc",
+        "description": "Update internal telemetry wiki and changelog.",
+        "dependencies": [
+          12
+        ],
+        "owner": "Tech Writer",
+        "validation_criteria": "Docs published; ticket moved to Done."
+      }
+    ],
+    "contextual_hints": [
+      "Capturing the Response.Location header at the right moment (after it\u2019s set, before span ends)",
+      "Wiring new tags into the existing Activity without generating duplicate or child spans"
+    ]
+  }
+}

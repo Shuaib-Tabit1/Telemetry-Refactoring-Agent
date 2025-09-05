@@ -1,0 +1,85 @@
+*** Begin Patch
+*** Add File: Telemetry/CustomerAttributeProcessor.cs
++using System.Diagnostics;
++using Microsoft.AspNetCore.Http;
++using OpenTelemetry.Trace;
++
++namespace IamTickets.Telemetry;
++
++/// <summary>
++/// Span processor that enriches every Activity with customer/account identifiers
++/// so that downstream analytics can aggregate on customer impact.
++/// </summary>
++public sealed class CustomerAttributeProcessor : BaseProcessor<Activity>
++{
++    private static readonly string[] CustomerIdClaimTypes = { "customer_id", "customerId", "cid" };
++    private static readonly string[] AccountIdClaimTypes  = { "account_id", "accountId", "aid"  };
++
++    private readonly IHttpContextAccessor _httpContextAccessor;
++
++    public CustomerAttributeProcessor(IHttpContextAccessor httpContextAccessor)
++    {
++        _httpContextAccessor = httpContextAccessor;
++    }
++
++    public override void OnStart(Activity activity)
++    {
++        // Only enrich real request/producer/consumer spans.
++        if (activity == null || activity.Kind == ActivityKind.Internal)
++        {
++            return;
++        }
++
++        var httpContext = _httpContextAccessor.HttpContext;
++        if (httpContext == null)
++        {
++            return;
++        }
++
++        // —— 1. Try HTTP headers ————————————————————————————————
++        string? customerId = httpContext.Request.Headers.TryGetValue("X-Customer-Id", out var ch)
++            ? ch.ToString()
++            : null;
++
++        string? accountId = httpContext.Request.Headers.TryGetValue("X-Account-Id", out var ah)
++            ? ah.ToString()
++            : null;
++
++        // —— 2. Try authenticated user claims ————————————————
++        var user = httpContext.User;
++        if (user?.Identity?.IsAuthenticated == true)
++        {
++            if (string.IsNullOrEmpty(customerId))
++            {
++                foreach (var claimType in CustomerIdClaimTypes)
++                {
++                    customerId = user.FindFirst(claimType)?.Value;
++                    if (!string.IsNullOrEmpty(customerId)) break;
++                }
++            }
++
++            if (string.IsNullOrEmpty(accountId))
++            {
++                foreach (var claimType in AccountIdClaimTypes)
++                {
++                    accountId = user.FindFirst(claimType)?.Value;
++                    if (!string.IsNullOrEmpty(accountId)) break;
++                }
++            }
++        }
++
++        // —— 3. Apply attributes ————————————————————————————————
++        if (!string.IsNullOrEmpty(customerId))
++        {
++            activity.SetTag("customer.id", customerId);
++        }
++
++        if (!string.IsNullOrEmpty(accountId))
++        {
++            activity.SetTag("account.id", accountId);
++        }
++    }
++}
++
+*** End Patch
+*** End Patch

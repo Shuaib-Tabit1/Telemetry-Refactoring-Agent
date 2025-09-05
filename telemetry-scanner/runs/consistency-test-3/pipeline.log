@@ -1,0 +1,28 @@
+2025-08-30 19:34:04,502 - scanner.pipeline_orchestrator - INFO - Stage ticket_processing: Starting (attempt 1)
+2025-08-30 19:34:04,503 - scanner.pipeline_orchestrator - INFO - Stage ticket_processing: Completed in 0.00s
+2025-08-30 19:34:04,503 - scanner.pipeline_orchestrator - INFO - Stage intent_extraction: Starting (attempt 1)
+2025-08-30 19:34:18,112 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-30 19:34:23,068 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-30 19:34:23,074 - scanner.pipeline_orchestrator - INFO - Stage intent_extraction: Completed in 18.57s
+2025-08-30 19:34:23,076 - scanner.pipeline_orchestrator - INFO - Stage project_parsing: Starting (attempt 1)
+2025-08-30 19:34:23,089 - scanner.pipeline_orchestrator - INFO - Stage project_parsing: Completed in 0.01s
+2025-08-30 19:34:23,089 - scanner.pipeline_orchestrator - INFO - Stage graph_building: Starting (attempt 1)
+2025-08-30 19:41:04,694 - scanner.pipeline_orchestrator - INFO - Stage graph_building: Completed in 401.60s
+2025-08-30 19:41:04,713 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: mps
+2025-08-30 19:41:04,713 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-08-30 19:41:20,728 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 1)
+2025-08-30 19:41:24,956 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Completed in 4.23s
+2025-08-30 19:41:24,957 - scanner.pipeline_orchestrator - INFO - Stage advanced_analysis: Starting (attempt 1)
+2025-08-30 19:41:24,973 - scanner.pipeline_orchestrator - INFO - Stage advanced_analysis: Completed in 0.02s
+2025-08-30 19:41:24,974 - scanner.pipeline_orchestrator - INFO - Stage file_selection: Starting (attempt 1)
+2025-08-30 19:41:40,396 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-30 19:41:40,399 - scanner.pipeline_orchestrator - WARNING - Stage file_selection: Attempt 1 failed: 'AdvancedLLMReasoner' object has no attribute '_should_include_file'
+2025-08-30 19:41:41,401 - scanner.pipeline_orchestrator - INFO - Stage file_selection: Starting (attempt 2)
+2025-08-30 19:41:50,963 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-30 19:41:50,966 - scanner.pipeline_orchestrator - WARNING - Stage file_selection: Attempt 2 failed: 'AdvancedLLMReasoner' object has no attribute '_should_include_file'
+2025-08-30 19:41:52,967 - scanner.pipeline_orchestrator - INFO - Stage file_selection: Starting (attempt 3)
+2025-08-30 19:42:09,523 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-30 19:42:09,525 - scanner.pipeline_orchestrator - WARNING - Stage file_selection: Attempt 3 failed: 'AdvancedLLMReasoner' object has no attribute '_should_include_file'
+2025-08-30 19:42:13,527 - scanner.pipeline_orchestrator - INFO - Stage file_selection: Starting (attempt 4)
+2025-08-30 19:42:25,833 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-30 19:42:25,834 - scanner.pipeline_orchestrator - WARNING - Stage file_selection: Attempt 4 failed: 'AdvancedLLMReasoner' object has no attribute '_should_include_file'

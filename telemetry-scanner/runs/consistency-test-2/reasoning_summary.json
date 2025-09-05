@@ -1,0 +1,18 @@
+{
+  "selected_files": [
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/DetectTypeProcessor.Trace.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/VideoInfoProcessor.Trace.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/DetectTypeProcessor.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Engine/WorkflowInstance.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Service/V1/WinsService.Trace.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/MessageWorkerService/DispatchedWorker.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Core.ServiceFramework/AbstractServicedComponent.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/AtlasDataManipulationService/Startup.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WebShare/Global.asax.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/ExtractService/ExtractProcessor.cs"
+  ],
+  "selection_reasoning": "Chosen approach: central enrichment in Startup.cs / Global.asax.cs provides single point of change.",
+  "patch_reasoning": "Confidence  0.22 ----------------------------------------------------------------",
+  "diff_length": 782,
+  "explanation_length": 2622
+}

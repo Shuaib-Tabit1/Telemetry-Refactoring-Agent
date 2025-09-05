@@ -1,0 +1,18 @@
+{
+  "selected_files": [
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/DetectTypeProcessor.Trace.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/VideoInfoProcessor.Trace.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/DetectTypeProcessor.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/MessageWorkerService/DispatchedWorker.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Engine/WorkflowInstance.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/Profile/ProfileModule.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WebNet/Middlewares/LogAsyncRequestHttpMiddleware.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/VideoInfo/VideoInfo.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Service/V1/WinsService.Log.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/Profile/PerformanceLog.cs"
+  ],
+  "selection_reasoning": "Select only LogAsyncRequestHttpMiddleware.cs (single insertion point). Rejected because ProfileModule / PerformanceLog may also create or decorate the same CLM spans, and we may need to update them if the middleware only logs asynchronously.",
+  "patch_reasoning": "behaviour.",
+  "diff_length": 654,
+  "explanation_length": 1482
+}

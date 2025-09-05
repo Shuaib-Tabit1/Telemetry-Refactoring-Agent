@@ -1,0 +1,74 @@
+{
+  "impact_analysis": {
+    "direct_impact_count": 19,
+    "indirect_impact_count": 132,
+    "risk_score": 10,
+    "affected_patterns": [
+      "factory",
+      "singleton",
+      "dependency_injection"
+    ],
+    "breaking_changes": [
+      "Startup configuration changes may affect application boot"
+    ],
+    "test_requirements": [
+      "OpenTelemetry span validation tests",
+      "Unit tests for modified methods",
+      "Integration tests for telemetry data collection"
+    ]
+  },
+  "code_clusters": [
+    {
+      "name": "Cluster (3 files)",
+      "file_count": 3,
+      "patterns": [],
+      "complexity_score": 3
+    },
+    {
+      "name": "Cluster (2 files)",
+      "file_count": 2,
+      "patterns": [],
+      "complexity_score": 2
+    },
+    {
+      "name": "Service Layer",
+      "file_count": 2,
+      "patterns": [],
+      "complexity_score": 2
+    },
+    {
+      "name": "Cluster (3 files)",
+      "file_count": 3,
+      "patterns": [],
+      "complexity_score": 3
+    },
+    {
+      "name": "Cluster (7 files)",
+      "file_count": 7,
+      "patterns": [
+        "singleton"
+      ],
+      "complexity_score": 7
+    },
+    {
+      "name": "Service Layer",
+      "file_count": 6,
+      "patterns": [],
+      "complexity_score": 6
+    },
+    {
+      "name": "Service Layer",
+      "file_count": 16,
+      "patterns": [
+        "singleton"
+      ],
+      "complexity_score": 16
+    },
+    {
+      "name": "Cluster (2 files)",
+      "file_count": 2,
+      "patterns": [],
+      "complexity_score": 2
+    }
+  ]
+}

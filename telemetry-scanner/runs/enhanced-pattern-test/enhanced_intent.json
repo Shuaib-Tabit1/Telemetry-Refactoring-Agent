@@ -1,0 +1,176 @@
+{
+  "basic_intent": {
+    "issue_category": "INSTRUMENTATION",
+    "static_analysis_query": {
+      "find_method_call": "SetTag"
+    },
+    "semantic_description": "Add HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION attributes to existing HTTP request spans in the CLM web application for better redirect flow tracing.",
+    "search_keywords": [
+      "HTTP_REFERER",
+      "HTTP_RESPONSE_REDIRECT_LOCATION",
+      "Activity.SetTag",
+      "OpenTelemetry",
+      "CLM"
+    ],
+    "telemetry_operation": {
+      "type": "span",
+      "target_name": "HTTP request span",
+      "action": "ADD_ATTRIBUTES",
+      "attributes_to_add": [
+        {
+          "name": "HTTP_REFERER",
+          "value_source": "Request.Headers[\"Referer\"]"
+        },
+        {
+          "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+          "value_source": "Response.Headers[\"Location\"]"
+        }
+      ],
+      "new_span_name": null,
+      "new_metric_details": {}
+    }
+  },
+  "enhanced_analysis": {
+    "confidence": "high",
+    "operation_type": "multi_file",
+    "complexity_score": 4,
+    "estimated_files": 4,
+    "validation_issues": [],
+    "suggestions": [],
+    "sub_tasks": [
+      {
+        "order": 1,
+        "name": "Source-code discovery",
+        "action": "locate_configuration",
+        "description": "Search the CLM solution for existing OpenTelemetry setup and any custom Activity enrichment logic.\n\u2022 grep / VS Code search for: \"AddOpenTelemetry\", \"ActivitySource\", \"SetTag\", \"Enrich\", \"HTTP_\"\n\u2022 Typical files: Startup.cs / Program.cs, TelemetryExtensions.cs, OpenTelemetryConfig.cs, Middleware/*Telemetry*.cs",
+        "expected_artifacts": [
+          "Startup.cs or Program.cs (AddOpenTelemetry / AddAspNetCoreInstrumentation)",
+          "Custom Enrich or ActivityProcessor classes",
+          "CLM-specific middleware"
+        ],
+        "validation_criteria": "Locations where HTTP server spans are created/enriched are identified and documented."
+      },
+      {
+        "order": 2,
+        "name": "Decide injection point",
+        "action": "design",
+        "description": "Pick the most reliable location that has access to both Request and Response.\nPreferred: ASP.NET Core middleware registered early AFTER diagnostic listener instrumentation so we mutate the already-created Activity.",
+        "input_from": [
+          1
+        ],
+        "validation_criteria": "Decision recorded in design note; review approved by at least one senior dev."
+      },
+      {
+        "order": 3,
+        "name": "Implement middleware / enrichment delegate",
+        "action": "implement_changes",
+        "description": "1. Create e.g. file Middlewares/TelemetryEnrichmentMiddleware.cs\n2. In Invoke(HttpContext ctx):\n   a. var activity = Activity.Current;\n   b. if (activity != null)\n        \u25b8 string referer = ctx.Request.Headers[\"Referer\"].ToString();\n        \u25b8 if (!string.IsNullOrWhiteSpace(referer)) activity.SetTag(\"HTTP_REFERER\", referer);\n   c. await _next(ctx);\n   d. if (activity != null && ctx.Response.StatusCode >= 301 && ctx.Response.StatusCode <= 308)\n        \u25b8 string location = ctx.Response.Headers[\"Location\"].ToString();\n        \u25b8 if (!string.IsNullOrWhiteSpace(location)) activity.SetTag(\"HTTP_RESPONSE_REDIRECT_LOCATION\", location);",
+        "dependencies": [
+          2
+        ],
+        "non_functional": [
+          "Null/empty handling",
+          "No string allocations when header missing"
+        ],
+        "validation_criteria": "Build succeeds; unit tests compile against new middleware."
+      },
+      {
+        "order": 4,
+        "name": "Register middleware",
+        "action": "code_change",
+        "description": "In Startup.Configure(...) or Program.cs add:\napp.UseMiddleware<TelemetryEnrichmentMiddleware>();\nPlace immediately after app.UseRouting() and before app.UseEndpoints() to guarantee visibility of final status code.",
+        "dependencies": [
+          3
+        ],
+        "validation_criteria": "Application starts locally without errors; request succeeds."
+      },
+      {
+        "order": 5,
+        "name": "Local functional verification",
+        "action": "test_local",
+        "description": "Run CLM locally with dotnet-collector logging:\n\u2022 Trigger a normal request and a redirect response with curl/Postman.\n\u2022 Inspect exported OTLP data via console exporter or WireShark to confirm new tags exist.",
+        "dependencies": [
+          4
+        ],
+        "validation_criteria": "Both HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION appear when applicable; absent for other cases."
+      },
+      {
+        "order": 6,
+        "name": "Automated test coverage",
+        "action": "add_tests",
+        "description": "Add unit/integration tests using WebApplicationFactory:\n\u2022 Test 1: GET /Target with Referer header => span contains HTTP_REFERER\n\u2022 Test 2: Endpoint that returns 302 with Location header => span contains HTTP_RESPONSE_REDIRECT_LOCATION",
+        "dependencies": [
+          3
+        ],
+        "validation_criteria": "Tests fail before change, pass after change in CI."
+      },
+      {
+        "order": 7,
+        "name": "Config flag (optional)",
+        "action": "feature_toggle",
+        "description": "Introduce appsetting: Telemetry:AddRedirectHeaders (bool, default true) so behaviour can be disabled quickly.",
+        "dependencies": [
+          3
+        ],
+        "validation_criteria": "Toggling flag in appsettings disables enrichment without code changes."
+      },
+      {
+        "order": 8,
+        "name": "Performance regression test",
+        "action": "benchmark",
+        "description": "Run k6/locust load comparing before/after to ensure <1 ms added latency per request and no GC spikes.",
+        "dependencies": [
+          4
+        ],
+        "validation_criteria": "CPU, memory, p95 latency deltas < 2 %."
+      },
+      {
+        "order": 9,
+        "name": "Deploy to Demo environment",
+        "action": "deploy_demo",
+        "description": "Merge PR to develop; let CI build and deploy to Demo slot.",
+        "dependencies": [
+          5,
+          6,
+          8
+        ],
+        "validation_criteria": "Health checks green; no new errors in App Insights."
+      },
+      {
+        "order": 10,
+        "name": "Kusto validation",
+        "action": "query_validation",
+        "description": "Run provided Kusto query in Demo workspace to confirm attributes present.",
+        "dependencies": [
+          9
+        ],
+        "validation_criteria": "Query returns rows with non-null HTTP_REFERER and/or HTTP_RESPONSE_REDIRECT_LOCATION."
+      },
+      {
+        "order": 11,
+        "name": "Rollout to all environments",
+        "action": "deploy_prod",
+        "description": "Stage -> QA -> Prod using blue/green. Monitor dashboards for error or perf anomalies for 24 h.",
+        "dependencies": [
+          10
+        ],
+        "validation_criteria": "No incident raised; telemetry visible in Prod."
+      },
+      {
+        "order": 12,
+        "name": "Documentation & Close ticket",
+        "action": "doc_update",
+        "description": "Update internal wiki with new attribute list and sample query; close Jira ticket.",
+        "dependencies": [
+          11
+        ],
+        "validation_criteria": "Wiki page updated; ticket marked Done."
+      }
+    ],
+    "contextual_hints": [
+      "Locating the correct place in the ASP.NET middleware chain to reliably see both the incoming Referer header and the outgoing Location header in a single span",
+      "Ensuring attributes are added once, without creating child spans or breaking the automatic ASP.NET instrumentation",
+      "Validating the change across multiple hosting environments (IIS, Kestrel, Azure App Service) which may differ in header casing or availability"
+    ]
+  }
+}

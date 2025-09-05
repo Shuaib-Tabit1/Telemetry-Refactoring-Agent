@@ -1,0 +1,156 @@
+{
+  "basic_intent": {
+    "issue_category": "INSTRUMENTATION",
+    "static_analysis_query": {
+      "find_method_call": "SetTag"
+    },
+    "semantic_description": "Add missing HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION tags to existing HTTP request spans in the CLM web app.",
+    "search_keywords": [
+      "HTTP_REFERER",
+      "HTTP_RESPONSE_REDIRECT_LOCATION",
+      "SetTag",
+      "ActivitySource",
+      "AddTag"
+    ],
+    "telemetry_operation": {
+      "type": "span",
+      "target_name": "incoming_http_request_span",
+      "action": "ADD_ATTRIBUTES",
+      "attributes_to_add": [
+        {
+          "name": "HTTP_REFERER",
+          "value_source": "Request.Headers[\"Referer\"]"
+        },
+        {
+          "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+          "value_source": "Response.Headers[\"Location\"]"
+        }
+      ],
+      "new_span_name": null,
+      "new_metric_details": {}
+    }
+  },
+  "enhanced_analysis": {
+    "confidence": "high",
+    "operation_type": "multi_file",
+    "complexity_score": 4,
+    "estimated_files": 3,
+    "validation_issues": [],
+    "suggestions": [],
+    "sub_tasks": [
+      {
+        "order": 1,
+        "action": "locate_configuration",
+        "description": "Identify where the CLM web application registers OpenTelemetry and/or custom ActivitySource enrichment. Search for files containing \"AddOpenTelemetry\", \"ActivitySource\", \"SetTag\", or custom middleware in the solution root.",
+        "expected_files": [
+          "Startup.cs",
+          "Program.cs",
+          "OpenTelemetryExtensions.cs",
+          "TelemetryMiddleware.cs"
+        ],
+        "validation_criteria": "One central location is confirmed where HTTP request Activities are created or enriched."
+      },
+      {
+        "order": 2,
+        "action": "design_solution",
+        "description": "Decide whether to (a) extend an existing enrichment callback or (b) insert a small custom middleware placed immediately after the ASP.NET Core routing middleware so both Request & Response objects are available before the Activity ends.",
+        "expected_files": [],
+        "validation_criteria": "The selected design will give access to both Request.Headers and Response.Headers before Activity.Stop is called."
+      },
+      {
+        "order": 3,
+        "action": "implement_changes",
+        "dependencies": [
+          1,
+          2
+        ],
+        "description": "Implement code that: 1) reads Request.Headers[\"Referer\"] and sets activity.SetTag(\"HTTP_REFERER\", value) if not null/empty; 2) after await _next(context) reads Response.StatusCode and Response.Headers[\"Location\"] and, if the status code is 301/302/303/307/308 and header present, sets activity.SetTag(\"HTTP_RESPONSE_REDIRECT_LOCATION\", value).",
+        "expected_files": [
+          "TelemetryMiddleware.cs (modified or new)",
+          "OpenTelemetryExtensions.cs (modified)"
+        ],
+        "validation_criteria": "No duplicate tags; null or empty values are ignored; build succeeds."
+      },
+      {
+        "order": 4,
+        "action": "unit_and_integration_tests",
+        "dependencies": [
+          3
+        ],
+        "description": "Add or update tests that simulate: a) normal 200 request without Referer; b) normal 200 request with Referer; c) 302 redirect response with Location header. Verify tags exist or are omitted correctly using ActivityListener in tests.",
+        "expected_files": [
+          "TelemetryMiddlewareTests.cs"
+        ],
+        "validation_criteria": "All new tests pass in CI pipeline."
+      },
+      {
+        "order": 5,
+        "action": "local_validation",
+        "dependencies": [
+          3
+        ],
+        "description": "Run the CLM site locally with OTLP exporter pointed to dev collector. Hit /clm/Documents/BrowseDocuments.aspx and an endpoint that issues a redirect. Inspect exported spans with the OpenTelemetry Collector or Jaeger UI to confirm tags appear.",
+        "expected_files": [],
+        "validation_criteria": "\"HTTP_REFERER\" and \"HTTP_RESPONSE_REDIRECT_LOCATION\" appear on the root HTTP spans."
+      },
+      {
+        "order": 6,
+        "action": "performance_check",
+        "dependencies": [
+          5
+        ],
+        "description": "Run a simple load-test (e.g., k6) for 1\u20132 minutes. Compare request latency and memory allocations to previous baseline to ensure no regression (>5 %).",
+        "expected_files": [],
+        "validation_criteria": "p95 latency delta < 5 %, GC collections unchanged."
+      },
+      {
+        "order": 7,
+        "action": "code_review_pr",
+        "dependencies": [
+          3,
+          4
+        ],
+        "description": "Open a PR, tag telemetry and performance reviewers. Include screenshots of span inspection and test results.",
+        "expected_files": [
+          "pull_request.md"
+        ],
+        "validation_criteria": "PR approved by at least two reviewers."
+      },
+      {
+        "order": 8,
+        "action": "deploy_to_demo",
+        "dependencies": [
+          7
+        ],
+        "description": "Merge PR and trigger CI/CD to deploy to Demo environment. Enable feature flag or configuration toggle if applicable.",
+        "expected_files": [],
+        "validation_criteria": "Deployment pipeline green; Demo site healthy."
+      },
+      {
+        "order": 9,
+        "action": "post_deploy_validation",
+        "dependencies": [
+          8
+        ],
+        "description": "Run the provided Kusto query in Demo:\nOtlpSpanEvents | where Environment == \"Demo\" | where url_path == \"/clm/Documents/BrowseDocuments.aspx\" | where http_status_code > 200 | project Timestamp, url_path, http_status_code, HTTP_REFERER, HTTP_RESPONSE_REDIRECT_LOCATION",
+        "expected_files": [],
+        "validation_criteria": "Rows include non-null HTTP_REFERER or HTTP_RESPONSE_REDIRECT_LOCATION as expected."
+      },
+      {
+        "order": 10,
+        "action": "promote_to_all_envs",
+        "dependencies": [
+          9
+        ],
+        "description": "After 24 hours of stable Demo monitoring, promote the change to Test and Prod via standard release pipelines.",
+        "expected_files": [],
+        "validation_criteria": "Spans in Prod contain both attributes; no increase in error rate or latency."
+      }
+    ],
+    "contextual_hints": [
+      "Finding or adding the single middleware layer where both Request and Response are simultaneously accessible so tags can be set once per span",
+      "Guaranteeing the attributes are added only to the root HTTP span (avoiding duplication in child spans or background activities)",
+      "Reproducing and validating real 302/redirect flows in local or lower environments to confirm Location header is set before the span ends"
+    ]
+  }
+}

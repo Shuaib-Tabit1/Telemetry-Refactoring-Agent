@@ -1,0 +1,27 @@
+**Issue**: Customer and Account ID attributes are missing in individual span attributes for Customer Impact Analysis
+
+**Problem Description**:
+Each span in the iam-tasks service needs to have customer.id and account.id span attributes added directly to the span creation calls throughout the codebase, not via a processor.
+
+**Specific Example**:
+- Current code: `using var span = ActivitySource.StartActivity("ProcessOrder");`
+- Required code: `using var span = ActivitySource.StartActivity("ProcessOrder"); span.SetAttribute("customer.id", customerId); span.SetAttribute("account.id", accountId);`
+
+**Technical Requirements**:
+- Add span.SetAttribute("customer.id", customerId) calls directly in the code wherever spans are created
+- Add span.SetAttribute("account.id", accountId) calls directly in the code wherever spans are created  
+- Modify existing StartActivity calls across all service files to include these attributes
+- Ensure customer context is available where spans are created (through dependency injection or context passing)
+
+**Expected Outcome**:
+- All StartActivity calls in the codebase should be followed by SetAttribute calls for customer.id and account.id
+- No processor or global enrichment - each span creation site should explicitly set these attributes
+- Direct code instrumentation in multiple files across the service
+
+**Implementation Approach**:
+- Find all ActivitySource.StartActivity calls across the codebase
+- Add direct span.SetAttribute calls after each StartActivity
+- Ensure customer/account context is accessible at each span creation site
+- Prefer direct instrumentation over processors for performance reasons
+
+**Priority**: High - impacts incident response and customer impact assessment capabilities

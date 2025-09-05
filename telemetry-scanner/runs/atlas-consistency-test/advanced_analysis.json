@@ -1,0 +1,93 @@
+{
+  "impact_analysis": {
+    "direct_impact_count": 20,
+    "indirect_impact_count": 53,
+    "risk_score": 10,
+    "affected_patterns": [
+      "factory",
+      "singleton"
+    ],
+    "breaking_changes": [
+      "Service registration changes may affect dependency injection"
+    ],
+    "test_requirements": [
+      "Service registration validation tests",
+      "Middleware pipeline integration tests",
+      "OpenTelemetry span validation tests",
+      "Integration tests for telemetry data collection",
+      "Unit tests for modified methods"
+    ]
+  },
+  "code_clusters": [
+    {
+      "name": "Cluster (2 files)",
+      "file_count": 2,
+      "patterns": [],
+      "complexity_score": 2
+    },
+    {
+      "name": "Cluster (2 files)",
+      "file_count": 2,
+      "patterns": [],
+      "complexity_score": 2
+    },
+    {
+      "name": "Cluster (10 files)",
+      "file_count": 10,
+      "patterns": [],
+      "complexity_score": 10
+    },
+    {
+      "name": "Cluster (3 files)",
+      "file_count": 3,
+      "patterns": [],
+      "complexity_score": 3
+    },
+    {
+      "name": "Cluster (2 files)",
+      "file_count": 2,
+      "patterns": [
+        "factory"
+      ],
+      "complexity_score": 2
+    },
+    {
+      "name": "Cluster (2 files)",
+      "file_count": 2,
+      "patterns": [],
+      "complexity_score": 2
+    },
+    {
+      "name": "Cluster (14 files)",
+      "file_count": 14,
+      "patterns": [
+        "singleton"
+      ],
+      "complexity_score": 14
+    },
+    {
+      "name": "Service Layer",
+      "file_count": 2,
+      "patterns": [],
+      "complexity_score": 2
+    },
+    {
+      "name": "Cluster (2 files)",
+      "file_count": 2,
+      "patterns": [],
+      "complexity_score": 2
+    },
+    {
+      "name": "Cluster (2 files)",
+      "file_count": 2,
+      "patterns": [],
+      "complexity_score": 2
+    },
+    {
+      "name": "Service Layer",
+      "file_count": 2,
+      "patterns": [],
+      "complexity_score": 2
+    }
+  ]
+}

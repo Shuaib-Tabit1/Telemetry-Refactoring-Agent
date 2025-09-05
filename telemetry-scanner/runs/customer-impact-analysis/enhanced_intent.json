@@ -1,0 +1,179 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "setAttribute"
+  },
+  "semantic_description": "Add customer/account ID attributes to every span emitted by the document-doc2pdf-clm service so customer impact analysis can calculate total customers served.",
+  "search_keywords": [
+    "customer.id",
+    "account.id",
+    "setAttribute",
+    "OpenTelemetry span",
+    "context propagation"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": "*",
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "customer.id",
+        "value_source": "request/customer context"
+      },
+      {
+        "name": "account.id",
+        "value_source": "request/customer context"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": {}
+  },
+  "confidence": "IntentConfidence.HIGH",
+  "operation_type": "OperationType.CROSS_CUTTING",
+  "complexity_score": 6,
+  "estimated_files": 8,
+  "validation_result": "ValidationResult(is_valid=True, confidence=<IntentConfidence.HIGH: 'high'>, issues=[], suggestions=[])",
+  "sub_tasks": [
+    {
+      "order": 1,
+      "name": "Requirements & Source-of-Truth Discovery",
+      "action": "locate_authoritative_customer_id",
+      "description": "Identify where customer/account ID first appears (HTTP headers, JWT, gRPC metadata, message body, DB call, etc.). Document exact key names, data types, and privacy classification (PII vs non-PII).",
+      "owners": [
+        "Service Owner",
+        "Security/Privacy SPOC"
+      ],
+      "validation_criteria": [
+        "A confluence page (or design doc) lists every inbound protocol and its customer/account identifier location.",
+        "Data is confirmed as non-PII or has an approved redaction policy."
+      ]
+    },
+    {
+      "order": 2,
+      "name": "Code & Config Walk-Through",
+      "action": "locate_configuration",
+      "description": "Locate all OpenTelemetry setup points (builder/SDK init) and any custom span factories or helpers used by document-doc2pdf-clm.",
+      "expected_files": [
+        "Startup.cs",
+        "Program.cs",
+        "TelemetryExtensions.cs",
+        "OpenTelemetryConfig.yaml",
+        "**/Tracing*Interceptor*.cs"
+      ],
+      "validation_criteria": "All configuration files referenced in the build logs have been identified and added to the design doc."
+    },
+    {
+      "order": 3,
+      "name": "Design Instrumentation Strategy",
+      "action": "design_context_propagation",
+      "description": "Decide HOW and WHERE the customer context is extracted and stored (e.g., Activity.Current.SetBaggage / ContextKey). Define helper method addCustomerAttributes(Span).",
+      "dependencies": [
+        1,
+        2
+      ],
+      "validation_criteria": [
+        "Design review approved by at least one telemetry SME.",
+        "Attribute names chosen: customer.id, account.id (strings)."
+      ]
+    },
+    {
+      "order": 4,
+      "name": "Create Request Context Carrier",
+      "action": "create_context_holder",
+      "description": "Implement (or extend) a RequestContext object that holds customerId and accountId and is attachable to async workflows (AsyncLocal, Context.current()).",
+      "dependencies": [
+        3
+      ],
+      "expected_files": [
+        "RequestContext.cs",
+        "RequestContextMiddleware.cs"
+      ],
+      "validation_criteria": "Unit tests prove that context survives async/await and task parallelism."
+    },
+    {
+      "order": 5,
+      "name": "Ingress Instrumentation",
+      "action": "add_middleware",
+      "description": "Add HTTP/gRPC middleware/filter that: a) extracts IDs, b) stores them in RequestContext, c) sets span attributes on the root span.",
+      "dependencies": [
+        4
+      ],
+      "validation_criteria": [
+        "Local run: Root span shows customer.id/account.id in Jaeger/Zipkin exporter.",
+        "No performance regression >2 % on perf test."
+      ]
+    },
+    {
+      "order": 6,
+      "name": "Library / Helper Refactor",
+      "action": "wrap_span_creation",
+      "description": "Refactor any custom span builder helpers so they automatically call addCustomerAttributes(). For 3rd-party libs, use ActivityListener or SpanProcessor to inject attributes post-creation.",
+      "dependencies": [
+        3,
+        4
+      ],
+      "validation_criteria": "All spans in integration test traces contain customer.id/account.id."
+    },
+    {
+      "order": 7,
+      "name": "Automated Tests & Static Analysis",
+      "action": "add_unit_and_integration_tests",
+      "description": "Add unit tests validating attribute presence. Add Roslyn/SpotBugs rule or grep-based Git pre-commit hook to flag new spans missing customer attributes.",
+      "dependencies": [
+        5,
+        6
+      ],
+      "validation_criteria": "CI pipeline fails if span without required attributes is introduced."
+    },
+    {
+      "order": 8,
+      "name": "Non-Prod Validation",
+      "action": "deploy_to_staging",
+      "description": "Deploy to staging with full trace sampling. Run synthetic load to ensure attributes show up in Kusto query: `traces | where service_name == 'document-doc2pdf-clm' | summarize dcount(customer_id)`",
+      "dependencies": [
+        7
+      ],
+      "validation_criteria": [
+        "Kusto returns non-zero dcount(customer_id).",
+        "No Personally Identifiable Information beyond approved IDs is visible."
+      ]
+    },
+    {
+      "order": 9,
+      "name": "Production Roll-out",
+      "action": "gradual_deployment",
+      "description": "Use deployment ring or feature flag to enable attribute injection 10 % \u2192 50 % \u2192 100 %. Monitor error budgets and performance counters.",
+      "dependencies": [
+        8
+      ],
+      "validation_criteria": [
+        "Error rate delta < 0.1 %.",
+        "P95 latency change < 2 %.",
+        "Kusto dashboard shows >95 % of spans contain IDs."
+      ]
+    },
+    {
+      "order": 10,
+      "name": "Post-Deployment Verification & Closeout",
+      "action": "final_validation_and_documentation",
+      "description": "Update runbooks, add new Kusto examples, close the ticket, and schedule follow-up audit after 2 weeks.",
+      "dependencies": [
+        9
+      ],
+      "validation_criteria": [
+        "Runbook PR merged.",
+        "Ops team acknowledges new telemetry fields available during incident response."
+      ]
+    }
+  ],
+  "contextual_hints": [
+    "Capturing customer context at the earliest entry point (HTTP/gRPC/queue) and storing it in a thread-local or request context",
+    "Propagating that context through async/parallel workflows so every span, including child/background spans, receives the attributes",
+    "Guaranteeing attribute presence without breaking spans that originate from libraries you do not control",
+    "Verifying with end-to-end trace validation in non-prod environments (Kusto, dashboards, alerting rules)"
+  ],
+  "similar_patterns": [
+    "missing_required_span_attribute",
+    "context_propagation_needed"
+  ]
+}

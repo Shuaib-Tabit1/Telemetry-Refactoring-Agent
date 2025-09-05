@@ -1,0 +1,21 @@
+2025-08-28 15:10:41,370 - scanner.pipeline_orchestrator - INFO - Stage ticket_processing: Starting (attempt 1)
+2025-08-28 15:10:41,371 - scanner.pipeline_orchestrator - INFO - Stage ticket_processing: Completed in 0.00s
+2025-08-28 15:10:41,371 - scanner.pipeline_orchestrator - INFO - Stage intent_extraction: Starting (attempt 1)
+2025-08-28 15:10:47,717 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-28 15:10:53,889 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-28 15:11:17,841 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-28 15:11:17,846 - scanner.pipeline_orchestrator - INFO - Stage intent_extraction: Completed in 36.47s
+2025-08-28 15:11:17,848 - scanner.pipeline_orchestrator - INFO - Stage project_parsing: Starting (attempt 1)
+2025-08-28 15:11:17,859 - scanner.pipeline_orchestrator - INFO - Stage project_parsing: Completed in 0.01s
+2025-08-28 15:11:17,859 - scanner.pipeline_orchestrator - INFO - Stage graph_building: Starting (attempt 1)
+2025-08-28 15:17:43,741 - scanner.pipeline_orchestrator - INFO - Stage graph_building: Completed in 385.88s
+2025-08-28 15:17:43,757 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: mps
+2025-08-28 15:17:43,758 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-08-28 15:17:59,667 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 1)
+2025-08-28 15:18:02,825 - scanner.pipeline_orchestrator - WARNING - Stage intelligent_search: Attempt 1 failed: SearchResult.__init__() got an unexpected keyword argument 'metadata'
+2025-08-28 15:18:03,827 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 2)
+2025-08-28 15:18:06,976 - scanner.pipeline_orchestrator - WARNING - Stage intelligent_search: Attempt 2 failed: SearchResult.__init__() got an unexpected keyword argument 'metadata'
+2025-08-28 15:18:08,978 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 3)
+2025-08-28 15:18:12,159 - scanner.pipeline_orchestrator - WARNING - Stage intelligent_search: Attempt 3 failed: SearchResult.__init__() got an unexpected keyword argument 'metadata'
+2025-08-28 15:18:16,160 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 4)
+2025-08-28 15:18:19,312 - scanner.pipeline_orchestrator - WARNING - Stage intelligent_search: Attempt 4 failed: SearchResult.__init__() got an unexpected keyword argument 'metadata'

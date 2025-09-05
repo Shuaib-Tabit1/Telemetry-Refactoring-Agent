@@ -1,0 +1,193 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "ActivitySource.StartActivity"
+  },
+  "semantic_description": "Add customer.id and account.id attributes to every span immediately after each ActivitySource.StartActivity call in the iam-tasks service.",
+  "search_keywords": [
+    "ActivitySource.StartActivity",
+    "span.SetAttribute",
+    "customer.id",
+    "account.id"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "customer.id",
+        "value_source": "customerId variable"
+      },
+      {
+        "name": "account.id",
+        "value_source": "accountId variable"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": {}
+  },
+  "confidence": "IntentConfidence.HIGH",
+  "operation_type": "OperationType.CROSS_CUTTING",
+  "complexity_score": 6,
+  "estimated_files": 15,
+  "validation_result": "ValidationResult(is_valid=True, confidence=<IntentConfidence.HIGH: 'high'>, issues=[], suggestions=[])",
+  "sub_tasks": [
+    {
+      "order": 1,
+      "action": "codebase_scoping",
+      "description": "Run a static-analysis query to list every ActivitySource.StartActivity invocation in the iam-tasks repository.",
+      "expected_files": [
+        "*.cs"
+      ],
+      "validation_criteria": "A spreadsheet / markdown file that enumerates each call-site with file path + line number is committed to /docs/instrumentation/audit.md"
+    },
+    {
+      "order": 2,
+      "action": "context_contract_definition",
+      "description": "Define (or confirm) a single interface/struct that exposes CustomerId and AccountId (e.g. IRequestContext { string CustomerId; string AccountId; }).  Decide where it is populated (API Gateway, GRPC interceptor, background-job kick-off, etc.).",
+      "dependencies": [
+        1
+      ],
+      "expected_files": [
+        "src/Common/IRequestContext.cs",
+        "src/Common/RequestContextAccessor.cs"
+      ],
+      "validation_criteria": "Contract is merged and wired to existing context-population middleware without breaking current builds."
+    },
+    {
+      "order": 3,
+      "action": "instrumentation_wrapper_creation",
+      "description": "Create a helper method StartActivityWithCustomerContext(ActivitySource, string name, ActivityKind kind, IRequestContext ctx) that: (1) calls ActivitySource.StartActivity, (2) immediately sets customer.id and account.id attributes on the returned span, (3) returns the Activity instance.",
+      "dependencies": [
+        2
+      ],
+      "expected_files": [
+        "src/Telemetry/ActivityExtensions.cs"
+      ],
+      "validation_criteria": "Unit tests show the wrapper sets both attributes when non-null context is supplied and omits them when context is null (no NRE)."
+    },
+    {
+      "order": 4,
+      "action": "bulk_refactor",
+      "description": "Replace or augment every direct ActivitySource.StartActivity call with the new StartActivityWithCustomerContext helper OR add explicit span.SetAttribute calls right after each StartActivity where wrapper is impractical (e.g. generated code).",
+      "dependencies": [
+        3
+      ],
+      "expected_files": [
+        "~15 files touched (see audit list)"
+      ],
+      "validation_criteria": "CI builds green, and grep -R \"ActivitySource.StartActivity(\" shows 0 remaining raw calls without the customer/account attribute logic."
+    },
+    {
+      "order": 5,
+      "action": "async_context_plumbing",
+      "description": "Ensure IRequestContext flows through async/parallel operations (Task.Run, background workers, channel readers).  Add ExecutionContext flow or custom AsyncLocal where missing.",
+      "dependencies": [
+        4
+      ],
+      "expected_files": [
+        "src/Common/ContextPropagation.cs",
+        "affected worker files"
+      ],
+      "validation_criteria": "Integration tests demonstrate that spans created deep inside async flows still have both attributes."
+    },
+    {
+      "order": 6,
+      "action": "guard_clause_and_pii_review",
+      "description": "Add validation that CustomerId and AccountId are non-PII safe identifiers (UUIDs).  If null/empty, skip attribute to avoid noise; log at DEBUG.",
+      "dependencies": [
+        5
+      ],
+      "validation_criteria": "Static analyzers and security review sign-off; no PII or auth tokens are logged."
+    },
+    {
+      "order": 7,
+      "action": "unit_and_integration_tests",
+      "description": "Add tests that create a fake ActivitySource, emit a span through helper, and assert on Activity.TagObjects for customer.id and account.id.  Extend end-to-end test suite to query in-memory OTLP exporter and verify attributes exist on >95% of spans.",
+      "dependencies": [
+        6
+      ],
+      "expected_files": [
+        "tests/TelemetryTests.cs",
+        "tests/E2E/TelemetryE2ETest.cs"
+      ],
+      "validation_criteria": "All new tests pass in CI; coverage delta \u2265 +5% lines around instrumentation code."
+    },
+    {
+      "order": 8,
+      "action": "performance_benchmark",
+      "description": "Run BenchmarkDotNet suite comparing master vs branch to measure added overhead per span (<1\u00b5s goal).",
+      "dependencies": [
+        7
+      ],
+      "expected_files": [
+        "benchmarks/SpanAttributeBenchmarks.cs",
+        "benchmark-results.md"
+      ],
+      "validation_criteria": "Performance regression <3% on critical paths."
+    },
+    {
+      "order": 9,
+      "action": "feature_flag_toggle",
+      "description": "Wrap the attribute-setting code with a runtime flag (AppSettings: Telemetry:AddCustomerAccountAttributes=true) to allow safe rollout/rollback.",
+      "dependencies": [
+        8
+      ],
+      "expected_files": [
+        "appsettings.json",
+        "src/Telemetry/FeatureFlags.cs"
+      ],
+      "validation_criteria": "Changing the flag at runtime (config reload) adds/removes the two attributes in staging environment."
+    },
+    {
+      "order": 10,
+      "action": "code_review_and_merge",
+      "description": "Open PR, request reviews from Observability and iam-tasks maintainers, and address comments.",
+      "dependencies": [
+        9
+      ],
+      "validation_criteria": "PR approved with no blocking comments; squash-merge to main."
+    },
+    {
+      "order": 11,
+      "action": "staging_deploy_and_monitoring",
+      "description": "Deploy to staging, run synthetic traffic, and validate via Grafana or Honeycomb that 100% of new spans contain customer.id & account.id.  Check for attribute cardinality explosions.",
+      "dependencies": [
+        10
+      ],
+      "validation_criteria": "Dashboards show attribute presence \u226599%; no exporter errors."
+    },
+    {
+      "order": 12,
+      "action": "production_rollout",
+      "description": "Gradual rollout: 10% \u2192 50% \u2192 100% over 24 hours using the feature flag.  Observe error budget, latency, and span volume.",
+      "dependencies": [
+        11
+      ],
+      "validation_criteria": "No SLO violations; attribute presence confirmed at each stage."
+    },
+    {
+      "order": 13,
+      "action": "post_deploy_verification_and_doc_update",
+      "description": "Close the ticket after verifying Customer Impact Analysis queries now return complete data.  Update internal observability runbook.",
+      "dependencies": [
+        12
+      ],
+      "expected_files": [
+        "docs/runbooks/customer-impact.md"
+      ],
+      "validation_criteria": "Analytics team signs off; runbook merged."
+    }
+  ],
+  "contextual_hints": [
+    "Ensuring customerId and accountId are propagated through async / parallel execution flows so they are always in scope when the span is created",
+    "Refactoring common helpers or creating wrappers to prevent duplicate code while guaranteeing attributes are set exactly once per span",
+    "Co-existing with any existing instrumentation (e.g., automatic OpenTelemetry processors) without clobbering or duplicating attributes",
+    "Adding unit/integration tests that assert new attributes on spans without making tests brittle"
+  ],
+  "similar_patterns": [
+    "add_span_attributes",
+    "context_propagation"
+  ]
+}

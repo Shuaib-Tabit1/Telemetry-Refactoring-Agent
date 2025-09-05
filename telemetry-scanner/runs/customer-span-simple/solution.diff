@@ -1,0 +1,174 @@
+*** /dev/null
++++ b/src/Common/IRequestContext.cs
+@@
++namespace IamTickets.Common.Context;
++
++/// <summary>
++/// A minimal request/operation context that carries tenant-level identifiers
++/// which must be attached to every telemetry span.
++/// </summary>
++public interface IRequestContext
++{
++    /// <summary>The immutable, publicly-safe customer identifier (UUID or hash).</summary>
++    string? CustomerId { get; }
++
++    /// <summary>The immutable, publicly-safe account identifier (UUID or hash).</summary>
++    string? AccountId { get; }
++}
++
+*** /dev/null
++++ b/src/Common/RequestContextAccessor.cs
+@@
++using System.Threading;
++
++namespace IamTickets.Common.Context;
++
++/// <summary>
++/// Async-local storage for the current <see cref="IRequestContext"/>.
++/// Upstream middleware / worker schedulers are responsible for pushing the
++/// context before work starts.
++/// </summary>
++public interface IRequestContextAccessor
++{
++    IRequestContext? Current { get; set; }
++}
++
++internal sealed class RequestContextAccessor : IRequestContextAccessor
++{
++    private static readonly AsyncLocal<IRequestContext?> _current = new();
++
++    public IRequestContext? Current
++    {
++        get => _current.Value;
++        set => _current.Value = value;
++    }
++}
++
+*** /dev/null
++++ b/src/Telemetry/FeatureFlags.cs
+@@
++namespace IamTickets.Telemetry;
++
++public sealed class TelemetryFeatureFlags
++{
++    /// <summary>
++    /// Controls whether <c>customer.id</c> and <c>account.id</c> attributes
++    /// are added to spans.  Toggle for safe rollout.
++    /// </summary>
++    public bool AddCustomerAccountAttributes { get; set; } = true;
++}
++
+*** /dev/null
++++ b/src/Telemetry/ActivityExtensions.cs
+@@
++using System.Diagnostics;
++using Microsoft.Extensions.DependencyInjection;
++using Microsoft.Extensions.Options;
++using IamTickets.Common.Context;
++
++namespace IamTickets.Telemetry;
++
++/// <summary>
++/// Central helper for starting activities with mandatory customer/account
++/// attributes attached.
++/// </summary>
++public static class ActivityExtensions
++{
++    /// <summary>
++    /// Starts a span and – when enabled – sets <c>customer.id</c> and
++    /// <c>account.id</c> attributes immediately.
++    /// </summary>
++    /// <remarks>
++    /// The helper is static / pure so it can be used from any layer without
++    /// polluting constructors with additional dependencies – it resolves the
++    /// required singletons via the <see cref="IServiceProvider"/> that is
++    /// captured once at startup.
++    /// </remarks>
++    public static Activity? StartActivityWithCustomerContext(
++        this ActivitySource source,
++        string name,
++        ActivityKind kind = ActivityKind.Internal)
++    {
++        var activity = source.StartActivity(name, kind);
++        if (activity is null) return null;
++
++        // Fast out if nothing to do – avoids touching DI for every span when
++        // the flag is disabled or sampling drops the activity.
++        if (!EnsureServiceProviderLazy.Value.TelemetryFlags.AddCustomerAccountAttributes)
++            return activity;
++
++        var ctx = EnsureServiceProviderLazy.Value.ContextAccessor.Current;
++        if (ctx is null) return activity;
++
++        // Guard clauses – skip empty / whitespace identifiers to avoid noisy data.
++        if (!string.IsNullOrWhiteSpace(ctx.CustomerId))
++            activity.SetTag("customer.id", ctx.CustomerId);
++
++        if (!string.IsNullOrWhiteSpace(ctx.AccountId))
++            activity.SetTag("account.id", ctx.AccountId);
++
++        return activity;
++    }
++
++    #region private helpers
++
++    private sealed record ServiceBundle(
++        IRequestContextAccessor ContextAccessor,
++        TelemetryFeatureFlags TelemetryFlags);
++
++    // Lazy so we only hit the root provider on first use.
++    private static readonly Lazy<ServiceBundle> EnsureServiceProviderLazy = new(() =>
++    {
++        var provider = _serviceProvider
++                       ?? throw new InvalidOperationException(
++                           "Service provider not initialised. Call " +
++                           $"{nameof(UseIamTicketsTelemetryHelpers)} during startup.");
++
++        return new ServiceBundle(
++            provider.GetRequiredService<IRequestContextAccessor>(),
++            provider.GetRequiredService<IOptionsMonitor<TelemetryFeatureFlags>>().CurrentValue);
++    });
++
++    private static IServiceProvider? _serviceProvider;
++
++    /// <summary>Registers the root <see cref="IServiceProvider"/> for runtime access.</summary>
++    /// <remarks>Called once during startup; re-entrant safe.</remarks>
++    public static void UseIamTicketsTelemetryHelpers(this IServiceProvider provider)
++        => _serviceProvider ??= provider;
++
++    #endregion
++}
++
+*** a/StartupExtensions.cs
+--- b/StartupExtensions.cs
+@@
+ using DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions;
++using IamTickets.Common.Context;
++using IamTickets.Telemetry;
+@@
+-        // existing service registrations
++        // existing service registrations
++
++        // ------------  Context & Telemetry helpers ------------
++        services.AddSingleton<IRequestContextAccessor, RequestContextAccessor>();
++        services.Configure<TelemetryFeatureFlags>(
++                configuration.GetSection("Telemetry"));
+@@
+-        return services;
++        // Make root ServiceProvider available to static telemetry helper
++        var provider = services.BuildServiceProvider();
++        provider.UseIamTicketsTelemetryHelpers();
++
++        return services;
+}
+ 
+*** a/Program.cs3
+--- b/Program.cs
+@@
+-    var activity = MyActivitySource.StartActivity("DoWork", ActivityKind.Internal);
++    // Example of the mechanical replacement pattern:
++    var activity = MyActivitySource.StartActivityWithCustomerContext("DoWork", ActivityKind.Internal);
+     if (activity is not null)
+     {
+         // business logic…
+     }

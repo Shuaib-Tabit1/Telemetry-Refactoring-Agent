@@ -1,0 +1,734 @@
+[
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/DetectTypeProcessor.Trace.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (4 occurrences); Telemetry infrastructure: Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions, Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics.Extensions, Pattern: ActivitySource; Contains method call: SetTag (4 times); Matches 3 keywords: SetTag, ActivitySource, OpenTelemetry; Matches 3 keywords: SetTag, ActivitySource, OpenTelemetry",
+    "matching_patterns": [
+      "Pattern: Instrumentation",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+      "OpenTelemetry",
+      "Pattern: Metrics",
+      "SetTag",
+      "Pattern: ActivitySource",
+      "Pattern: StartActivity",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics.Extensions",
+      "ActivitySource",
+      "Pattern: OpenTelemetry"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/VideoInfoProcessor.Trace.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (4 occurrences); Telemetry infrastructure: Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions, Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics.Extensions, Pattern: ActivitySource; Contains method call: SetTag (4 times); Matches 3 keywords: SetTag, ActivitySource, OpenTelemetry; Matches 3 keywords: SetTag, ActivitySource, OpenTelemetry",
+    "matching_patterns": [
+      "Pattern: Instrumentation",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+      "OpenTelemetry",
+      "Pattern: Metrics",
+      "SetTag",
+      "Pattern: ActivitySource",
+      "Pattern: StartActivity",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics.Extensions",
+      "ActivitySource",
+      "Pattern: OpenTelemetry"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/DetectTypeProcessor.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (1 occurrences); Contains method call: SetTag (1 times)",
+    "matching_patterns": [
+      "SetTag"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/ScmHttpApplication.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (2 occurrences); Telemetry infrastructure: Import: DocuSign.CLM.Monitoring, Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions, Import: OpenTelemetry.Metrics; Contains method call: SetTag (2 times); Matches 4 keywords: HTTP_REFERER, HTTP_RESPONSE_REDIRECT_LOCATION, SetTag, OpenTelemetry; Matches 4 keywords: HTTP_REFERER, HTTP_RESPONSE_REDIRECT_LOCATION, SetTag, OpenTelemetry",
+    "matching_patterns": [
+      "Pattern: Instrumentation",
+      "Import: OpenTelemetry.Metrics",
+      "HTTP_RESPONSE_REDIRECT_LOCATION",
+      "Pattern: Monitoring",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+      "Pattern: Metrics",
+      "OpenTelemetry",
+      "SetTag",
+      "Import: OpenTelemetry.Trace",
+      "Pattern: OpenTelemetry",
+      "Pattern: UseOpenTelemetry",
+      "Import: DocuSign.CLM.Monitoring",
+      "HTTP_REFERER"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/MessageWorkerService/DispatchedWorker.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (3 occurrences); Telemetry infrastructure: Import: DocuSign.CLM.Monitoring, Import: DocuSign.Monitoring, Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions; Contains method call: SetTag (3 times); Matches 3 keywords: SetTag, ActivitySource, OpenTelemetry; Matches 3 keywords: SetTag, ActivitySource, OpenTelemetry",
+    "matching_patterns": [
+      "Pattern: Instrumentation",
+      "Pattern: Monitoring",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+      "OpenTelemetry",
+      "SetTag",
+      "Pattern: ActivitySource",
+      "Pattern: StartActivity",
+      "ActivitySource",
+      "Pattern: OpenTelemetry",
+      "Import: var activity = StartActivity(task, corrToken)",
+      "Import: DocuSign.CLM.Monitoring",
+      "Import: DocuSign.Monitoring"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Engine/WorkflowInstance.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (9 occurrences); Telemetry infrastructure: Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions, Import: var span = StartActivity()\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, instanceActivity.Uid), Import: var span = StartActivity()\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, instanceActivity?.Uid); Contains method call: SetTag (9 times); Matches 3 keywords: SetTag, ActivitySource, OpenTelemetry; Matches 3 keywords: SetTag, ActivitySource, OpenTelemetry",
+    "matching_patterns": [
+      "Pattern: Instrumentation",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+      "OpenTelemetry",
+      "SetTag",
+      "Pattern: ActivitySource",
+      "Import: var span = StartActivity()\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, instanceActivity.Uid)",
+      "Pattern: StartActivity",
+      "Import: var span = StartActivity()",
+      "Import: var span = StartActivity()\n\t\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, instanceActivity?.Uid)",
+      "ActivitySource",
+      "Pattern: OpenTelemetry"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Service/V1/WinsService.Trace.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (1 occurrences); Contains method call: SetTag (1 times); Matches 3 keywords: SetTag, ActivitySource, OpenTelemetry; Matches 3 keywords: SetTag, ActivitySource, OpenTelemetry",
+    "matching_patterns": [
+      "ActivitySource",
+      "SetTag",
+      "OpenTelemetry"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Service/V1/WinsService.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (54 occurrences); Telemetry infrastructure: Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions, Import: OpenTelemetry.Trace, Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId); Contains method call: SetTag (54 times); Matches 2 keywords: SetTag, OpenTelemetry; Matches 2 keywords: SetTag, OpenTelemetry",
+    "matching_patterns": [
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid)",
+      "Import: OpenTelemetry.Trace",
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, request.RevisionUid)",
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, request.SourceVersionUid)",
+      "Pattern: Instrumentation",
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)",
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid)",
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, request.RevisionUid)",
+      "Pattern: OpenTelemetry",
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, request.VersionUid)",
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, request.Version.Uid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowDefinitionUid, request.Version.DefinitionUid)",
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, request.ActivityUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowSourceInstanceUid, request.SourceInstanceUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowSourceActivityUid, request.SourceActivityUid)",
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, request.RevisionUid)",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+      "OpenTelemetry",
+      "SetTag",
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, request.Revision.Uid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, request.Revision.VersionUid)\n\t\t\t.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowDefinitionUid, request.Revision.DefinitionUid)",
+      "Pattern: StartActivity",
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, request.InstanceUid)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, request.ActivityUid)",
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, request!.User.AccountId)\n\t\t\t?.SetTag(ServiceTraceSemanticConventions.AttributeDocuSignWorkItemUid, request.WorkItemUid)",
+      "Pattern: AddTag"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/Profile/ProfileModule.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (1 occurrences); Contains method call: SetTag (1 times)",
+    "matching_patterns": [
+      "SetTag"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/Helpers/BaseApiHandler.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (1 occurrences); Contains method call: SetTag (1 times)",
+    "matching_patterns": [
+      "SetTag"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/Session/RedisSessionStateProviderWrapper.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (1 occurrences); Telemetry infrastructure: Import: DocuSign.CLM.Monitoring, Import: DocuSign.Monitoring, Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions; Contains method call: SetTag (1 times); Matches 3 keywords: SetTag, ActivitySource, OpenTelemetry; Matches 3 keywords: SetTag, ActivitySource, OpenTelemetry",
+    "matching_patterns": [
+      "Pattern: Instrumentation",
+      "Pattern: Monitoring",
+      "Import: var activity = StartActivity()",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+      "Import: var activity = StartActivity()\n\t\t\t\t?.SetStatus(ActivityStatusCode.Ok)",
+      "OpenTelemetry",
+      "SetTag",
+      "Import: OpenTelemetry.Context.Propagation",
+      "Pattern: ActivitySource",
+      "Pattern: StartActivity",
+      "Import: OpenTelemetry.Instrumentation.AspNet",
+      "Import: OpenTelemetry.Trace",
+      "ActivitySource",
+      "Pattern: OpenTelemetry",
+      "Import: DocuSign.CLM.Monitoring",
+      "Import: DocuSign.Monitoring"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/MimeLookup/MimeDetectorWindows.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (3 occurrences); Telemetry infrastructure: Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions, Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics.Extensions, Import: var activity = StartActivity(); Contains method call: SetTag (3 times); Matches 3 keywords: SetTag, ActivitySource, OpenTelemetry; Matches 3 keywords: SetTag, ActivitySource, OpenTelemetry",
+    "matching_patterns": [
+      "Pattern: Instrumentation",
+      "Import: var activity = StartActivity()",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+      "OpenTelemetry",
+      "Pattern: Metrics",
+      "SetTag",
+      "Pattern: ActivitySource",
+      "Pattern: StartActivity",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics.Extensions",
+      "ActivitySource",
+      "Pattern: OpenTelemetry"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/MimeLookup/MimeDetectorCrossPlatform.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (3 occurrences); Telemetry infrastructure: Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions, Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics.Extensions, Import: var activity = StartActivity(); Contains method call: SetTag (3 times); Matches 3 keywords: SetTag, ActivitySource, OpenTelemetry; Matches 3 keywords: SetTag, ActivitySource, OpenTelemetry",
+    "matching_patterns": [
+      "Pattern: Instrumentation",
+      "Import: var activity = StartActivity()",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+      "OpenTelemetry",
+      "Pattern: Metrics",
+      "SetTag",
+      "Pattern: ActivitySource",
+      "Pattern: StartActivity",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics.Extensions",
+      "ActivitySource",
+      "Pattern: OpenTelemetry"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/VideoInfo/VideoInfo.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (5 occurrences); Telemetry infrastructure: Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions, Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics.Extensions, Import: var activity = StartActivity(); Contains method call: SetTag (5 times); Matches 3 keywords: SetTag, ActivitySource, OpenTelemetry; Matches 3 keywords: SetTag, ActivitySource, OpenTelemetry",
+    "matching_patterns": [
+      "Pattern: Instrumentation",
+      "Import: var activity = StartActivity()",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+      "OpenTelemetry",
+      "Pattern: Metrics",
+      "SetTag",
+      "Pattern: ActivitySource",
+      "Pattern: StartActivity",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics.Extensions",
+      "ActivitySource",
+      "Pattern: OpenTelemetry"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/Extensions/Telemetry/ActivityExtensions.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (6 occurrences); Contains method call: SetTag (6 times)",
+    "matching_patterns": [
+      "SetTag"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/API.GateKeeper/Middlewares/LogAsyncRequestHttpMiddleware.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (1 occurrences)",
+    "matching_patterns": [
+      "SetTag"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/WebNet/Middlewares/LogAsyncRequestHttpMiddleware.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (1 occurrences); Telemetry infrastructure: Import: DocuSign.CLM.Monitoring.HttpModules, Import: DocuSign.Monitoring, Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+    "matching_patterns": [
+      "Pattern: Instrumentation",
+      "Pattern: Monitoring",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+      "SetTag",
+      "Pattern: OpenTelemetry",
+      "Import: DocuSign.CLM.Monitoring.HttpModules",
+      "Import: DocuSign.Monitoring",
+      "Pattern: Activity.Current"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Web/SSO/SSOEndpoint.ashx.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (2 occurrences); Contains method call: SetTag (2 times)",
+    "matching_patterns": [
+      "SetTag"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Web/DocExplorer/Controllers/PanelControllers/AttributesController.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (15 occurrences); Telemetry infrastructure: Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions, Import: var saveActivity = _serviceInstrumentation?.ActivitySource\n\t\t\t\t?.StartActivity(nameof(SaveAttributes))\n\t\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, nameof(SaveAttributes)), Import: var loadActivity = _serviceInstrumentation?.ActivitySource\n\t\t\t\t?.StartActivity(nameof(LoadAttributes))\n\t\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, nameof(LoadAttributes))\n\t\t\t\t?.SetTag(\"docusign.document.id\", docUid); Contains method call: SetTag (15 times)",
+    "matching_patterns": [
+      "Import: var saveActivity = _serviceInstrumentation?.ActivitySource\n\t\t\t\t?.StartActivity(nameof(SaveAttributes))\n\t\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, nameof(SaveAttributes))",
+      "Pattern: Instrumentation",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+      "SetTag",
+      "Pattern: ActivitySource",
+      "Import: var refreshActivity = _serviceInstrumentation?.ActivitySource\n\t\t\t\t?.StartActivity(nameof(Refresh))\n\t\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, nameof(Refresh))\n\t\t\t\t?.SetTag(\"docusign.document.id\", docUid)",
+      "Pattern: StartActivity",
+      "Pattern: OpenTelemetry",
+      "Import: var loadActivity = _serviceInstrumentation?.ActivitySource\n\t\t\t\t?.StartActivity(nameof(LoadAttributes))\n\t\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, nameof(LoadAttributes))\n\t\t\t\t?.SetTag(\"docusign.document.id\", docUid)",
+      "Import: var loadGroupSchemaActivity = _serviceInstrumentation?.ActivitySource\n\t\t\t\t?.StartActivity(nameof(LoadGroupSchema))\n\t\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, nameof(LoadGroupSchema))\n\t\t\t\t?.SetTag(\"docusign.document.id\", docUid)",
+      "Pattern: SetAttribute",
+      "Import: var loadCascadingDropdownOptionsActivity = _serviceInstrumentation?.ActivitySource\n\t\t\t\t?.StartActivity(nameof(LoadCascadingDropdownOptions))\n\t\t\t\t?.SetStatus(ActivityStatusCode.Error)\n\t\t\t\t?.SetTag(TraceSemanticConventions.AttributeCodeFunction, nameof(LoadCascadingDropdownOptions))\n\t\t\t\t?.SetTag(\"docusign.document.id\", docUid)"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/WebContent/Ajax/UploadFiles.ashx.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (2 occurrences); Contains method call: SetTag (2 times)",
+    "matching_patterns": [
+      "SetTag"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/API.Allocation/Middlewares/LogAsyncRequestHttpMiddleware.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (1 occurrences)",
+    "matching_patterns": [
+      "SetTag"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Web.CommonUI/Helpers/HttpRequestAuditHelper.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (1 occurrences)",
+    "matching_patterns": [
+      "SetTag"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Web.CommonUI/MVC/Filters/MvcAuditedRequestAttribute.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (2 occurrences); Contains method call: SetTag (2 times)",
+    "matching_patterns": [
+      "SetTag"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Web.CommonUI/MVC/Controls/FormExtensions.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (10 occurrences); Contains method call: SetTag (10 times)",
+    "matching_patterns": [
+      "SetTag"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common.AspNetCore/Web.Common.AspNetCore/Middlewares/ProfileMiddleware.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (1 occurrences)",
+    "matching_patterns": [
+      "SetTag"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common.AspNetCore/Web.Common.AspNetCore/Middlewares/ScmLogAsyncRequestHttpMiddleware.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (1 occurrences)",
+    "matching_patterns": [
+      "SetTag"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/API.WorkflowActivities/Infrastructure/Telemetry/WorkflowScopeEvents/WorkflowScopeEventsController.Trace.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (6 occurrences); Contains method call: SetTag (6 times)",
+    "matching_patterns": [
+      "SetTag"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/API.WorkflowActivities/Infrastructure/Telemetry/WorkflowActivities/WorkflowActivitiesController.Trace.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (6 occurrences); Contains method call: SetTag (6 times)",
+    "matching_patterns": [
+      "SetTag"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/API.WorkflowActivities/Infrastructure/Telemetry/WorkflowDefinition/WorkflowDefinitionController.Trace.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (4 occurrences); Contains method call: SetTag (4 times)",
+    "matching_patterns": [
+      "SetTag"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain/DocumentCreation/OpenXmlExtensions.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (1 occurrences)",
+    "matching_patterns": [
+      "SetTag"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain/Utilities/ActivityEnricher.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (7 occurrences); Contains method call: SetTag (7 times)",
+    "matching_patterns": [
+      "SetTag"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain/DocumentCreation/MergeType/RepeatingSectionMergeType.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (1 occurrences)",
+    "matching_patterns": [
+      "SetTag"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain/Repository/Workflow/Client/WorkflowV1GrpcClient.cs",
+    "strategy": "keyword",
+    "relevance_score": 100,
+    "reasoning": "Direct match for 'SetTag' (54 occurrences); Telemetry infrastructure: Import: DocuSign.CLM.Monitoring, Import: DocuSign.Monitoring, Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions; Contains method call: SetTag (54 times)",
+    "matching_patterns": [
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, user.AccountId)\n\t\t\t.SetTag(WorkflowServiceTraceSemanticConventions.AttributeDocuSignWorkItemUid, workItemUid)",
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, user.AccountId)\n\t\t\t.SetTag(WorkflowServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, instanceUid)",
+      "Import: OpenTelemetry.Trace",
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, user.AccountId)\n\t\t\t.SetTag(WorkflowServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, versionUid)",
+      "Pattern: Instrumentation",
+      "Pattern: Monitoring",
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, user.AccountId)\n\t\t\t.SetTag(\n\t\t\t\tWorkflowServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid,\n\t\t\t\tinstanceUid.ToString())",
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, user.AccountId)\n\t\t\t.SetTag(WorkflowServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, revision.Uid)\n\t\t\t.SetTag(WorkflowServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, revision.VersionUid)\n\t\t\t.SetTag(\n\t\t\t\tWorkflowServiceTraceSemanticConventions.AttributeDocuSignWorkflowDefinitionUid,\n\t\t\t\trevision.DefinitionUid)",
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, accountId)\n\t\t\t.SetTag(\n\t\t\t\tWorkflowServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid,\n\t\t\t\tinstanceUid.ToString())\n\t\t\t.SetTag(\n\t\t\t\tWorkflowServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid,\n\t\t\t\tactivityUid.ToString())",
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, user.AccountId)\n\t\t\t.SetTag(\n\t\t\t\tWorkflowServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid,\n\t\t\t\tinstanceUid.ToString())\n\t\t\t.SetTag(\n\t\t\t\tWorkflowServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid,\n\t\t\t\trevisionUid.ToString())",
+      "Pattern: OpenTelemetry",
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, user.AccountId)\n\t\t\t.SetTag(WorkflowServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, version.Uid)\n\t\t\t.SetTag(\n\t\t\t\tWorkflowServiceTraceSemanticConventions.AttributeDocuSignWorkflowDefinitionUid,\n\t\t\t\tversion.DefinitionUid)",
+      "Import: DocuSign.Monitoring",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry.SemanticConventions",
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, accountId)\n\t\t\t.SetTag(WorkflowServiceTraceSemanticConventions.AttributeDocuSignWorkflowInstanceUid, instanceUid)\n\t\t\t.SetTag(WorkflowServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid, revisionUid)",
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, userAccount.AccountId)\n\t\t\t.SetTag(WorkflowServiceTraceSemanticConventions.AttributeDocuSignWorkflowActivityUid, activityUid)\n\t\t\t.SetTag(\n\t\t\t\tWorkflowServiceTraceSemanticConventions.AttributeDocuSignWorkflowSourceInstanceUid,\n\t\t\t\tsourceInstanceUid)\n\t\t\t.SetTag(\n\t\t\t\tWorkflowServiceTraceSemanticConventions.AttributeDocuSignWorkflowSourceActivityUid,\n\t\t\t\tsourceActivityUid)",
+      "SetTag",
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, user.AccountId)\n\t\t\t.SetTag(WorkflowServiceTraceSemanticConventions.AttributeDocuSignWorkflowVersionUid, sourceVersionUid)",
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, user.AccountId)",
+      "Pattern: ActivitySource",
+      "Import: var activity = StartActivity()\n\t\t\t?.SetTag(TraceSemanticConventions.AttributeDocuSignAccountId, user.AccountId)\n\t\t\t.SetTag(\n\t\t\t\tWorkflowServiceTraceSemanticConventions.AttributeDocuSignWorkflowRevisionUid,\n\t\t\t\trevisionUid.ToString())",
+      "Pattern: StartActivity",
+      "Import: DocuSign.CLM.Monitoring"
+    ],
+    "confidence": 0.95
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/API.WorkflowActivities/Program.cs",
+    "strategy": "pattern",
+    "relevance_score": 100,
+    "reasoning": "Telemetry infrastructure: Import: DocuSign.CLM.API.WorkflowActivities.Infrastructure.Telemetry.Metrics.MetricsEmitters, Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics, Import: OpenTelemetry.Metrics",
+    "matching_patterns": [
+      "Import: DocuSign.CLM.API.WorkflowActivities.Infrastructure.Telemetry.Metrics.MetricsEmitters",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics",
+      "Import: OpenTelemetry.Metrics",
+      "Pattern: OpenTelemetry",
+      "Pattern: Instrumentation",
+      "Pattern: Metrics",
+      "Config file: program.cs"
+    ],
+    "confidence": 0.85
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/AtlasDataManipulationService/Startup.cs",
+    "strategy": "pattern",
+    "relevance_score": 100,
+    "reasoning": "Telemetry infrastructure: Import: ADEXS.Caching.OpenTelemetry.Extensions, Import: ADEXS.CqlCorePersistence.OpenTelemetry, Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics.Extensions",
+    "matching_patterns": [
+      "Import: ADEXS.Caching.OpenTelemetry.Extensions",
+      "Import: ADEXS.CqlCorePersistence.OpenTelemetry",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics.Extensions",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry",
+      "Import: OpenTelemetry.Exporter",
+      "Import: OpenTelemetry.Metrics",
+      "Import: OpenTelemetry.Trace",
+      "Pattern: OpenTelemetry",
+      "Pattern: Instrumentation",
+      "Pattern: Metrics",
+      "Pattern: ConfigureServices",
+      "Config file: startup.cs"
+    ],
+    "confidence": 0.85
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Core.ServiceFramework/ICoreInstrumentationLifetimeService.cs",
+    "strategy": "pattern",
+    "relevance_score": 100,
+    "reasoning": "Telemetry infrastructure: Import: OpenTelemetry.Metrics, Import: OpenTelemetry.Trace, Pattern: OpenTelemetry",
+    "matching_patterns": [
+      "Import: OpenTelemetry.Metrics",
+      "Import: OpenTelemetry.Trace",
+      "Pattern: OpenTelemetry",
+      "Pattern: Instrumentation",
+      "Pattern: Metrics",
+      "Pattern: TracerProvider",
+      "Pattern: MeterProvider",
+      "Config file: icoreinstrumentationlifetimeservice.cs"
+    ],
+    "confidence": 0.85
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Core.ServiceFramework/CoreInstrumentationLifetimeService.cs",
+    "strategy": "pattern",
+    "relevance_score": 100,
+    "reasoning": "Telemetry infrastructure: Import: ADEXS.ServiceFramework.OpenTelemetry.Extensions, Import: OpenTelemetry.Metrics, Import: OpenTelemetry.Trace",
+    "matching_patterns": [
+      "Import: ADEXS.ServiceFramework.OpenTelemetry.Extensions",
+      "Import: OpenTelemetry.Metrics",
+      "Import: OpenTelemetry.Trace",
+      "Pattern: OpenTelemetry",
+      "Pattern: Instrumentation",
+      "Pattern: Metrics",
+      "Pattern: TracerProvider",
+      "Pattern: MeterProvider",
+      "Config file: coreinstrumentationlifetimeservice.cs"
+    ],
+    "confidence": 0.85
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/internal/AtlasCustomerSupport/Global.asax.cs",
+    "strategy": "pattern",
+    "relevance_score": 100,
+    "reasoning": "Telemetry infrastructure: Import: DocuSign.CLM.Monitoring, Import: OpenTelemetry.Metrics, Import: OpenTelemetry.Trace",
+    "matching_patterns": [
+      "Import: DocuSign.CLM.Monitoring",
+      "Import: OpenTelemetry.Metrics",
+      "Import: OpenTelemetry.Trace",
+      "Pattern: Activity.Current",
+      "Pattern: OpenTelemetry",
+      "Pattern: Instrumentation",
+      "Pattern: Monitoring",
+      "Pattern: Metrics",
+      "Pattern: UseOpenTelemetry"
+    ],
+    "confidence": 0.85
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Engine/WINSManager.cs",
+    "strategy": "pattern",
+    "relevance_score": 95,
+    "reasoning": "Telemetry infrastructure: Import: Monitoring = DocuSign.Monitoring, Import: (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t\t{\n\t\t\t\t\ttry\n\t\t\t\t\t{\n\t\t\t\t\t\tvar result = WINSClientLibrary.CreateNewWorkflowDefinition(user, workflowName), Import: (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId, instanceUid))\n\t\t\t\t{\n\t\t\t\t\tusing (ScmNDC.Push(BuildNDCTags(user.AccountId, instanceUid)))\n\t\t\t\t\t{\n\t\t\t\t\t\ttry\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\tSaveInstanceStateChangedForGrpcEngineV1(instanceUid)",
+    "matching_patterns": [
+      "Import: Monitoring = DocuSign.Monitoring",
+      "Import: (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t\t{\n\t\t\t\t\ttry\n\t\t\t\t\t{\n\t\t\t\t\t\tvar result = WINSClientLibrary.CreateNewWorkflowDefinition(user, workflowName)",
+      "Import: (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId, instanceUid))\n\t\t\t\t{\n\t\t\t\t\tusing (ScmNDC.Push(BuildNDCTags(user.AccountId, instanceUid)))\n\t\t\t\t\t{\n\t\t\t\t\t\ttry\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\tSaveInstanceStateChangedForGrpcEngineV1(instanceUid)",
+      "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t{\n\t\t\t\ttry\n\t\t\t\t{\n\t\t\t\t\tvar result = WINSClientLibrary.LoadWorkItem(user, workItemUid)",
+      "Import: (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId, instanceUid))\n\t\t\t\t{\n\t\t\t\t\tusing (ScmNDC.Push(BuildNDCTags(user.AccountId, instanceUid)))\n\t\t\t\t\t{\n\t\t\t\t\t\ttry\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\tSaveInstanceStateChangedForGrpcEngineV1(instanceUid)",
+      "Import: (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId, instanceUid))\n\t\t\t\t{\n\t\t\t\t\tusing (ScmNDC.Push(BuildNDCTags(user.AccountId, instanceUid)))\n\t\t\t\t\t{\n\t\t\t\t\t\ttry\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\tIWINSControlInstance control = WorkflowManager.Instance.GetControlInstance(user.AccountId, instanceUid)",
+      "Import: (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId, instanceUid))\n\t\t\t\t{\n\t\t\t\t\tusing (ScmNDC.Push(BuildNDCTags(user.AccountId, instanceUid)))\n\t\t\t\t\t{\n\t\t\t\t\t\ttry\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\tIWINSControlInstance control = WorkflowManager.Instance.GetControlInstance(user.AccountId, instanceUid)",
+      "Import: (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t\t{\n\t\t\t\t\ttry\n\t\t\t\t\t{\n\t\t\t\t\t\t_log.InfoNoPII(string.Format(\"SubmitWorkItem: WorkItemUid {0}, output {1}\", workItemUid, PII.Encode(output)))",
+      "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t{\n\t\t\t\tvar design = ServiceLocator.GetInstance<CoreDomainWorkflowRepository.IVersionRepository>().LoadDesignerDefinitionByUid(user.AccountId, user.Uid, version.Uid)",
+      "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t{\n\t\t\t\tvar design = ServiceLocator.GetInstance<CoreDomainWorkflowRepository.IRevisionRepository>().LoadDesignerDefinitionByUid(user.AccountId, user.Uid, revision.Uid)",
+      "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t{\n\t\t\t\tvar result = new Legacy2Designer(new DefinitionReaderLegacy(oldDesign)).Convert(user)",
+      "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t{\n\t\t\t\tstring jwtToken = null",
+      "Import: (CreateFeatureFlagsRemoteCallWrapper(userAccount.AccountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(userAccount.AccountId, sourceInstanceUid))\n\t\t\t{\n\t\t\t\tMonitoring.ServiceContext.Log(Monitoring.DataPoint.WorkflowActivityUid, activityUid)",
+      "Import: (CreateFeatureFlagsRemoteCallWrapper(accountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(accountId, instanceUid))\n\t\t\t{\n\t\t\t\tMonitoring.ServiceContext.Log(Monitoring.DataPoint.WorkflowActivityUid, activityUid)",
+      "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t{\n\t\t\t\tvar result = WINSClientLibrary.ExportWorkflowDefinition(user, workflowName, versionNumber, revisionNumber)",
+      "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\t{\n\t\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t\t{\n\t\t\t\t\tCheckEnableMigrationSuspendWorkflowFeature(user.AccountId)",
+      "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\t{\n\t\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t\t{\n\t\t\t\t\tCheckEnableMigrationSuspendWorkflowFeature(user.AccountId)",
+      "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\t{\n\t\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t\t{\n\t\t\t\t\tCheckEnableMigrationSuspendWorkflowFeature(user.AccountId)",
+      "Import: (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t\t{\n\t\t\t\t\tvar result = WINSClientLibrary.VersionWorkflow(user, workflowName, sourceVersionNumber, sourceRevisionNumber, newVersionNumber, comment)",
+      "Import: (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t\t{\n\t\t\t\t\tvar result = WINSClientLibrary.VersionWorkflow(user, sourceVersionUid, sourceRevisionNumber, newVersionNumber, comment)",
+      "Import: (CreateFeatureFlagsRemoteCallWrapper(accountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(accountId, instanceUid))\n\t\t\t{\n\t\t\t\tbool isActivityExecutionLimitReached = Governor.IsActivityExecutionLimitReached(accountId, instanceUid, revisionUid, revisionCreatedDate, activityExecutionCount, out _)",
+      "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t{\n\t\t\t\tusing (ScmNDC.Push(BuildNDCTags(user.AccountId, default(Guid))))\n\t\t\t\t{\n\t\t\t\t\tStartParameters startParameters = new StartParameters(user, xmlParam, sourceType, sourceId)",
+      "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t{\n\t\t\t\tusing (ScmNDC.Push(BuildNDCTags(user.AccountId, default(Guid))))\n\t\t\t\t{\n\t\t\t\t\tGuid result = WorkflowRepository.SendStartWorkflow(user, workflowName, sourceType, sourceId, xmlParam)",
+      "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t{\n\t\t\t\tusing (ScmNDC.Push(BuildNDCTags(user.AccountId, instanceUid)))\n\t\t\t\t{\n\t\t\t\t\ttry\n\t\t\t\t\t{\n\t\t\t\t\t\tGuid result = _StartWorkflow(user.AccountId, user.Uid, workflowName, xmlParam, sourceType, sourceId, instanceUid)",
+      "Import: (CreateFeatureFlagsRemoteCallWrapper(user.AccountId))\n\t\t\tusing (var logger = BuildRequestEventLoggerAndClearMonitoringContext(user.AccountId))\n\t\t\t{\n\t\t\t\tusing (ScmNDC.Push(BuildNDCTags(user.AccountId, instanceUid)))\n\t\t\t\t{\n\t\t\t\t\tGuid result = _StartWorkflow(user.AccountId, revisionUid, startParameters, instanceUid)",
+      "Pattern: Monitoring"
+    ],
+    "confidence": 0.85
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/API.WorkflowActivities/Controllers/WorkflowActivitiesController.cs",
+    "strategy": "pattern",
+    "relevance_score": 95,
+    "reasoning": "Telemetry infrastructure: Import: DocuSign.Monitoring, Import: (_logger.BeginScope($\"[AccountId: {accountId}, UserAccountUid: {userAccountUid}]\"))\n\t\t{\n\t\t\ttry\n\t\t\t{\n\t\t\t\tusing var activity = StartActivity(accountId, userAccountUid, activityContext.WorkflowActivityContext.InstanceActivity.InstanceUid, activityContext.WorkflowActivityContext.InstanceActivity.Uid), Import: (_logger.BeginScope($\"[AccountId: {accountId}, UserAccountUid: {userAccountUid}]\"))\n\t\t{\n\t\t\ttry\n\t\t\t{\n\t\t\t\tusing var activity = StartActivity(accountId, userAccountUid, activityCallbackContext.WorkflowActivityContext.InstanceActivity.InstanceUid, activityCallbackContext.WorkflowActivityContext.InstanceActivity.Uid)",
+    "matching_patterns": [
+      "Import: DocuSign.Monitoring",
+      "Import: (_logger.BeginScope($\"[AccountId: {accountId}, UserAccountUid: {userAccountUid}]\"))\n\t\t{\n\t\t\ttry\n\t\t\t{\n\t\t\t\tusing var activity = StartActivity(accountId, userAccountUid, activityContext.WorkflowActivityContext.InstanceActivity.InstanceUid, activityContext.WorkflowActivityContext.InstanceActivity.Uid)",
+      "Import: (_logger.BeginScope($\"[AccountId: {accountId}, UserAccountUid: {userAccountUid}]\"))\n\t\t{\n\t\t\ttry\n\t\t\t{\n\t\t\t\tusing var activity = StartActivity(accountId, userAccountUid, activityCallbackContext.WorkflowActivityContext.InstanceActivity.InstanceUid, activityCallbackContext.WorkflowActivityContext.InstanceActivity.Uid)",
+      "Import: (_logger.BeginScope(\"AccountId: {AccountId}, UserAccountUid: {UserAccountUid}\", accountId, userAccountUid))\n\t\t{\n\t\t\ttry\n\t\t\t{\n\t\t\t\tusing var activity = StartActivity(accountId, userAccountUid,\n\t\t\t\t\tactivityCallbackContext.WorkflowActivityContext.InstanceActivity.InstanceUid,\n\t\t\t\t\tactivityCallbackContext.WorkflowActivityContext.InstanceActivity.Uid)",
+      "Import: (_logger.BeginScope($\"[AccountId: {accountId}, UserAccountUid: {userAccountUid}]\"))\n\t\t{\n\t\t\ttry\n\t\t\t{\n\t\t\t\tusing var activity = StartActivity(accountId, userAccountUid, activityContext.WorkflowActivityContext.InstanceActivity.InstanceUid, activityContext.WorkflowActivityContext.InstanceActivity.Uid)",
+      "Import: (_logger.BeginScope($\"[AccountId: {accountId}, UserAccountUid: {userAccountUid}]\"))\n\t\t{\n\t\t\ttry\n\t\t\t{\n\t\t\t\tusing var activity = StartActivity(accountId, userAccountUid, activityContext.WorkflowActivityContext.InstanceActivity.InstanceUid, activityContext.WorkflowActivityContext.InstanceActivity.Uid)",
+      "Import: (_logger.BeginScope($\"[AccountId: {accountId}, UserAccountUid: {userAccountUid}]\"))\n\t\t{\n\t\t\ttry\n\t\t\t{\n\t\t\t\tusing var activity = StartActivity(accountId, userAccountUid, activityContext.WorkflowActivityContext.InstanceActivity.InstanceUid, activityContext.WorkflowActivityContext.InstanceActivity.Uid)",
+      "Pattern: Instrumentation",
+      "Pattern: Monitoring",
+      "Pattern: StartActivity"
+    ],
+    "confidence": 0.85
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/Program.cs",
+    "strategy": "pattern",
+    "relevance_score": 90,
+    "reasoning": "Telemetry infrastructure: Import: ADEXS.DetectTypeService.Telemetry.Metrics.MetricsEmitters, Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics, Pattern: OpenTelemetry",
+    "matching_patterns": [
+      "Import: ADEXS.DetectTypeService.Telemetry.Metrics.MetricsEmitters",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics",
+      "Pattern: OpenTelemetry",
+      "Pattern: Instrumentation",
+      "Pattern: Metrics",
+      "Config file: program.cs"
+    ],
+    "confidence": 0.85
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/AdvancedInsightsService/Program.cs",
+    "strategy": "pattern",
+    "relevance_score": 90,
+    "reasoning": "Telemetry infrastructure: Import: ADEXS.AdvancedInsightsService.Telemetry.MetricsEmitters, Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics, Pattern: OpenTelemetry",
+    "matching_patterns": [
+      "Import: ADEXS.AdvancedInsightsService.Telemetry.MetricsEmitters",
+      "Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics",
+      "Pattern: OpenTelemetry",
+      "Pattern: Instrumentation",
+      "Pattern: Metrics",
+      "Config file: program.cs"
+    ],
+    "confidence": 0.85
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/AdvancedInsightsService/Telemetry/MetricsEmitters/AdvancedInsightsMetricsEmitter.cs",
+    "strategy": "keyword",
+    "relevance_score": 90,
+    "reasoning": "Matches 2 keywords: ActivitySource, OpenTelemetry; Matches 2 keywords: ActivitySource, OpenTelemetry",
+    "matching_patterns": [
+      "ActivitySource",
+      "OpenTelemetry"
+    ],
+    "confidence": 0.6
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/Telemetry/Metrics/MetricsEmitters/MimeDetectorMetricsEmitter.cs",
+    "strategy": "keyword",
+    "relevance_score": 90,
+    "reasoning": "Matches 2 keywords: ActivitySource, OpenTelemetry",
+    "matching_patterns": [
+      "ActivitySource",
+      "OpenTelemetry"
+    ],
+    "confidence": 0.6
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Core.ServiceFramework/AbstractServicedComponent.cs",
+    "strategy": "pattern",
+    "relevance_score": 85,
+    "reasoning": "Telemetry infrastructure: Import: DocuSign.CLM.Monitoring, Import: DocuSign.Monitoring, Import: service invocation to start process,\n\t\t\t\t\t// so Assembly.EntryAssembly is not represents correct service assembly. We are\n\t\t\t\t\t// using GetType().Assembly instead, which would provide correct release version.\n\t\t\t\t\tTask.Run(() => _coreInstrumentationLifetimeService.StartAsync(\n\t\t\t\t\t\tassembly: this.GetType().Assembly))\n\t\t\t\t\t\t\t.GetAwaiter().GetResult()",
+    "matching_patterns": [
+      "Import: DocuSign.CLM.Monitoring",
+      "Import: DocuSign.Monitoring",
+      "Import: service invocation to start process,\n\t\t\t\t\t// so Assembly.EntryAssembly is not represents correct service assembly. We are\n\t\t\t\t\t// using GetType().Assembly instead, which would provide correct release version.\n\t\t\t\t\tTask.Run(() => _coreInstrumentationLifetimeService.StartAsync(\n\t\t\t\t\t\tassembly: this.GetType().Assembly))\n\t\t\t\t\t\t\t.GetAwaiter().GetResult()",
+      "Pattern: OpenTelemetry",
+      "Pattern: Instrumentation",
+      "Pattern: Monitoring",
+      "Pattern: UseOpenTelemetry"
+    ],
+    "confidence": 0.85
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain/Ems/EmsRestClient.cs",
+    "strategy": "pattern",
+    "relevance_score": 85,
+    "reasoning": "Telemetry infrastructure: Import: DocuSign.CLM.Monitoring, Import: DocuSign.Monitoring, Import: var timer = TimingEventSourceUtilities.GetTimer(MonitoringTimingEventSource,\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\tnameof(SaveDocumentIngestPayload),\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\tnew ClmTimingPhase(nameof(EmsRestClient)))",
+    "matching_patterns": [
+      "Import: DocuSign.CLM.Monitoring",
+      "Import: DocuSign.Monitoring",
+      "Import: var timer = TimingEventSourceUtilities.GetTimer(MonitoringTimingEventSource,\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\tnameof(SaveDocumentIngestPayload),\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\tnew ClmTimingPhase(nameof(EmsRestClient)))",
+      "Import: var timer = TimingEventSourceUtilities.GetTimer(MonitoringTimingEventSource,\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\tnameof(SaveCustomAttributeDefinition),\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\tnew ClmTimingPhase(nameof(EmsRestClient)))",
+      "Import: var timer = TimingEventSourceUtilities.GetTimer(MonitoringTimingEventSource,\n                                                                nameof(FinalizeCustomAttributeDefinition),\n                                                                new ClmTimingPhase(nameof(EmsRestClient)))",
+      "Import: var timer = TimingEventSourceUtilities.GetTimer(MonitoringTimingEventSource,\n\t\t\tnameof(UpdateDocumentIdOfAgreementDocument),\n\t\t\tnew ClmTimingPhase(nameof(EmsRestClient)))",
+      "Pattern: Monitoring"
+    ],
+    "confidence": 0.85
+  },
+  {
+    "file_path": "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain/UnifiedRepository/UnifiedRepositoryIngestionService.cs",
+    "strategy": "pattern",
+    "relevance_score": 85,
+    "reasoning": "Telemetry infrastructure: Import: DocuSign.CLM.Monitoring, Import: DocuSign.Monitoring, Import: (var timer = TimingEventSourceUtilities.GetTimer(MonitoringTimingEventSource, CounterInstanceDetails.ProcessPermissions, CounterInstanceDetails.DocumentIngestionTiming))\n\t\t\t{\n\t\t\t\tLog.InfoNoPII($\"Processing Document Permissions\")",
+    "matching_patterns": [
+      "Import: DocuSign.CLM.Monitoring",
+      "Import: DocuSign.Monitoring",
+      "Import: (var timer = TimingEventSourceUtilities.GetTimer(MonitoringTimingEventSource, CounterInstanceDetails.ProcessPermissions, CounterInstanceDetails.DocumentIngestionTiming))\n\t\t\t{\n\t\t\t\tLog.InfoNoPII($\"Processing Document Permissions\")",
+      "Import: (var timer = TimingEventSourceUtilities.GetTimer(MonitoringTimingEventSource, CounterInstanceDetails.ProcessAttributes, CounterInstanceDetails.DocumentIngestionTiming))\n\t\t{\n\t\t\tLog.InfoNoPII($\"Processing Document Attributes\")",
+      "Import: (var timer = TimingEventSourceUtilities.GetTimer(MonitoringTimingEventSource, CounterInstanceDetails.AttributeSyncUsingIngestionService, CounterInstanceDetails.DocumentIngestionTiming))\n\t\t{\n\t\t\tLog.InfoNoPII($\"Processing Document Attributes\")",
+      "Import: (var timer = TimingEventSourceUtilities.GetTimer(MonitoringTimingEventSource, CounterInstanceDetails.ProcessHistory, CounterInstanceDetails.DocumentIngestionTiming))\n\t\t\t{\n\t\t\t\tLog.InfoNoPII($\"Processing Document History\")",
+      "Pattern: Monitoring"
+    ],
+    "confidence": 0.85
+  }
+]

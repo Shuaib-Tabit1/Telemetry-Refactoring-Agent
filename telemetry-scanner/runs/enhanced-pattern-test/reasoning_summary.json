@@ -1,0 +1,27 @@
+{
+  "selected_files": [
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/DetectTypeProcessor.Trace.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/VideoInfoProcessor.Trace.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/DetectTypeProcessor.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/ScmHttpApplication.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/MessageWorkerService/DispatchedWorker.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Engine/WorkflowInstance.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/API.WorkflowActivities/Program.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/AtlasDataManipulationService/Startup.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Core.ServiceFramework/ICoreInstrumentationLifetimeService.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Service/V1/WinsService.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/VideoInfo/VideoInfo.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Core.Types/Constants.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Core.Types/Enums.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain/CoreDomainRegistry.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/ActIntegration/Client/ActIntegrationClient.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/OpenApiClients/DacDocGenApiClient/Api/GenApi.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/OpenApiClients/DacDocGenApiClient/Client/ApiClient.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Core.ServiceFramework/AbstractServicedComponent.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain/GlobalSuppressions.cs"
+  ],
+  "selection_reasoning": "\u2022 Add a delegating handler if using HttpClient, but requirement is for incoming server requests, not outgoing client calls.",
+  "patch_reasoning": "Fallback conclusion due to reasoning error",
+  "diff_length": 656,
+  "explanation_length": 1735
+}

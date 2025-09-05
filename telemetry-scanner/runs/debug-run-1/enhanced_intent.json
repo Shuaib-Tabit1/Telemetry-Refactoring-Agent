@@ -1,0 +1,172 @@
+{
+  "basic_intent": {
+    "issue_category": "INSTRUMENTATION",
+    "static_analysis_query": {
+      "find_method_call": "SetTag"
+    },
+    "semantic_description": "Add HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION headers as attributes on existing HTTP request spans.",
+    "search_keywords": [
+      "HTTP_REFERER",
+      "HTTP_RESPONSE_REDIRECT_LOCATION",
+      "Activity.SetTag",
+      "OpenTelemetry",
+      "middleware"
+    ],
+    "telemetry_operation": {
+      "type": "span",
+      "target_name": "HTTP request span",
+      "action": "ADD_ATTRIBUTES",
+      "attributes_to_add": [
+        {
+          "name": "HTTP_REFERER",
+          "value_source": "Request.Headers[\"Referer\"]"
+        },
+        {
+          "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+          "value_source": "Response.Headers[\"Location\"]"
+        }
+      ],
+      "new_span_name": null,
+      "new_metric_details": {}
+    }
+  },
+  "enhanced_analysis": {
+    "confidence": "high",
+    "operation_type": "multi_file",
+    "complexity_score": 5,
+    "estimated_files": 4,
+    "validation_issues": [],
+    "suggestions": [],
+    "sub_tasks": [
+      {
+        "order": 1,
+        "name": "Code-base discovery",
+        "action": "locate_configuration",
+        "description": "Identify where the root HTTP Activity (span) is created or enriched.\n1. Grep / Search for keywords: \"ActivitySource\", \"SetTag(\", \"OpenTelemetry\", \"AddAspNetCoreInstrumentation\".\n2. Inspect Startup.cs, Program.cs, WebApplicationBuilder, and *Telemetry*.cs extension files.\n3. Confirm whether custom middleware already wraps requests (look for `app.UseMiddleware(` or `IApplicationBuilder.UseXyzTelemetry`).",
+        "expected_files": [
+          "Startup.cs | Program.cs",
+          "TelemetryExtensions.cs (or similar)",
+          "Middleware/RequestTrackingMiddleware.cs"
+        ],
+        "validation_criteria": [
+          "Discovered the exact class where existing SetTag calls are placed OR determine the need for new middleware.",
+          "Documented file & method names for next steps."
+        ]
+      },
+      {
+        "order": 2,
+        "name": "Design instrumentation point",
+        "action": "technical_design",
+        "dependencies": [
+          1
+        ],
+        "description": "Decide whether to place new tags in:\nA) an existing custom telemetry middleware, OR\nB) a new lightweight middleware inserted early (for Referer) and late (for Location) in the pipeline.\nDocument chosen approach; update ADR (architecture decision record) if your repo uses them.",
+        "validation_criteria": [
+          "Written short design note/ADR that indicates chosen solution and why.",
+          "Team sign-off in PR description or design review."
+        ]
+      },
+      {
+        "order": 3,
+        "name": "Implement code changes",
+        "action": "implement_changes",
+        "dependencies": [
+          2
+        ],
+        "description": "1. Add the new middleware or modify existing one.\n2. On request start (HttpContext.Request):\n   \u2022 string referer = context.Request.Headers[\"Referer\"].FirstOrDefault();\n   \u2022 if (!string.IsNullOrWhiteSpace(referer)) Activity.Current?.SetTag(\"HTTP_REFERER\", referer);\n3. On response completion (after next(context)):\n   \u2022 if (context.Response.StatusCode >= 300 && context.Response.StatusCode < 400)\n       {\n           var location = context.Response.Headers[\"Location\"].FirstOrDefault();\n           if (!string.IsNullOrWhiteSpace(location)) Activity.Current?.SetTag(\"HTTP_RESPONSE_REDIRECT_LOCATION\", location);\n       }\n4. Handle null/empty gracefully (do NOT write tag when empty).\n5. Add middleware registration in Startup/Program *after* `UseRouting()` and *before* `UseEndpoints()` so that Request & Response data are both available.",
+        "expected_files_modified": [
+          "Middleware/RedirectTrackingMiddleware.cs (new)",
+          "Startup.cs or Program.cs (Add middleware)"
+        ],
+        "validation_criteria": [
+          "Build succeeds locally.",
+          "No duplicate tags if ASP.NET automatic instrumentation later adds same names (confirmed they don\u2019t)."
+        ]
+      },
+      {
+        "order": 4,
+        "name": "Unit & integration tests",
+        "action": "test_implementation",
+        "dependencies": [
+          3
+        ],
+        "description": "1. Add unit test for middleware using TestServer.\n2. Test cases:\n   a. Request with Referer header returns 200 \u2014 expect HTTP_REFERER tag present, no HTTP_RESPONSE_REDIRECT_LOCATION.\n   b. Request that returns 302 with Location header \u2014 expect both tags.\n   c. Missing headers \u2014 expect no tags, no exceptions.\n3. Assert using ActivityListener or OTLP exporter mocks.",
+        "validation_criteria": [
+          "All tests green in CI.",
+          "Code coverage > 80% for new middleware."
+        ]
+      },
+      {
+        "order": 5,
+        "name": "Manual validation in local & Demo",
+        "action": "manual_validation",
+        "dependencies": [
+          4
+        ],
+        "description": "1. Run CLM locally with OTLP exporter to console.\n2. Hit /clm/Documents/BrowseDocuments.aspx via browser with and without Referer.\n3. Trigger redirect flow via SSO endpoint to generate 302.\n4. Confirm console shows newly added attributes.\n5. Deploy feature branch to Demo slot and execute Kusto query provided in ticket\u2014verify columns populated.",
+        "validation_criteria": [
+          "Attributes appear in spans for both scenarios.",
+          "No missing or null mismatches in Kusto."
+        ]
+      },
+      {
+        "order": 6,
+        "name": "Performance & security review",
+        "action": "non_functional_checks",
+        "dependencies": [
+          5
+        ],
+        "description": "1. Run load test (baseline vs. branch) for 5k RPS, compare p95 latency; budget <1% regression.\n2. Confirm Referer and Location do not unintentionally expose PII; add `TelemetryDataClassification` comment or update data-map if required.",
+        "validation_criteria": [
+          "Performance delta within threshold.",
+          "Security/Privacy review approved."
+        ]
+      },
+      {
+        "order": 7,
+        "name": "PR & code review",
+        "action": "code_review",
+        "dependencies": [
+          6
+        ],
+        "description": "Open PR with reference to ticket, attach design note, test results, Kusto screenshots, and performance numbers.",
+        "validation_criteria": [
+          "At least two reviewer approvals.",
+          "CI pipeline green (build, unit tests, sonar)."
+        ]
+      },
+      {
+        "order": 8,
+        "name": "Deploy to all environments",
+        "action": "deployment",
+        "dependencies": [
+          7
+        ],
+        "description": "1. Merge to main; pipeline deploys to Dev \u2192 QA \u2192 Demo \u2192 Prod.\n2. Monitor Kusto dashboard for new attributes and any spike in Exceptions/Latency for 24h.\n3. Post deployment confirmation in #clm-ops channel.",
+        "validation_criteria": [
+          "New attributes visible in each environment.",
+          "No new high-severity alerts triggered."
+        ]
+      },
+      {
+        "order": 9,
+        "name": "Documentation update",
+        "action": "docs",
+        "dependencies": [
+          8
+        ],
+        "description": "1. Update internal wiki / runbooks explaining the two new span attributes, sample Kusto queries, and troubleshooting guide.\n2. Add entry to CHANGELOG.md under Unreleased \u2192 Released section.",
+        "validation_criteria": [
+          "Docs merged.",
+          "Search for attributes in wiki returns new page."
+        ]
+      }
+    ],
+    "contextual_hints": [
+      "Finding the single place where the root HTTP request Activity is created (could be default ASP.NET instrumentation, custom ActivitySource, or 3rd-party middleware)",
+      "Ensuring the Location header is available before the span ends for every redirect status code",
+      "Adding tags only once and avoiding duplication with any automatic ASP.NET OpenTelemetry instrumentation",
+      "Validating the change across multiple environments and in Kusto, including scenarios with and without redirect/Referer headers"
+    ]
+  }
+}

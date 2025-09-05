@@ -55,6 +55,7 @@ async def run_enhanced_workflow(args):
     from .static_analyzer import ROSLYN_TOOL_PATH, CODE_GRAPH_PATH
     
     search_engine = IntelligentSearchEngine(args.repo_root, CODE_GRAPH_PATH)
+    search_engine.signal_boost_log = True  # one run only; set back to False later
     code_analyzer = AdvancedCodeGraphAnalyzer(CODE_GRAPH_PATH, ROSLYN_TOOL_PATH)
     llm_reasoner = AdvancedLLMReasoner()
     validator = ValidationFramework(Path(args.repo_root))
@@ -188,9 +189,9 @@ async def run_enhanced_workflow(args):
         def generate_solution(dummy_inputs):
             # Use closure to access the actual objects without serialization issues
             intent = enhanced_intent
-            candidate_list = candidates  
+            candidate_list = candidates
             analysis = architecture_analysis
-            
+
             # Convert intent to dict if needed and handle enum serialization
             if hasattr(intent, '__dict__'):
                 intent_dict = {}
@@ -201,54 +202,59 @@ async def run_enhanced_workflow(args):
                         intent_dict[key] = value
             else:
                 intent_dict = intent
-            
-            # Convert candidates to the expected format for enhanced_patch_generation
+
+            # Ensure repo_root is present for downstream repo-relative scoping
+            from pathlib import Path
+            intent_dict.setdefault("repo_root", str(Path(args.repo_root).resolve()))
+
+            # Hard cap only — no extra prioritization heuristics
+            LLM_FILE_CAP = 30
+
             selected_files = []
-            for candidate in candidate_list[:10]:  # Limit to top 10 candidates
+            for c in candidate_list[:LLM_FILE_CAP]:
                 try:
-                    file_content = candidate.file_path.read_text(encoding='utf-8')
+                    file_content = c.file_path.read_text(encoding='utf-8', errors='ignore')
                     selected_files.append({
-                        "path": candidate.file_path,
+                        "path": c.file_path,
                         "content": file_content,
-                        "relevance_score": candidate.relevance_score,
-                        "reasoning": candidate.reasoning
+                        "relevance_score": c.relevance_score,
+                        "reasoning": c.reasoning
                     })
                 except Exception as e:
-                    print(f"Could not read file {candidate.file_path}: {e}")
+                    print(f"Could not read file {c.file_path}: {e}")
                     continue
-            
-            # Create a simple reasoning chain object
+
+            # Minimal reasoning chain stub
             from .advanced_llm_reasoning import ReasoningChain, ReasoningStep, ReasoningStrategy
             reasoning_chain = ReasoningChain(
                 strategy=ReasoningStrategy.CHAIN_OF_THOUGHT,
                 steps=[ReasoningStep(
                     step_number=1,
-                    description="Architecture analysis and file selection",
-                    reasoning="Based on intelligent search and impact analysis",
-                    conclusion="Selected relevant files for telemetry implementation",
-                    confidence=0.8,
-                    evidence=["Search results", "Code graph analysis"]
+                    description="File selection",
+                    reasoning=f"Selected the top {len(selected_files)} candidates by relevance (no central-file bias).",
+                    conclusion="Proceed to patch generation with selected files.",
+                    confidence=0.75,
+                    evidence=["Ranking"]
                 )],
                 final_conclusion="Ready to generate patches",
-                overall_confidence=0.8,
+                overall_confidence=0.75,
                 alternative_approaches=["Manual implementation", "Configuration-based approach"]
             )
-            
+
             patch_result = llm_reasoner.enhanced_patch_generation(
                 intent=intent_dict,
                 selected_files=selected_files,
                 reasoning_chain=reasoning_chain
             )
-            
-            # enhanced_patch_generation returns (explanation, diff, reasoning_chain)
+
             explanation, diff, updated_reasoning = patch_result
-            
             return {
-                'explanation': explanation,
-                'diff': diff,
-                'reasoning_chain': updated_reasoning,
-                'selected_files': selected_files
+                "explanation": explanation,
+                "diff": diff,
+                "reasoning_chain": updated_reasoning,
+                "selected_files": selected_files
             }
+
         
         solution_result = await orchestrator.execute_stage(
             "generate_solution",
@@ -285,7 +291,7 @@ async def run_enhanced_workflow(args):
             print(f"   Risk Assessment: {validation.risk_assessment}")
             print(f"   Recommendations: {len(validation.recommendations)} items")
         else:
-            print(f"⚠️  Validation encountered issues: {validation_result.error}")
+            print(f" Validation encountered issues: {validation_result.error}")
             # Continue anyway since validation is not critical for patch generation
         
         # Write final outputs

@@ -1,0 +1,31 @@
+2025-08-28 10:44:19,796 - scanner.pipeline_orchestrator - INFO - Stage ticket_processing: Starting (attempt 1)
+2025-08-28 10:44:19,797 - scanner.pipeline_orchestrator - INFO - Stage ticket_processing: Completed in 0.00s
+2025-08-28 10:44:19,797 - scanner.pipeline_orchestrator - INFO - Stage intent_extraction: Starting (attempt 1)
+2025-08-28 10:44:25,486 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-28 10:44:30,553 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-28 10:44:48,018 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-28 10:44:48,020 - scanner.pipeline_orchestrator - INFO - Stage intent_extraction: Completed in 28.22s
+2025-08-28 10:44:48,021 - scanner.pipeline_orchestrator - INFO - Stage project_parsing: Starting (attempt 1)
+2025-08-28 10:44:48,030 - scanner.pipeline_orchestrator - INFO - Stage project_parsing: Completed in 0.01s
+2025-08-28 10:44:48,030 - scanner.pipeline_orchestrator - INFO - Stage graph_building: Starting (attempt 1)
+2025-08-28 10:48:15,684 - scanner.pipeline_orchestrator - INFO - Stage graph_building: Completed in 207.65s
+2025-08-28 10:48:15,699 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: mps
+2025-08-28 10:48:15,699 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-08-28 10:48:31,115 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Starting (attempt 1)
+2025-08-28 10:48:33,787 - scanner.pipeline_orchestrator - INFO - Stage intelligent_search: Completed in 2.67s
+2025-08-28 10:48:33,788 - scanner.pipeline_orchestrator - INFO - Stage advanced_analysis: Starting (attempt 1)
+2025-08-28 10:48:33,794 - scanner.pipeline_orchestrator - INFO - Stage advanced_analysis: Completed in 0.00s
+2025-08-28 10:48:33,795 - scanner.pipeline_orchestrator - INFO - Stage file_selection: Starting (attempt 1)
+2025-08-28 10:48:48,398 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-28 10:48:48,405 - scanner.pipeline_orchestrator - INFO - Stage file_selection: Completed in 14.61s
+2025-08-28 10:48:48,405 - scanner.pipeline_orchestrator - INFO - Stage patch_generation: Starting (attempt 1)
+2025-08-28 10:48:48,406 - scanner.pipeline_orchestrator - INFO - Stage patch_generation: Completed in 0.00s
+2025-08-28 10:48:48,407 - scanner.pipeline_orchestrator - INFO - Stage validation: Starting (attempt 1)
+2025-08-28 10:48:48,408 - scanner.pipeline_orchestrator - WARNING - Stage validation: Attempt 1 failed: 'selected_files'
+2025-08-28 10:48:49,409 - scanner.pipeline_orchestrator - INFO - Stage validation: Starting (attempt 2)
+2025-08-28 10:48:49,410 - scanner.pipeline_orchestrator - WARNING - Stage validation: Attempt 2 failed: 'selected_files'
+2025-08-28 10:48:51,412 - scanner.pipeline_orchestrator - INFO - Stage validation: Starting (attempt 3)
+2025-08-28 10:48:51,412 - scanner.pipeline_orchestrator - WARNING - Stage validation: Attempt 3 failed: 'selected_files'
+2025-08-28 10:48:55,414 - scanner.pipeline_orchestrator - INFO - Stage validation: Starting (attempt 4)
+2025-08-28 10:48:55,415 - scanner.pipeline_orchestrator - WARNING - Stage validation: Attempt 4 failed: 'selected_files'
+2025-08-29 13:00:25,135 - scanner.pipeline_orchestrator - INFO - Stage ticket_processing: Cache hit

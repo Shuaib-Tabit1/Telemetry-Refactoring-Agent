@@ -1,0 +1,18 @@
+{
+  "selected_files": [
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/DetectTypeProcessor.Trace.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/VideoInfoProcessor.Trace.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/DetectTypeProcessor.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/MessageWorkerService/DispatchedWorker.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Service/V1/WinsService.Trace.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/Profile/ProfileModule.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/API.Allocation/Middlewares/LogAsyncRequestHttpMiddleware.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Engine/WorkflowInstance.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Atlas.Workflow.Activities/PropertyTypes/StringProperty.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/Profile/PerformanceLog.cs"
+  ],
+  "selection_reasoning": "\u2022 Adding an ActivityEnrichment callback where OpenTelemetry is configured; however, that would require finding and modifying the startup/DI code (not listed) and potentially multiple files\u2014violating the \u201cminimal, targeted changes\u201d guideline.",
+  "patch_reasoning": "No other files altered.",
+  "diff_length": 745,
+  "explanation_length": 1529
+}

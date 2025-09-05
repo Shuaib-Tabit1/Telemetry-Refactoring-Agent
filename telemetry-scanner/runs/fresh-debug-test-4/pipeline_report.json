@@ -1,0 +1,398 @@
+{
+  "execution_summary": {
+    "total_stages": 5,
+    "completed": 4,
+    "failed": 1,
+    "cache_hits": 0,
+    "total_execution_time": 422.3642997741699
+  },
+  "stage_details": {
+    "ticket_processing": {
+      "stage_name": "ticket_processing",
+      "status": "StageStatus.COMPLETED",
+      "result": "## OpenTelemetry Span Attributes Missing - HTTP Redirect Tracking\n\n**Summary:** Add missing HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION attributes to CLM web application spans\n\n**Problem Description:**\nOur OpenTelemetry spans in the CLM (Contract Lifecycle Management) web application are missing critical HTTP attributes needed for debugging redirect flows and investigating user journey issues. Specifically:\n\n1. **Missing Attribute**: `HTTP_REFERER` - The referring page URL that led to the current request\n2. **Missing Attribute**: `HTTP_RESPONSE_REDIRECT_LOCATION` - The destination URL when a 302/redirect response occurs\n\n**Business Impact:**\n- Cannot trace user navigation flows through CLM application\n- Difficult to investigate redirect-related issues and errors\n- Missing context for 302 responses that redirect to error pages\n\n**Technical Details:**\n\n**Target Application:** CLM Web Application (clm-web)\n**Environment:** Demo (but affects all environments)\n**Specific Pages Affected:**\n- `/clm/Documents/BrowseDocuments.aspx`\n- `/clm/SSO/SSOEndpoint.ashx` \n- Any page that handles redirects (HTTP 302 responses)\n\n**Expected Kusto Query Results:**\nAfter fix, this query should show the missing attributes:\n```kusto\nOtlpSpanEvents\n| where Environment == \"Demo\"\n| where url_path == \"/clm/Documents/BrowseDocuments.aspx\"\n| where http_status_code > 200\n| project Timestamp, url_path, http_status_code, HTTP_REFERER, HTTP_RESPONSE_REDIRECT_LOCATION\n```\n\n**Implementation Requirements:**\n\n1. **Add HTTP_REFERER attribute** to all incoming HTTP requests\n   - Source: `Request.Headers[\"Referer\"]` or `HttpContext.Request.Headers.Referer`\n   - Add to span as: `activity.SetTag(\"HTTP_REFERER\", refererValue)`\n\n2. **Add HTTP_RESPONSE_REDIRECT_LOCATION attribute** for redirect responses\n   - Source: `Response.Headers[\"Location\"]` when status code is 301/302/303/307/308\n   - Add to span as: `activity.SetTag(\"HTTP_RESPONSE_REDIRECT_LOCATION\", locationValue)`\n\n**Files to Look For:**\n- CLM web application middleware or request handling code\n- ASP.NET request pipeline components\n- OpenTelemetry instrumentation configuration\n- Files containing \"ActivitySource\", \"SetTag\", or \"AddTag\" method calls\n- Middleware files that handle HTTP requests/responses\n- Look for existing telemetry code in CLM-related projects\n\n**Acceptance Criteria:**\n- [ ] HTTP_REFERER attribute captured from incoming request headers\n- [ ] HTTP_RESPONSE_REDIRECT_LOCATION attribute captured for 302+ responses  \n- [ ] Attributes visible in OtlpSpanEvents Kusto table\n- [ ] No performance degradation from additional attribute collection\n- [ ] Proper null/empty value handling for missing headers\n\n**Technical Notes:**\n- Follow existing OpenTelemetry patterns in the codebase\n- Ensure attribute names match exactly: \"HTTP_REFERER\" and \"HTTP_RESPONSE_REDIRECT_LOCATION\"\n- Add attributes to HTTP request spans, not separate spans\n- Handle edge cases where headers might be missing or empty\n",
+      "error": null,
+      "execution_time": 0.00048065185546875,
+      "cache_hit": false
+    },
+    "intent_extraction": {
+      "stage_name": "intent_extraction",
+      "status": "StageStatus.COMPLETED",
+      "result": {
+        "issue_category": "INSTRUMENTATION",
+        "static_analysis_query": {
+          "find_method_call": "SetTag"
+        },
+        "semantic_description": "Add HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION headers as attributes on existing HTTP request spans in the CLM web app.",
+        "search_keywords": [
+          "HTTP_REFERER",
+          "HTTP_RESPONSE_REDIRECT_LOCATION",
+          "SetTag",
+          "ActivitySource",
+          "OpenTelemetry",
+          "redirect"
+        ],
+        "telemetry_operation": {
+          "type": "span",
+          "target_name": null,
+          "action": "ADD_ATTRIBUTES",
+          "attributes_to_add": [
+            {
+              "name": "HTTP_REFERER",
+              "value_source": "Request.Headers[\"Referer\"]"
+            },
+            {
+              "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+              "value_source": "Response.Headers[\"Location\"]"
+            }
+          ],
+          "new_span_name": null,
+          "new_metric_details": {}
+        },
+        "confidence": "IntentConfidence.HIGH",
+        "operation_type": "OperationType.MULTI_FILE",
+        "complexity_score": 4,
+        "estimated_files": 3,
+        "validation_result": {
+          "is_valid": true,
+          "confidence": "IntentConfidence.HIGH",
+          "issues": [],
+          "suggestions": []
+        },
+        "sub_tasks": [
+          {
+            "order": 1,
+            "id": "codebase_discovery",
+            "action": "locate_configuration",
+            "description": "Locate all OpenTelemetry bootstrap / ActivitySource registration code in the clm-web solution so we know where to plug in the enrichment logic.",
+            "expected_files": [
+              "Startup.cs",
+              "Program.cs (.NET 6 minimal host projects only)",
+              "Telemetry/OpenTelemetryExtensions.cs",
+              "Middlewares/*Telemetry*.cs",
+              "any file containing ActivitySource, AddOpenTelemetry(), SetTag(), AddTag()"
+            ],
+            "validation_criteria": "All files that register or modify tracer providers are catalogued in the PR description."
+          },
+          {
+            "order": 2,
+            "id": "spike_proof_of_concept",
+            "action": "create_poc_branch",
+            "description": "Create a short-lived POC branch to verify that enrichment callbacks fire when we add custom tags on both request (OnStart) and response (OnStop).",
+            "dependencies": [
+              "codebase_discovery"
+            ],
+            "validation_criteria": "Local debugger shows attributes on Activity.Current for a redirect request."
+          },
+          {
+            "order": 3,
+            "id": "unit_test_harness",
+            "action": "add_tests",
+            "description": "Add/extend unit or integration tests that hit a sample redirect endpoint and assert the new attributes exist in exported spans (use an in-memory exporter).",
+            "dependencies": [
+              "spike_proof_of_concept"
+            ],
+            "expected_files": [
+              "tests/Telemetry/RedirectInstrumentationTests.cs"
+            ],
+            "validation_criteria": "New tests fail before instrumentation; pass after implementation."
+          },
+          {
+            "order": 4,
+            "id": "implement_request_enrichment",
+            "action": "implement_changes",
+            "description": "Enrich HTTP server spans with header `HTTP_REFERER` at the earliest point in the request pipeline.  Preferred place: existing `ActivityEnrichmentProcessor` or write a dedicated `RefererEnrichmentMiddleware` if none exists.",
+            "dependencies": [
+              "spike_proof_of_concept"
+            ],
+            "expected_code_snippet": "if (!string.IsNullOrWhiteSpace(ctx.Request.Headers[\"Referer\"])) activity.SetTag(\"HTTP_REFERER\", ctx.Request.Headers[\"Referer\"].ToString());",
+            "validation_criteria": "Manual test shows referer attribute present for non-null header; absent (not empty string) when header missing."
+          },
+          {
+            "order": 5,
+            "id": "implement_response_enrichment",
+            "action": "implement_changes",
+            "description": "Capture `Location` header for 3xx responses in the same Activity before it is stopped.  Use a response-wrapping middleware so we can read status code and headers after MVC has executed.",
+            "dependencies": [
+              "implement_request_enrichment"
+            ],
+            "expected_code_snippet": "if (ctx.Response.StatusCode >= 301 && ctx.Response.StatusCode <= 308 && ctx.Response.Headers.ContainsKey(\"Location\")) activity.SetTag(\"HTTP_RESPONSE_REDIRECT_LOCATION\", ctx.Response.Headers[\"Location\"].ToString());",
+            "validation_criteria": "Local test hitting /redirect endpoint shows both new tags."
+          },
+          {
+            "order": 6,
+            "id": "null_handling_and_performance",
+            "action": "code_review",
+            "description": "Verify we guard against null/empty headers, avoid reflection, and do no string allocations unless headers exist.  Confirm middleware is registered after routing but before Activity is stopped.",
+            "dependencies": [
+              "implement_response_enrichment"
+            ],
+            "validation_criteria": "Benchmark shows <0.2 \u00b5s per request overhead; missing headers do not create tags."
+          },
+          {
+            "order": 7,
+            "id": "static_analysis_and_lint",
+            "action": "run_static_analysis",
+            "description": "Run static analyzers and security linters (SonarQube, Roslyn ruleset) to ensure no new warnings.",
+            "dependencies": [
+              "null_handling_and_performance"
+            ],
+            "validation_criteria": "Build is clean; zero new critical / major issues."
+          },
+          {
+            "order": 8,
+            "id": "local_end_to_end_validation",
+            "action": "manual_validation",
+            "description": "Run clm-web locally with OTLP exporter pointing to Jaeger/Zipkin and verify spans contain attributes in UI.",
+            "dependencies": [
+              "static_analysis_and_lint"
+            ],
+            "validation_criteria": "Spans in Jaeger have HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION with correct values."
+          },
+          {
+            "order": 9,
+            "id": "commit_and_pr",
+            "action": "create_pull_request",
+            "description": "Open PR, include design notes, screenshots, and Kusto query examples. Request reviews from observability and CLM owners.",
+            "dependencies": [
+              "local_end_to_end_validation"
+            ],
+            "validation_criteria": "PR approved by at least 2 owners; CI passes."
+          },
+          {
+            "order": 10,
+            "id": "deploy_to_demo",
+            "action": "deploy",
+            "description": "Deploy to Demo environment behind a feature flag `Telemetry.RedirectEnrichment` set to true only in Demo.",
+            "dependencies": [
+              "commit_and_pr"
+            ],
+            "validation_criteria": "Azure DevOps release succeeds; feature flag visible in AppConfig."
+          },
+          {
+            "order": 11,
+            "id": "demo_validation",
+            "action": "run_kusto_query",
+            "description": "Run canonical Kusto query provided in ticket to verify attributes flow into `OtlpSpanEvents`.",
+            "dependencies": [
+              "deploy_to_demo"
+            ],
+            "validation_criteria": "Query returns non-null HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION columns."
+          },
+          {
+            "order": 12,
+            "id": "load_and_perf_test",
+            "action": "execute_performance_tests",
+            "description": "Execute Gatling/JMeter suite to compare p95 latency before/after.  Confirm <1% change.",
+            "dependencies": [
+              "demo_validation"
+            ],
+            "validation_criteria": "Performance impact within agreed tolerance."
+          },
+          {
+            "order": 13,
+            "id": "rollout_to_all_envs",
+            "action": "deploy",
+            "description": "Gradually enable feature flag in Stage \u2192 Prod over two releases once Demo sign-off achieved.",
+            "dependencies": [
+              "load_and_perf_test"
+            ],
+            "validation_criteria": "No errors, live Kusto query matches Demo results, support sign-off."
+          },
+          {
+            "order": 14,
+            "id": "post_deployment_monitoring",
+            "action": "monitor",
+            "description": "Set up temporary alert in Kusto/WCI for missing attributes >5% to catch regressions for 1 week.",
+            "dependencies": [
+              "rollout_to_all_envs"
+            ],
+            "validation_criteria": "No alerts triggered or all investigated."
+          }
+        ],
+        "contextual_hints": [
+          "Capturing the Location header after the framework sets it (post-action, pre-flush) so the span still remains writable",
+          "Ensuring attributes are added only to the root HTTP span (not to nested child spans) to avoid duplication"
+        ],
+        "similar_patterns": [
+          "http-server-span-attributes",
+          "attribute-enrichment"
+        ]
+      },
+      "error": null,
+      "execution_time": 36.47300386428833,
+      "cache_hit": false
+    },
+    "project_parsing": {
+      "stage_name": "project_parsing",
+      "status": "StageStatus.COMPLETED",
+      "result": [
+        "/Users/shuaib.tabit/Documents/Atlas/src/ActIntegration\\ActIntegration.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/AdminService\\AdminService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/AdvancedInsightsService\\AdvancedInsightsService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/AdvancedInsightsService.IntegrationTests\\AdvancedInsightsService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/AgreementDefinitionModel\\AdmIntegration.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.ABAC.PDP\\API.ABAC.PDP.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.Allocation.IntegrationTests/API.Allocation.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.Allocation/API.Allocation.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.Authentication\\API.Authentication.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.Common\\API.Common.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.Content\\API.Content.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.Content.EndToEndTests\\API.Content.EndToEndTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.DocuSignInternal.Common\\API.DocuSignInternal.Common.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.DocuSignInternal.IntegrationTests\\API.DocuSignInternal.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.DocuSignInternal\\API.DocuSignInternal.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.GateKeeper.IntegrationTests/API.GateKeeper.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.GateKeeper\\API.GateKeeper.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.OpenSearch.EndToEndTests\\API.OpenSearch.EndToEndTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.OpenSearch\\API.OpenSearch.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.Provisioning.IntegrationTests/API.Provisioning.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.Provisioning\\API.Provisioning.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.SfGenAPI\\API.SfGenAPI.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.WebAPI\\API.WebAPI.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.WorkflowActivities\\API.WorkflowActivities.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.WorkflowActivities.IntegrationTests\\API.WorkflowActivities.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.WorkflowActivities.Client/API.WorkflowActivities.Client.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.WorkflowDesign\\API.WorkflowDesign.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/API.WorkflowDesign.IntegrationTests\\API.WorkflowDesign.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Atlas.Workflow.Activities\\Atlas.Workflow.Activities.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Atlas.Workflow.Client\\Atlas.Workflow.Client.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Atlas.Workflow.Readers\\Atlas.Workflow.Readers.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/AtlasDataManipulationService\\AtlasDataManipulationService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/AtlasDataManipulationService.IntegrationTests\\AtlasDataManipulationService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/AuthenticationApplication\\AuthenticationApplication.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/AuthenticationApplication.IntegrationTests\\AuthenticationApplication.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/AuthMaintenanceService\\AuthMaintenanceService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/AuthMaintenanceService.IntegrationTests\\AuthMaintenanceService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Automation.Toolkit.Tests\\Automation.Toolkit.Tests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ChatNotification\\ChatNotification.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/CodeRunner\\CodeRunner.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Collaboration.Core\\Collaboration.Core.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Collaboration.Infrastructure\\Collaboration.Infrastructure.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ConnectServiceIntegration\\ConnectServiceIntegration.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain.Testing\\Core.Domain.Testing.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain\\Core.Domain.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Core.ServiceFramework\\Core.ServiceFramework.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Core.ServiceFramework.Testing\\Core.ServiceFramework.Testing.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Core.Types\\Core.Types.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/CustomRules\\CustomRules.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/CustomRuleService\\CustomRuleService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/CustomRuleService.IntegrationTests\\CustomRuleService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService\\DetectTypeService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService.IntegrationTests\\DetectTypeService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/DocToPDFService\\DocToPDFService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/DocToPDFService.IntegrationTests\\DocToPDFService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/DocumentAssembly\\DocumentAssembly.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/DocumentCompareService\\DocumentCompareService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/DocumentCompareService.IntegrationTests\\DocumentCompareService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/DocumentCreation\\DocumentCreation.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/DocumentCreation.IntegrationTests\\DocumentCreation.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ElasticCore\\ElasticCore.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ElasticIndexing\\ElasticIndexing.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ElectronicSignature\\ElectronicSignature.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ESignatureService\\ESignatureService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ESignatureService.IntegrationTests\\ESignatureService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ETL\\ETL.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ExtractService\\ExtractService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ExtractService.IntegrationTests\\ExtractService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Fax\\Fax.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/FormGen\\FormGen.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/GenericEventProcessor\\GenericEventProcessor.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/GenericEventProcessor.IntegrationTests\\GenericEventProcessor.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/GraphQLCore\\GraphQLCore.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/HtmlService\\HtmlService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/InboundFax\\InboundFax.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/InteractivePreviewCore\\InteractivePreviewCore.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/MaintenanceService\\MaintenanceService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/MenuActions\\DocumentReviewMenuActions.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/MessageWorkerService\\MessageWorkerService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/NewsService\\NewsService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/NewsService.IntegrationTests\\NewsService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ObligationManagementIntegration\\ObligationManagementIntegration.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/OfficeWebAppsAPI.IntegrationTests/OfficeWebAppsAPI.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/OfficeWebAppsAPI\\OfficeWebAppsAPI.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/OneConfig.Testing\\OneConfig.Testing.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/OpenApiClients\\DacDocGenApiClient\\DacDocGenApiClient.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/OpenApiClients\\Doc2PdfApiClient\\Doc2PdfApiClient.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/OrchestrationIntegration\\OrchestrationIntegration.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/OutboundEmail\\OutboundEmail.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/OutboundEmail.IntegrationTests\\OutboundEmail.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/OutboundEvent\\OutboundEvent.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/OutboundEvent.IntegrationTests\\OutboundEvent.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/OutboundFax\\OutboundFax.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/OutboundHttpService\\OutboundHttpService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Packaging\\Packaging.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/PdfService\\PdfService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ProcessBuilder\\ProcessBuilder.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ProfileLogger\\ProfileLogger.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ProxyLayer\\ProxyLayer.Core\\ProxyLayer.Core.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ProxyLayer\\ProxyLayer.Infrastructure\\ProxyLayer.Infrastructure.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ReportingService\\ReportingService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/ReportingService.IntegrationTests\\ReportingService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/REST.Authentication\\REST.Authentication.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/REST.Common\\REST.Common.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/REST.Content\\REST.Content.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/REST.WebServices\\REST.WebServices.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/RtmIntegration\\RtmIntegration.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/SANitationService\\SANitationService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/SForce.Core\\SForce.Core.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/SForce.Services\\SForce.Services.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/SFTPServer\\SFTPServer.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/SFTPServer.IntegrationTests\\SFTPServer.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/SharedTemplates\\SharedTemplates.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/SMTPServer\\SMTPServer.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/SMTPServer.IntegrationTests\\SMTPServer.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/StructuredDocumentService\\StructuredDocumentService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/StructuredDocumentService.IntegrationTests\\StructuredDocumentService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/TaskProcessor\\TaskProcessor.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/TreeService\\TreeService.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/TreeService.IntegrationTests\\TreeService.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/UserTaskList\\UserTaskList.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/VendorCallback\\VendorCallback.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common.Testing\\Web.Common.Testing.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common.Abstractions/Web.Common.Abstractions.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common.Resources/Web.Common.Resources.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common\\Web.Common.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common.AspNetCore/Web.Common.AspNetCore/Web.Common.AspNetCore.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Web.CommonUI.Abstractions\\Web.CommonUI.Abstractions.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Web.CommonUI.Resources/Web.CommonUI.Resources.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Web.CommonUI\\Web.CommonUI.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Web.CommonUI.AspNetCore\\Web.CommonUI.AspNetCore\\Web.CommonUI.AspNetCore.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Web.IntegrationTests\\Web.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Web.Testing\\Web.Testing.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/Web\\Web.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/WebNet\\WebNet.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/WebNet.IntegrationTests\\WebNet.IntegrationTests.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/WebContent\\WebContent.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/WebShare\\WebShare.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/WebSoap\\WebSoap.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/WINS.Protocol\\WINS.Protocol.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/WINS\\WINS.csproj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/CLM.Search\\dirs.proj",
+        "/Users/shuaib.tabit/Documents/Atlas/src/WebSoap.EndToEndTests\\WebSoap.EndToEndTests.csproj"
+      ],
+      "error": null,
+      "execution_time": 0.0103302001953125,
+      "cache_hit": false
+    },
+    "graph_building": {
+      "stage_name": "graph_building",
+      "status": "StageStatus.COMPLETED",
+      "result": {
+        "projects_count": 143,
+        "graph_loaded": true
+      },
+      "error": null,
+      "execution_time": 385.8804850578308,
+      "cache_hit": false
+    },
+    "intelligent_search": {
+      "stage_name": "intelligent_search",
+      "status": "StageStatus.FAILED",
+      "result": null,
+      "error": "SearchResult.__init__() got an unexpected keyword argument 'metadata'",
+      "execution_time": 0.0,
+      "cache_hit": false
+    }
+  }
+}

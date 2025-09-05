@@ -1,0 +1,6 @@
+{
+  "diff": "",
+  "explanation": "No files selected for modification",
+  "reasoning": "Batch 1 (ProfileModule.cs): Error - 'AdvancedLLMReasoner' object has no attribute 'analyze_relationship_batch'\nBatch 2 (BaseApiHandler.cs): Error - 'AdvancedLLMReasoner' object has no attribute 'analyze_relationship_batch'\nBatch 3 (LogAsyncRequestHttpMiddleware.cs): Error - 'AdvancedLLMReasoner' object has no attribute 'analyze_relationship_batch'\nBatch 4 (LogAsyncRequestHttpMiddleware.cs): Error - 'AdvancedLLMReasoner' object has no attribute 'analyze_relationship_batch'\nBatch 5 (ScmHttpApplication.cs): Error - 'AdvancedLLMReasoner' object has no attribute 'analyze_relationship_batch'",
+  "selected_files": []
+}

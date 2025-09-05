@@ -1,0 +1,214 @@
+{
+  "issue_category": "INSTRUMENTATION",
+  "static_analysis_query": {
+    "find_method_call": "ActivitySource.StartActivity"
+  },
+  "semantic_description": "Add customer.id and account.id attributes to every span immediately after each ActivitySource.StartActivity call in the iam-tasks service.",
+  "search_keywords": [
+    "ActivitySource",
+    "StartActivity",
+    "SetAttribute",
+    "customer.id",
+    "account.id"
+  ],
+  "telemetry_operation": {
+    "type": "span",
+    "target_name": null,
+    "action": "ADD_ATTRIBUTES",
+    "attributes_to_add": [
+      {
+        "name": "customer.id",
+        "value_source": "customerId variable"
+      },
+      {
+        "name": "account.id",
+        "value_source": "accountId variable"
+      }
+    ],
+    "new_span_name": null,
+    "new_metric_details": {}
+  },
+  "confidence": "IntentConfidence.HIGH",
+  "operation_type": "OperationType.CROSS_CUTTING",
+  "complexity_score": 6,
+  "estimated_files": 15,
+  "validation_result": "ValidationResult(is_valid=True, confidence=<IntentConfidence.HIGH: 'high'>, issues=[], suggestions=[])",
+  "sub_tasks": [
+    {
+      "order": 1,
+      "action": "scan_codebase",
+      "description": "Enumerate every ActivitySource.StartActivity call site in the iam-tasks service.",
+      "expected_files": [
+        "**/*.cs"
+      ],
+      "implementation_details": [
+        "Run a repo-wide search ( ripgrep / IDE ) for \"ActivitySource.StartActivity(\"",
+        "Export results to /tmp/otel-span-sites.txt for tracking",
+        "Tag each site with the class / method name and an estimated customerId / accountId availability status"
+      ],
+      "validation_criteria": [
+        "The list of span creation sites equals the number of hits returned by CI static analysis (zero false negatives)",
+        "List is published in the ticket as an artefact"
+      ]
+    },
+    {
+      "order": 2,
+      "action": "design_context_access",
+      "description": "Define the canonical way to obtain customerId and accountId in any execution context.",
+      "dependencies": [
+        1
+      ],
+      "expected_files": [
+        "Context/ICurrentCustomerContext.cs",
+        "Context/CurrentCustomerContext.cs"
+      ],
+      "implementation_details": [
+        "Create ICurrentCustomerContext interface with properties CustomerId and AccountId",
+        "Implement using IHttpContextAccessor for web code paths and TaskMetadata carrier for background jobs",
+        "Register implementation in the DI container (Startup.cs / Program.cs)"
+      ],
+      "validation_criteria": [
+        "Unit test shows correct IDs resolved for HTTP request path",
+        "Unit test shows correct IDs resolved for background worker path"
+      ]
+    },
+    {
+      "order": 3,
+      "action": "provide_helper_extension",
+      "description": "Add an extension method to avoid repeating the two SetAttribute lines everywhere.",
+      "dependencies": [
+        2
+      ],
+      "expected_files": [
+        "Tracing/ActivityExtensions.cs"
+      ],
+      "implementation_details": [
+        "public static void EnrichWithCustomerContext(this Activity span, ICurrentCustomerContext ctx) { if (span == null) return; if (ctx.CustomerId != null) span.SetTag(\"customer.id\", ctx.CustomerId); if (ctx.AccountId != null) span.SetTag(\"account.id\", ctx.AccountId); }"
+      ],
+      "validation_criteria": [
+        "Extension method compiles",
+        "Null / default safety unit tests pass"
+      ]
+    },
+    {
+      "order": 4,
+      "action": "instrument_span_sites",
+      "description": "At every StartActivity site, call the new EnrichWithCustomerContext helper (or inline SetAttribute where helper injection is not viable).",
+      "dependencies": [
+        3
+      ],
+      "expected_files": [
+        "~15 .cs files touched (per /tmp/otel-span-sites.txt)"
+      ],
+      "implementation_details": [
+        "Inject ICurrentCustomerContext into the containing class constructor when absent",
+        "Immediately after each StartActivity(...) use statement, add: span.EnrichWithCustomerContext(_customerContext);",
+        "For static helpers where DI is impossible, pass customerContext explicitly along the call chain"
+      ],
+      "validation_criteria": [
+        "dotnet build succeeds with zero warnings",
+        "Automated search shows 0 StartActivity invocations lacking subsequent customer/account enrichment"
+      ]
+    },
+    {
+      "order": 5,
+      "action": "update_tests",
+      "description": "Add unit/integration tests that validate the presence of the two attributes on emitted spans.",
+      "dependencies": [
+        4
+      ],
+      "expected_files": [
+        "Tests/Tracing/SpanAttributeTests.cs"
+      ],
+      "implementation_details": [
+        "Use InMemoryActivityExporter to capture spans",
+        "Assert that for a sample request span.GetTagItem(\"customer.id\") == \"cust-123\" and same for account.id"
+      ],
+      "validation_criteria": [
+        "All existing tests green",
+        "New tests fail if attributes are removed"
+      ]
+    },
+    {
+      "order": 6,
+      "action": "local_validation",
+      "description": "Run the service locally with OTLP exporter to console and manually verify one request path.",
+      "dependencies": [
+        5
+      ],
+      "expected_files": [],
+      "validation_criteria": [
+        "Console output shows customer.id and account.id on every span involved in the request trace"
+      ]
+    },
+    {
+      "order": 7,
+      "action": "code_review_and_merge",
+      "description": "Open PR, request review from Observability and IAM teams, address feedback, and merge.",
+      "dependencies": [
+        6
+      ],
+      "expected_files": [
+        "Pull Request link"
+      ],
+      "validation_criteria": [
+        "All reviewers approve",
+        "CI passes (build + tests + static analysis)"
+      ]
+    },
+    {
+      "order": 8,
+      "action": "deploy_to_staging",
+      "description": "Deploy the change to the staging environment and run synthetic and real workflows.",
+      "dependencies": [
+        7
+      ],
+      "expected_files": [
+        "deployment manifests / helm charts"
+      ],
+      "validation_criteria": [
+        "Jaeger / Grafana Tempo traces in staging show 100 % coverage of customer.id and account.id",
+        "No increase in p95 latency or CPU usage (>5 % threshold)"
+      ]
+    },
+    {
+      "order": 9,
+      "action": "production_rollout",
+      "description": "Roll out to production via canary (25 % traffic, then 100 %).",
+      "dependencies": [
+        8
+      ],
+      "expected_files": [
+        "Change management ticket"
+      ],
+      "validation_criteria": [
+        "After 30 min at 25 %, error rates remain unchanged",
+        "Tracing sampling shows \u2265 99 % spans carry both attributes"
+      ]
+    },
+    {
+      "order": 10,
+      "action": "post_deploy_review",
+      "description": "Document lessons learned and update team instrumentation guidelines.",
+      "dependencies": [
+        9
+      ],
+      "expected_files": [
+        "docs/instrumentation_guidelines.md"
+      ],
+      "validation_criteria": [
+        "Guidelines contain explicit example with SetAttribute lines",
+        "Confluence page updated, link posted in #observability"
+      ]
+    }
+  ],
+  "contextual_hints": [
+    "Propagating customerId and accountId through async/parallel code paths and background jobs",
+    "Ensuring all new SetAttribute calls follow null-safety and type guidelines for OpenTelemetry attributes",
+    "Maintaining readability and avoiding code duplication while adding repeating instrumentation blocks",
+    "Updating or creating unit/integration tests that verify attributes are present on every span"
+  ],
+  "similar_patterns": [
+    "manual_span_attribute_enrichment"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "total_search_results": 75,
+  "promising_files_found": 17,
+  "final_files_selected": 12,
+  "strategy_used": "direct",
+  "selection_efficiency": "16.0%",
+  "files_selected": [
+    "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/Helpers/BaseApiHandler.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/Profile/ProfileModule.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WebNet/Middlewares/LogAsyncRequestHttpMiddleware.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/API.Allocation/Middlewares/LogAsyncRequestHttpMiddleware.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common.AspNetCore/Web.Common.AspNetCore/Middlewares/ScmLogAsyncRequestHttpMiddleware.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common.AspNetCore/Web.Common.AspNetCore/Middlewares/ProfileMiddleware.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Web.CommonUI/MVC/Filters/MvcAuditedRequestAttribute.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Web.CommonUI/Helpers/HttpRequestAuditHelper.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/ScmHttpApplication.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/internal/AtlasCustomerSupport/Global.asax.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/AtlasDataManipulationService/Startup.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/API.WorkflowActivities/Controllers/WorkflowActivitiesController.cs"
+  ],
+  "diff_length": 1194,
+  "explanation_length": 12602
+}

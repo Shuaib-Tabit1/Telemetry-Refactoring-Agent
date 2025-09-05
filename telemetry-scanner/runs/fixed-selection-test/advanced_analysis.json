@@ -1,0 +1,101 @@
+{
+  "impact_analysis": {
+    "direct_impact_count": 20,
+    "indirect_impact_count": 38,
+    "risk_score": 10,
+    "affected_patterns": [
+      "singleton",
+      "factory"
+    ],
+    "breaking_changes": [
+      "Service registration changes may affect dependency injection"
+    ],
+    "test_requirements": [
+      "Service registration validation tests",
+      "Middleware pipeline integration tests",
+      "OpenTelemetry span validation tests",
+      "Integration tests for telemetry data collection",
+      "Unit tests for modified methods"
+    ]
+  },
+  "code_clusters": [
+    {
+      "name": "Cluster (3 files)",
+      "file_count": 3,
+      "patterns": [],
+      "complexity_score": 3
+    },
+    {
+      "name": "Cluster (15 files)",
+      "file_count": 15,
+      "patterns": [
+        "singleton"
+      ],
+      "complexity_score": 15
+    },
+    {
+      "name": "Cluster (5 files)",
+      "file_count": 5,
+      "patterns": [],
+      "complexity_score": 5
+    },
+    {
+      "name": "Cluster (2 files)",
+      "file_count": 2,
+      "patterns": [],
+      "complexity_score": 2
+    },
+    {
+      "name": "Cluster (2 files)",
+      "file_count": 2,
+      "patterns": [],
+      "complexity_score": 2
+    },
+    {
+      "name": "Cluster (2 files)",
+      "file_count": 2,
+      "patterns": [],
+      "complexity_score": 2
+    },
+    {
+      "name": "Service Layer",
+      "file_count": 2,
+      "patterns": [],
+      "complexity_score": 2
+    },
+    {
+      "name": "Cluster (3 files)",
+      "file_count": 3,
+      "patterns": [
+        "factory"
+      ],
+      "complexity_score": 3
+    },
+    {
+      "name": "Cluster (4 files)",
+      "file_count": 4,
+      "patterns": [],
+      "complexity_score": 4
+    },
+    {
+      "name": "Cluster (2 files)",
+      "file_count": 2,
+      "patterns": [],
+      "complexity_score": 2
+    },
+    {
+      "name": "Service Layer",
+      "file_count": 2,
+      "patterns": [],
+      "complexity_score": 2
+    },
+    {
+      "name": "Service Layer",
+      "file_count": 4,
+      "patterns": [
+        "singleton"
+      ],
+      "complexity_score": 4
+    }
+  ]
+}

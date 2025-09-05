@@ -1,0 +1,164 @@
+{
+  "basic_intent": {
+    "issue_category": "INSTRUMENTATION",
+    "static_analysis_query": {
+      "find_method_call": "SetTag"
+    },
+    "semantic_description": "Add HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION attributes to existing HTTP request spans in the CLM web application.",
+    "search_keywords": [
+      "HTTP_REFERER",
+      "HTTP_RESPONSE_REDIRECT_LOCATION",
+      "activity.SetTag",
+      "OpenTelemetry",
+      "CLM"
+    ],
+    "telemetry_operation": {
+      "type": "span",
+      "target_name": null,
+      "action": "ADD_ATTRIBUTES",
+      "attributes_to_add": [
+        {
+          "name": "HTTP_REFERER",
+          "value_source": "Request.Headers[\"Referer\"]"
+        },
+        {
+          "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+          "value_source": "Response.Headers[\"Location\"]"
+        }
+      ],
+      "new_span_name": null,
+      "new_metric_details": {}
+    }
+  },
+  "enhanced_analysis": {
+    "confidence": "high",
+    "operation_type": "multi_file",
+    "complexity_score": 4,
+    "estimated_files": 2,
+    "validation_issues": [],
+    "suggestions": [],
+    "sub_tasks": [
+      {
+        "order": 1,
+        "name": "Codebase Discovery & Design",
+        "action": "locate_configuration",
+        "description": "\u2022 Search the CLM solution for ActivitySource / OpenTelemetry setup.\n\u2022 Identify the project that bootstraps OpenTelemetry (e.g. Startup.cs, Program.cs or telemetry-specific Extension methods).\n\u2022 Locate any existing request/response enrichment middleware.\n\u2022 Confirm whether HTTP Server instrumentation is already enabled (AspNetCoreInstrumentation or custom ActivitySource).",
+        "tools": [
+          "ripgrep -i \"ActivitySource\"",
+          "IDE global search for  \"SetTag(\""
+        ],
+        "expected_files": [
+          "Startup.cs",
+          "TelemetryExtensions.cs",
+          "OpenTelemetryConfig.cs",
+          "any Middleware (e.g. TelemetryEnrichmentMiddleware.cs)"
+        ],
+        "validation_criteria": "Locations of current span creation/enrichment are documented in the design notes."
+      },
+      {
+        "order": 2,
+        "name": "Static Analysis \u2013  Gap Confirmation",
+        "action": "static_analysis",
+        "description": "Run the static analysis query (find_method_call = \"SetTag\") to confirm neither HTTP_REFERER nor HTTP_RESPONSE_REDIRECT_LOCATION are currently set.",
+        "dependencies": [
+          1
+        ],
+        "validation_criteria": "No existing SetTag calls for the two attributes."
+      },
+      {
+        "order": 3,
+        "name": "Select Insertion Point",
+        "action": "design_instrumentation",
+        "description": "Decide whether to:\nA) Extend current enrichment middleware, OR\nB) Add a new dedicated TelemetryHeaderEnrichmentMiddleware placed early (for request headers) and late (for response headers) in pipeline.\nDocument the chosen approach and sequence position in Startup.cs.",
+        "dependencies": [
+          1
+        ],
+        "validation_criteria": "Design document updated with class diagram and pipeline order."
+      },
+      {
+        "order": 4,
+        "name": "Implementation \u2013  Request Header (HTTP_REFERER)",
+        "action": "implement_request_enrichment",
+        "description": "Inside `Invoke(HttpContext context)` of the chosen middleware:\n```\nvar referer = context.Request.Headers[\"Referer\"].FirstOrDefault();\nif (!string.IsNullOrEmpty(referer))\n{\n    Activity.Current?.SetTag(\"HTTP_REFERER\", referer);\n}\n```\nFollow existing null / empty guard patterns.",
+        "dependencies": [
+          3
+        ],
+        "expected_files_modified_or_created": [
+          "TelemetryHeaderEnrichmentMiddleware.cs"
+        ],
+        "validation_criteria": "Code compiles; unit test shows tag exists when header present."
+      },
+      {
+        "order": 5,
+        "name": "Implementation \u2013  Response Header (HTTP_RESPONSE_REDIRECT_LOCATION)",
+        "action": "implement_response_enrichment",
+        "description": "After `await _next(context);` so status code & headers are set:\n```\nif (context.Response.StatusCode >= 301 && context.Response.StatusCode <= 308)\n{\n    var location = context.Response.Headers[\"Location\"].FirstOrDefault();\n    if (!string.IsNullOrEmpty(location))\n    {\n        Activity.Current?.SetTag(\"HTTP_RESPONSE_REDIRECT_LOCATION\", location);\n    }\n}\n```",
+        "dependencies": [
+          4
+        ],
+        "expected_files_modified_or_created": [
+          "TelemetryHeaderEnrichmentMiddleware.cs"
+        ],
+        "validation_criteria": "Redirect unit test shows tag populated for 302."
+      },
+      {
+        "order": 6,
+        "name": "Unit Tests",
+        "action": "create_unit_tests",
+        "description": "Add tests using WebApplicationFactory or TestServer:\n\u2022 Assert HTTP_REFERER tag is absent/present according to header value.\n\u2022 Assert HTTP_RESPONSE_REDIRECT_LOCATION tag set only for 3xx responses.",
+        "dependencies": [
+          4,
+          5
+        ],
+        "expected_files": [
+          "TelemetryHeaderEnrichmentMiddlewareTests.cs"
+        ],
+        "validation_criteria": "All new unit tests pass in CI."
+      },
+      {
+        "order": 7,
+        "name": "Performance / PII Review",
+        "action": "review_security_compliance",
+        "description": "\u2022 Run benchmark (wrk / k6) on a sandbox build to ensure <1 ms overhead per request.\n\u2022 Verify Referer & Location headers do not violate existing data-handling policy. Mask or hash if required.",
+        "dependencies": [
+          6
+        ],
+        "validation_criteria": "Performance delta <2 %; compliance sign-off obtained."
+      },
+      {
+        "order": 8,
+        "name": "Integration in Demo Environment",
+        "action": "deploy_demo",
+        "description": "\u2022 Merge feature branch behind `Telemetry.RedirectAttributes` feature flag (default ON in Demo).\n\u2022 Deploy to Demo using existing Azure DevOps pipeline.",
+        "dependencies": [
+          7
+        ],
+        "validation_criteria": "Deployment successful; health checks green."
+      },
+      {
+        "order": 9,
+        "name": "Observability Verification",
+        "action": "run_kusto_query",
+        "description": "Execute expected Kusto query:\n```\nOtlpSpanEvents\n| where Environment == \"Demo\"\n| where url_path == \"/clm/Documents/BrowseDocuments.aspx\"\n| where http_status_code > 200\n| project Timestamp, url_path, http_status_code, HTTP_REFERER, HTTP_RESPONSE_REDIRECT_LOCATION\n```",
+        "dependencies": [
+          8
+        ],
+        "validation_criteria": "Query returns rows with both new attributes populated."
+      },
+      {
+        "order": 10,
+        "name": "Rollout to All Environments",
+        "action": "progressive_deployment",
+        "description": "\u2022 Enable feature flag in Stage \u2192 Prod progressively (10 %, 25 %, 100 %).\n\u2022 Monitor APM metrics and error budgets for 24 h after full rollout.",
+        "dependencies": [
+          9
+        ],
+        "validation_criteria": "No increase in latency or error rate; attributes visible in Production spans."
+      }
+    ],
+    "contextual_hints": [
+      "Hooking into ASP.NET pipeline after response headers are set in order to read `Location` for 3xx",
+      "Ensuring enrichment code works for both synchronous and asynchronous request paths without throwing when headers are missing"
+    ]
+  }
+}

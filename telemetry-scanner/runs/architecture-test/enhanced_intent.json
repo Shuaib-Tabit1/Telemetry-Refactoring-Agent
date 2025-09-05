@@ -1,0 +1,47 @@
+{
+  "basic_intent": {
+    "issue_category": "INSTRUMENTATION",
+    "static_analysis_query": {
+      "find_method_call": "SetTag"
+    },
+    "semantic_description": "Add HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION headers as attributes to existing HTTP request spans in the CLM web application.",
+    "search_keywords": [
+      "HTTP_REFERER",
+      "HTTP_RESPONSE_REDIRECT_LOCATION",
+      "Activity.SetTag",
+      "ActivitySource",
+      "middleware",
+      "OpenTelemetry"
+    ],
+    "telemetry_operation": {
+      "type": "span",
+      "target_name": "HTTP Request Span",
+      "action": "ADD_ATTRIBUTES",
+      "attributes_to_add": [
+        {
+          "name": "HTTP_REFERER",
+          "value_source": "Request.Headers[\"Referer\"]"
+        },
+        {
+          "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+          "value_source": "Response.Headers[\"Location\"]"
+        }
+      ],
+      "new_span_name": null,
+      "new_metric_details": {}
+    }
+  },
+  "enhanced_analysis": {
+    "confidence": "high",
+    "operation_type": "multi_file",
+    "complexity_score": 4,
+    "estimated_files": 3,
+    "validation_issues": [],
+    "suggestions": [],
+    "sub_tasks": [],
+    "contextual_hints": [
+      "Finding or creating the correct interception point in the ASP.NET pipeline so both request and response headers are available on the same Activity",
+      "Ensuring tags are added only once and only for redirect status codes (301\u2013308) without breaking existing instrumentation or trace context propagation"
+    ]
+  }
+}

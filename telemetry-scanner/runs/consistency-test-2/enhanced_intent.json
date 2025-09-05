@@ -1,0 +1,151 @@
+{
+  "basic_intent": {
+    "issue_category": "INSTRUMENTATION",
+    "static_analysis_query": {
+      "find_method_call": "SetTag"
+    },
+    "semantic_description": "Add HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION attributes to existing web request spans in the CLM application.",
+    "search_keywords": [
+      "HTTP_REFERER",
+      "HTTP_RESPONSE_REDIRECT_LOCATION",
+      "Activity.SetTag",
+      "ActivitySource",
+      "OpenTelemetry",
+      "middleware"
+    ],
+    "telemetry_operation": {
+      "type": "span",
+      "target_name": null,
+      "action": "ADD_ATTRIBUTES",
+      "attributes_to_add": [
+        {
+          "name": "HTTP_REFERER",
+          "value_source": "Request.Headers[\"Referer\"]"
+        },
+        {
+          "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+          "value_source": "Response.Headers[\"Location\"]"
+        }
+      ],
+      "new_span_name": null,
+      "new_metric_details": {}
+    }
+  },
+  "enhanced_analysis": {
+    "confidence": "high",
+    "operation_type": "multi_file",
+    "complexity_score": 4,
+    "estimated_files": 4,
+    "validation_issues": [],
+    "suggestions": [],
+    "sub_tasks": [
+      {
+        "order": 1,
+        "action": "locate_configuration",
+        "description": "Search the CLM solution for OpenTelemetry boot-strap and enrichment points (ActivitySource, AddAspNetCoreInstrumentation, SetTag, AddTag).  Typical entry points: Startup.cs, Program.cs, or custom *TelemetryExtensions.cs.",
+        "expected_files": [
+          "Startup.cs",
+          "Program.cs",
+          "Telemetry/OpenTelemetryExtensions.cs",
+          "Middleware/*Telemetry*.cs"
+        ],
+        "validation_criteria": "File(s) where the HTTP server span is created or enriched are found and documented."
+      },
+      {
+        "order": 2,
+        "action": "design_enricher",
+        "description": "Decide whether to: A) add an Enrich delegate on AddAspNetCoreInstrumentation, or B) create a lightweight middleware that runs after routing and before response return.  Document chosen approach and sign off with reviewers.",
+        "dependencies": [
+          1
+        ],
+        "validation_criteria": "Design doc or PR description explains where and how attributes will be attached (request versus response)."
+      },
+      {
+        "order": 3,
+        "action": "implement_request_attribute",
+        "description": "Inside the chosen enrichment hook, capture Request.Headers[\"Referer\"] and attach to the current activity if not null/empty and <2 kB.  Example: activity?.SetTag(\"HTTP_REFERER\", refererValue).",
+        "code_changes": [
+          "Telemetry/OpenTelemetryExtensions.cs OR Middleware/RedirectTelemetryMiddleware.cs"
+        ],
+        "dependencies": [
+          2
+        ],
+        "validation_criteria": "Unit test confirms attribute present on a normal 200 request with Referer header."
+      },
+      {
+        "order": 4,
+        "action": "implement_response_attribute",
+        "description": "For each HTTP 3xx response (301, 302, 303, 307, 308): capture Response.Headers[\"Location\"].  Because the response headers are only final after the downstream pipeline, hook into OnStarting / OnCompleted or use middleware after next(context).  Attach using activity?.SetTag(\"HTTP_RESPONSE_REDIRECT_LOCATION\", locationValue).",
+        "code_changes": [
+          "Telemetry/OpenTelemetryExtensions.cs OR Middleware/RedirectTelemetryMiddleware.cs"
+        ],
+        "dependencies": [
+          2
+        ],
+        "validation_criteria": "Unit/integration test confirms attribute present on 302 response and absent on 200 response."
+      },
+      {
+        "order": 5,
+        "action": "null_and_size_safeguards",
+        "description": "Add guards: if header missing, skip tag; if value length > 2048, truncate and suffix with \"...\".  Avoid exceptions.",
+        "dependencies": [
+          3,
+          4
+        ],
+        "validation_criteria": "Automated tests cover null and oversize cases without throwing."
+      },
+      {
+        "order": 6,
+        "action": "unit_tests",
+        "description": "Add/extend tests in Telemetry.Tests project to validate both attributes for 200 and 302 flows using TestServer.",
+        "dependencies": [
+          3,
+          4
+        ],
+        "validation_criteria": "All new tests pass in CI."
+      },
+      {
+        "order": 7,
+        "action": "local_manual_validation",
+        "description": "Run CLM locally, hit /clm/Documents/BrowseDocuments.aspx with and without redirect.  Inspect emitted spans via console exporter or OTLP-collector with Jaeger.  Confirm tags appear and values correct.",
+        "dependencies": [
+          6
+        ],
+        "validation_criteria": "Manual screenshots / logs attached to PR."
+      },
+      {
+        "order": 8,
+        "action": "deploy_demo",
+        "description": "Deploy build to Demo environment via standard pipeline.",
+        "dependencies": [
+          7
+        ],
+        "validation_criteria": "Kusto query from ticket returns expected columns with non-null values for new spans."
+      },
+      {
+        "order": 9,
+        "action": "performance_check",
+        "description": "Run existing load tests in Demo, compare P50/P95 latency and memory with previous baseline; ensure <1 % overhead.",
+        "dependencies": [
+          8
+        ],
+        "validation_criteria": "Perf delta <1 %; no GC spikes observed."
+      },
+      {
+        "order": 10,
+        "action": "rollout_to_higher_envs",
+        "description": "Promote to QA \u2192 Prod via blue/green.  Monitor for errors and attribute presence for 24 hours after Prod cut-over.",
+        "dependencies": [
+          9
+        ],
+        "validation_criteria": "No new exceptions; attributes present in Prod Kusto; rollout complete ticket closed."
+      }
+    ],
+    "contextual_hints": [
+      "Locating the central middleware or Activity enrichment hook that creates the HTTP server spans",
+      "Ensuring the redirect location is available at the point of enrichment for 3xx responses (may require response-completed callback)",
+      "Unit / integration testing of both normal and redirect flows without breaking existing tracing",
+      "Guaranteeing attribute names match exactly while following existing naming conventions and avoiding duplicate tags"
+    ]
+  }
+}

@@ -1,0 +1,189 @@
+{
+  "basic_intent": {
+    "issue_category": "INSTRUMENTATION",
+    "static_analysis_query": {
+      "find_method_call": "SetTag"
+    },
+    "semantic_description": "Add HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION tags to existing HTTP server spans in the CLM web application.",
+    "search_keywords": [
+      "HTTP_REFERER",
+      "HTTP_RESPONSE_REDIRECT_LOCATION",
+      "SetTag",
+      "ActivitySource",
+      "middleware",
+      "redirect"
+    ],
+    "telemetry_operation": {
+      "type": "span",
+      "target_name": "http server span",
+      "action": "ADD_ATTRIBUTES",
+      "attributes_to_add": [
+        {
+          "name": "HTTP_REFERER",
+          "value_source": "Request.Headers[\"Referer\"]"
+        },
+        {
+          "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+          "value_source": "Response.Headers[\"Location\"]"
+        }
+      ],
+      "new_span_name": null,
+      "new_metric_details": {}
+    }
+  },
+  "enhanced_analysis": {
+    "confidence": "high",
+    "operation_type": "multi_file",
+    "complexity_score": 4,
+    "estimated_files": 4,
+    "validation_issues": [],
+    "suggestions": [],
+    "sub_tasks": [
+      {
+        "order": 1,
+        "action": "codebase_discovery",
+        "description": "Locate all OpenTelemetry & HTTP pipeline touchpoints so we can enrich the existing HTTP server span rather than create a new span.",
+        "expected_files": [
+          "Startup.cs / Program.cs",
+          "Telemetry/OpenTelemetryConfig.cs (or similarly-named file)",
+          "Middleware/*Telemetry*.cs",
+          "Any custom ActivitySource / ActivityEnrichment delegates"
+        ],
+        "tools": [
+          "ripgrep -i \"ActivitySource\"",
+          "ripgrep -i \"SetTag(\"",
+          "IDE \u201cFind in files\u201d for  \"AddHttpClientInstrumentation\" or \"AddAspNet*Instrumentation\""
+        ],
+        "validation_criteria": "File list produced, entry point in request pipeline that has access to Activity (or Activity.Current) is identified."
+      },
+      {
+        "order": 2,
+        "action": "design_enrichment_strategy",
+        "description": "Decide the single place where both the request headers (Referer) and the finalised response headers (Location) are available.  Usually this is an ASP.NET Core middleware right after UseRouting and before UseEndpoints.  Write a short design note and paste it in the PR description.",
+        "dependencies": [
+          1
+        ],
+        "validation_criteria": "Chosen location has access to Activity.Current, Request, and Response; proof-of-concept spike compiles."
+      },
+      {
+        "order": 3,
+        "action": "implementation_request_header",
+        "description": "Add logic to capture Request.Headers[\"Referer\"] and assign it to the span tag HTTP_REFERER.  Only set when the header is not null/empty.",
+        "code_snippet": [
+          "var referer = context.Request.Headers[\"Referer\"].FirstOrDefault();",
+          "if (!string.IsNullOrWhiteSpace(referer))",
+          "    Activity.Current?.SetTag(\"HTTP_REFERER\", referer);"
+        ],
+        "expected_files": [
+          "Middleware/TelemetryEnrichmentMiddleware.cs  (new or updated)"
+        ],
+        "dependencies": [
+          2
+        ],
+        "validation_criteria": "Unit test asserts tag is present when header supplied and absent when not."
+      },
+      {
+        "order": 4,
+        "action": "implementation_response_header",
+        "description": "After next(context) returns (meaning the downstream pipeline has executed), inspect context.Response.StatusCode and context.Response.Headers[\"Location\"].  If statusCode is 301/302/303/307/308 and Location header exists, add HTTP_RESPONSE_REDIRECT_LOCATION tag.",
+        "code_snippet": [
+          "await _next(context);",
+          "if (RedirectStatusCodes.Contains(context.Response.StatusCode))",
+          "{",
+          "    var location = context.Response.Headers[\"Location\"].FirstOrDefault();",
+          "    if (!string.IsNullOrWhiteSpace(location))",
+          "        Activity.Current?.SetTag(\"HTTP_RESPONSE_REDIRECT_LOCATION\", location);",
+          "}"
+        ],
+        "expected_files": [
+          "Middleware/TelemetryEnrichmentMiddleware.cs"
+        ],
+        "dependencies": [
+          3
+        ],
+        "validation_criteria": "Unit test simulating 302 response verifies tag value equals Location header."
+      },
+      {
+        "order": 5,
+        "action": "unit_and_integration_tests",
+        "description": "Add/extend tests using WebApplicationFactory (for ASP.NET Core) or existing test harness.  Cases: (a) normal 200 response (b) request with Referer header (c) 302 response with Location header (d) 302 with missing Location (tag not set).",
+        "expected_files": [
+          "tests/TelemetryEnrichmentMiddlewareTests.cs"
+        ],
+        "dependencies": [
+          3,
+          4
+        ],
+        "validation_criteria": "All tests green in CI; code coverage > 80% for new middleware."
+      },
+      {
+        "order": 6,
+        "action": "static_analysis_security_review",
+        "description": "Run static analysers (Sonar, Snyk, etc.) to ensure no PII or forbidden headers are leaked.  Confirm Referer addition complies with privacy policy.",
+        "dependencies": [
+          5
+        ],
+        "validation_criteria": "No new high/critical issues introduced."
+      },
+      {
+        "order": 7,
+        "action": "performance_benchmark",
+        "description": "Run existing load-test suite (k6 or Locust).  Compare p95 latency & throughput against baseline.  Overhead should be <1 ms per request.",
+        "dependencies": [
+          5
+        ],
+        "validation_criteria": "Perf delta < 1 %; memory allocations do not grow > 0.5 KB per request."
+      },
+      {
+        "order": 8,
+        "action": "peer_review_and_merge",
+        "description": "Open PR with link to ticket, design note, unit/integration test results, performance report.",
+        "dependencies": [
+          6,
+          7
+        ],
+        "validation_criteria": "At least one senior approval, CI pipeline green, squash & merge to main."
+      },
+      {
+        "order": 9,
+        "action": "deploy_to_demo",
+        "description": "Promote build to Demo environment using existing Azure DevOps / GitHub Actions pipeline.",
+        "dependencies": [
+          8
+        ],
+        "validation_criteria": "Deployment succeeded, health probes green, no error spike."
+      },
+      {
+        "order": 10,
+        "action": "observability_validation_demo",
+        "description": "Run the Kusto query provided in ticket and confirm new columns HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION are populated for BrowseDocuments.aspx and SSOEndpoint.  Capture screenshots and attach to ticket.",
+        "dependencies": [
+          9
+        ],
+        "validation_criteria": "Query returns \u22651 row with non-empty new attributes."
+      },
+      {
+        "order": 11,
+        "action": "rollout_all_environments",
+        "description": "Stage -> Staging \u2011> Prod using blue/green or canary (5 % \u2192 25 % \u2192 100 %) with automatic rollback on error budget breach.",
+        "dependencies": [
+          10
+        ],
+        "validation_criteria": "No increase in 5xx or latency; Kusto confirms attributes present in Prod."
+      },
+      {
+        "order": 12,
+        "action": "ticket_closure_and_documentation",
+        "description": "Close ticket, add entry to internal wiki under \u201cCLM Telemetry Attributes\u201d.  Mention new Kusto query example.",
+        "dependencies": [
+          11
+        ],
+        "validation_criteria": "Ticket moves to Done, documentation page updated."
+      }
+    ],
+    "contextual_hints": [
+      "Hooking into the request/response middleware at the right point so both request headers and final response headers are available",
+      "Ensuring new SetTag calls integrate with existing Activity/Instrumentation without creating extra spans or altering sampling"
+    ]
+  }
+}

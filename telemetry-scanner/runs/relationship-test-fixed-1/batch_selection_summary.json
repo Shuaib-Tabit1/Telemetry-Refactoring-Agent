@@ -1,0 +1,28 @@
+{
+  "total_search_results": 75,
+  "promising_files_found": 21,
+  "final_files_selected": 17,
+  "strategy_used": "direct",
+  "selection_efficiency": "22.7%",
+  "files_selected": [
+    "/Users/shuaib.tabit/Documents/Atlas/src/API.GateKeeper/Middlewares/LogAsyncRequestHttpMiddleware.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/Helpers/BaseApiHandler.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/Profile/ProfileModule.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WebNet/Middlewares/LogAsyncRequestHttpMiddleware.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/API.Allocation/Middlewares/LogAsyncRequestHttpMiddleware.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common.AspNetCore/Web.Common.AspNetCore/Middlewares/ProfileMiddleware.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common.AspNetCore/Web.Common.AspNetCore/Middlewares/ScmLogAsyncRequestHttpMiddleware.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Web.CommonUI/MVC/Filters/MvcAuditedRequestAttribute.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Web.CommonUI/Helpers/HttpRequestAuditHelper.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Web/SSO/SSOEndpoint.ashx.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Web/DocExplorer/Controllers/PanelControllers/AttributesController.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain/Utilities/ActivityEnricher.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/ScmHttpApplication.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/internal/AtlasCustomerSupport/Global.asax.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/API.WorkflowActivities/Program.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/AtlasDataManipulationService/Startup.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Core.ServiceFramework/CoreInstrumentationLifetimeService.cs"
+  ],
+  "diff_length": 738,
+  "explanation_length": 1705
+}

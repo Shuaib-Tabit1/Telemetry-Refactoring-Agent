@@ -1,0 +1,61 @@
+diff --git a/ScmCoreInstrumentationServiceCollectionExtensions.cs b/ScmCoreInstrumentationServiceCollectionExtensions.cs
+@@
+ using ADEXS.ServiceFramework.OpenTelemetry.HostedServices;
+ using DocuSign.Msf.AspNet.OpenTelemetry;
+ using DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics.Extensions;
+ using DocuSign.Msf.OpenTelemetry.DotNet.Runtime;
+ 
++using System.Data;          // <= added
+ using Microsoft.Extensions.Configuration;
+ using Microsoft.Extensions.DependencyInjection;
+ using Microsoft.Extensions.Hosting;
+ 
+ using OpenTelemetry.Exporter;
+@@
+                             // SQL-client instrumentation
+-                            builder.AddSqlClientInstrumentation(options =>
+-                            {
+-                                options.RecordException = true;
+-                            })
++                            builder.AddSqlClientInstrumentation(options =>
++                            {
++                                options.RecordException = true;
++
++                                // Enrich every database span with procedure & database names.
++                                // ExecuteStoredProcedure eventually issues a SqlCommand with
++                                // CommandType.StoredProcedure – we capture that here.
++                                options.EnrichWithIDbCommand = (activity, command) =>
++                                {
++                                    if (activity == null || command == null)
++                                    {
++                                        return;
++                                    }
++
++                                    try
++                                    {
++                                        // db.operation – stored procedure name
++                                        if (command.CommandType == CommandType.StoredProcedure &&
++                                            !string.IsNullOrWhiteSpace(command.CommandText))
++                                        {
++                                            activity.SetTag("db.operation", command.CommandText);
++                                        }
++
++                                        // db.name – logical database name
++                                        if (command.Connection != null &&
++                                            !string.IsNullOrWhiteSpace(command.Connection.Database))
++                                        {
++                                            activity.SetTag("db.name", command.Connection.Database);
++                                        }
++                                    }
++                                    catch
++                                    {
++                                        // Never fail the main execution path because of telemetry.
++                                    }
++                                };
++                            })
+diff --git a/ScmCoreInstrumentationServiceCollectionExtensions.cs b/ScmCoreInstrumentationServiceCollectionExtensions.cs
+@@
+ using DocuSign.Msf.OpenTelemetry.DotNet.Runtime;
+ 
+ // keep existing usings...
++using System.Data;

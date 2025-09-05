@@ -1,0 +1,789 @@
+{
+  "execution_summary": {
+    "total_stages": 7,
+    "completed": 7,
+    "failed": 0,
+    "cache_hits": 0,
+    "total_execution_time": 90.39545488357544
+  },
+  "stage_details": {
+    "fetch_ticket": {
+      "stage_name": "fetch_ticket",
+      "status": "StageStatus.COMPLETED",
+      "result": "Database Stored Procedure name is missing in Span Attribute\n\nWhen looking at CLM telemetry data in Jaeger, we can see that when stored procedures are executed via ExecuteStoredProcedure method, the span doesn't include the actual stored procedure name in the db.operation or db.name attributes.\n\nThis makes it difficult to:\n1. Identify which stored procedures are being called\n2. Track performance of specific stored procedures  \n3. Debug issues related to specific database operations\n\nExpected behavior:\n- The span should include db.operation attribute with the stored procedure name\n- The span should include db.name attribute with the database name\n\nCurrent behavior:\n- Spans only show generic database operation information\n- Stored procedure names are missing from telemetry data\n\nPlease enhance the ExecuteStoredProcedure instrumentation to include these attributes.\n",
+      "error": null,
+      "execution_time": 0.0002639293670654297,
+      "cache_hit": false
+    },
+    "extract_intent": {
+      "stage_name": "extract_intent",
+      "status": "StageStatus.COMPLETED",
+      "result": {
+        "issue_category": "INSTRUMENTATION",
+        "static_analysis_query": {
+          "find_method_call": "ExecuteStoredProcedure"
+        },
+        "semantic_description": "Add stored-procedure and database names as span attributes when ExecuteStoredProcedure is invoked.",
+        "search_keywords": [
+          "ExecuteStoredProcedure",
+          "db.operation",
+          "db.name",
+          "span attribute",
+          "stored procedure name"
+        ],
+        "telemetry_operation": {
+          "type": "span",
+          "target_name": "ExecuteStoredProcedure",
+          "action": "ADD_ATTRIBUTES",
+          "attributes_to_add": [
+            {
+              "name": "db.operation",
+              "value_source": "stored procedure name"
+            },
+            {
+              "name": "db.name",
+              "value_source": "database name"
+            }
+          ],
+          "new_span_name": null,
+          "new_metric_details": {}
+        },
+        "confidence": "IntentConfidence.HIGH",
+        "operation_type": "OperationType.MULTI_FILE",
+        "complexity_score": 4,
+        "estimated_files": 2,
+        "validation_result": {
+          "is_valid": true,
+          "confidence": "IntentConfidence.HIGH",
+          "issues": [],
+          "suggestions": []
+        },
+        "sub_tasks": [
+          {
+            "order": 1,
+            "name": "Locate ExecuteStoredProcedure implementation & current span creation",
+            "action": "codebase_discovery",
+            "description": "Search the codebase for all ExecuteStoredProcedure definitions / wrappers and the span creation logic that surrounds them.",
+            "expected_files": [
+              "*/DatabaseClient*.cs",
+              "*/SqlRepository*.cs",
+              "*/DataAccess*/ExecuteStoredProcedure*.cs"
+            ],
+            "validation_criteria": [
+              "All sync / async overloads of ExecuteStoredProcedure are listed",
+              "The exact line(s) where a span is started are identified (or confirmed missing)"
+            ]
+          },
+          {
+            "order": 2,
+            "name": "Review OpenTelemetry setup",
+            "action": "locate_configuration",
+            "description": "Identify the startup / DI files where OpenTelemetry (CLM) is configured. Check if a custom TelemetrySource or ActivitySource is already used for DB calls.",
+            "expected_files": [
+              "Startup.cs",
+              "Program.cs",
+              "*TelemetryExtensions.cs",
+              "*OpenTelemetryConfig.cs"
+            ],
+            "validation_criteria": [
+              "Active ActivitySource name(s) for DB calls are known",
+              "Any existing span processors / enrichers for DB are documented"
+            ]
+          },
+          {
+            "order": 3,
+            "name": "High-level design",
+            "action": "design",
+            "dependencies": [
+              1,
+              2
+            ],
+            "description": "Choose the instrumentation point (inside ExecuteStoredProcedure wrapper vs. ActivityEnricher). Decide the safest way to access (a) stored procedure name and (b) database name for both sync & async executions. Verify no PII exposure.",
+            "validation_criteria": [
+              "Design doc / comment in ticket approved by reviewer",
+              "Decision recorded about feature-flagging or guarded enrichment"
+            ]
+          },
+          {
+            "order": 4,
+            "name": "Implement attribute enrichment",
+            "action": "implement_changes",
+            "dependencies": [
+              3
+            ],
+            "description": "1) Capture the procedure name (usually from SqlCommand.CommandText).\n2) Capture database name (SqlConnection.Database).\n3) Add span.SetTag(\"db.operation\", procName) and span.SetTag(\"db.name\", dbName) immediately after span creation.\n4) Handle both sync and async ExecuteStoredProcedure methods.\n5) Guard with null/empty checks and optional feature flag (e.g., TelemetryOptions.IncludeProcName).",
+            "expected_files": [
+              "*/ExecuteStoredProcedure*.cs",
+              "*TelemetryEnricher.cs"
+            ],
+            "validation_criteria": [
+              "Compilation passes locally",
+              "No new analyzer violations",
+              "All overloads contain identical enrichment logic"
+            ]
+          },
+          {
+            "order": 5,
+            "name": "Unit tests",
+            "action": "add_tests",
+            "dependencies": [
+              4
+            ],
+            "description": "Add/extend tests in the Telemetry test project:\n\u2022 Mock ExecuteStoredProcedure call \u2192 assert Activity.Events/Tags include db.operation & db.name.\n\u2022 Verify feature flag off hides attributes.",
+            "expected_files": [
+              "tests/ExecuteStoredProcedureTelemetryTests.cs"
+            ],
+            "validation_criteria": [
+              "New tests pass in CI",
+              "Code coverage for enrichment path \u2265 90%"
+            ]
+          },
+          {
+            "order": 6,
+            "name": "Integration test with Jaeger",
+            "action": "integration_test",
+            "dependencies": [
+              4
+            ],
+            "description": "Run application locally with Jaeger exporter enabled, execute a sample stored procedure, and visually confirm attributes in Jaeger UI.",
+            "validation_criteria": [
+              "Span shows db.operation=<proc_name>",
+              "Span shows db.name=<database>",
+              "No unexpected sensitive values appear"
+            ]
+          },
+          {
+            "order": 7,
+            "name": "Performance & regression checks",
+            "action": "performance_test",
+            "dependencies": [
+              4
+            ],
+            "description": "Benchmark hot path with and without enrichment to ensure <1% overhead and no additional allocations that break budgets.",
+            "validation_criteria": [
+              "Benchmark numbers recorded in ticket",
+              "No GC regressions detected"
+            ]
+          },
+          {
+            "order": 8,
+            "name": "Code review & merge",
+            "action": "code_review",
+            "dependencies": [
+              5,
+              6,
+              7
+            ],
+            "description": "Open PR, get approvals, address comments, and merge to main branch behind feature flag if required.",
+            "validation_criteria": [
+              "Minimum 2 reviewer approvals",
+              "CI pipeline green"
+            ]
+          },
+          {
+            "order": 9,
+            "name": "Documentation update",
+            "action": "docs_update",
+            "dependencies": [
+              8
+            ],
+            "description": "Update internal wiki / README to reflect new attributes, any feature flags, and guidance for querying Jaeger.",
+            "expected_files": [
+              "docs/telemetry.md",
+              "CHANGELOG.md"
+            ],
+            "validation_criteria": [
+              "Docs PR merged",
+              "Changelog entry created"
+            ]
+          },
+          {
+            "order": 10,
+            "name": "Deploy & monitor",
+            "action": "deployment",
+            "dependencies": [
+              8
+            ],
+            "description": "Roll out to staging \u2192 prod. Watch Jaeger dashboards and error logs for 24h. Roll back if issues arise.",
+            "validation_criteria": [
+              "Attributes visible in staging and prod",
+              "No increase in error rate or latency"
+            ]
+          }
+        ],
+        "contextual_hints": [
+          "Obtaining the stored procedure and database names in a reliable way for both sync and async execution paths",
+          "Adding attributes without introducing measurable latency or allocation overhead in hot database call paths"
+        ],
+        "similar_patterns": [
+          "add_span_attributes_for_database_calls"
+        ]
+      },
+      "error": null,
+      "execution_time": 33.97303295135498,
+      "cache_hit": false
+    },
+    "build_graph": {
+      "stage_name": "build_graph",
+      "status": "StageStatus.COMPLETED",
+      "result": [
+        "/Users/shuaib.tabit/Documents/ServiceFramework/src\\ServiceInvocationExe\\ServiceInvocationExe.csproj",
+        "/Users/shuaib.tabit/Documents/ServiceFramework/src\\ServiceFramework\\ServiceFramework.csproj",
+        "/Users/shuaib.tabit/Documents/ServiceFramework/src\\ServiceFramework.AspNetCore\\ServiceFramework.AspNetCore.csproj",
+        "/Users/shuaib.tabit/Documents/ServiceFramework/src\\ServiceFramework.Extensions\\ServiceFramework.Extensions.csproj",
+        "/Users/shuaib.tabit/Documents/ServiceFramework/src\\ServiceFramework.OpenTelemetry\\ServiceFramework.OpenTelemetry.csproj",
+        "/Users/shuaib.tabit/Documents/ServiceFramework/src\\ServiceFramework.Testing\\ServiceFramework.Testing.csproj"
+      ],
+      "error": null,
+      "execution_time": 0.005098104476928711,
+      "cache_hit": false
+    },
+    "intelligent_search": {
+      "stage_name": "intelligent_search",
+      "status": "StageStatus.COMPLETED",
+      "result": [
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.Extensions/ScmWebApplicationBuilderExtensions.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 100,
+          "reasoning": "Telemetry infrastructure: Import: ADEXS.ServiceFramework.OpenTelemetry.Extensions, Import: OpenTelemetry.Logs, Import: OpenTelemetry.Metrics; Semantic similarity: 0.214",
+          "matching_patterns": [
+            "Pattern: Instrumentation",
+            "Pattern: OpenTelemetry",
+            "Import: OpenTelemetry.Metrics",
+            "Pattern: TracerProvider",
+            "Pattern: Metrics",
+            "Pattern: MeterProvider",
+            "Import: OpenTelemetry.Logs",
+            "Import: OpenTelemetry.Trace",
+            "Import: ADEXS.ServiceFramework.OpenTelemetry.Extensions"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.OpenTelemetry/HostedServices/ScmCoreInstrumentationLifetimeHostedService.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 100,
+          "reasoning": "Telemetry infrastructure: Import: OpenTelemetry.Logs, Import: OpenTelemetry.Metrics, Import: OpenTelemetry.Trace",
+          "matching_patterns": [
+            "Import: OpenTelemetry.Logs",
+            "Import: OpenTelemetry.Metrics",
+            "Import: OpenTelemetry.Trace",
+            "Pattern: OpenTelemetry",
+            "Pattern: Instrumentation",
+            "Pattern: Metrics",
+            "Pattern: TracerProvider",
+            "Pattern: MeterProvider",
+            "Config file: scmcoreinstrumentationlifetimehostedservice.cs"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.OpenTelemetry/Extensions/ScmCoreInstrumentationServiceCollectionExtensions.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 100,
+          "reasoning": "Telemetry infrastructure: Import: ADEXS.Caching.OpenTelemetry.Extensions, Import: ADEXS.CqlCorePersistence.OpenTelemetry, Import: ADEXS.ServiceFramework.OpenTelemetry.HostedServices",
+          "matching_patterns": [
+            "Import: ADEXS.Caching.OpenTelemetry.Extensions",
+            "Import: ADEXS.CqlCorePersistence.OpenTelemetry",
+            "Import: ADEXS.ServiceFramework.OpenTelemetry.HostedServices",
+            "Import: DocuSign.Msf.AspNet.OpenTelemetry",
+            "Import: DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics.Extensions",
+            "Import: DocuSign.Msf.OpenTelemetry.DotNet.Runtime",
+            "Import: OpenTelemetry.Exporter",
+            "Import: OpenTelemetry.Logs",
+            "Import: OpenTelemetry.Metrics",
+            "Import: OpenTelemetry.Trace",
+            "Pattern: ActivitySource",
+            "Pattern: OpenTelemetry",
+            "Pattern: Instrumentation",
+            "Pattern: Metrics",
+            "Pattern: TracerProvider",
+            "Pattern: MeterProvider",
+            "Config file: scmcoreinstrumentationservicecollectionextensions.cs"
+          ],
+          "context_snippets": [
+            "// https://devblogs.microsoft.com/azure-sdk/introducing-experimental-opentelemetry-support-in-the-azure-sdk-for-net/\n\t\tAppContext.SetSwitch(\"Azure.Experimental.EnableActivitySource\", true);\n\n\t\tvar telemetryConsoleTargets = configuration.GetSection(\"Telemetry:Console:Targets\")?.Get<ConsoleExporterOutputTargets?>();"
+          ],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/ScmServicedComponent.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 25,
+          "reasoning": "Telemetry infrastructure: Import: DocuSign.Monitoring, Pattern: Monitoring",
+          "matching_patterns": [
+            "Import: DocuSign.Monitoring",
+            "Pattern: Monitoring"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/BaseServiceRequestEventLogger.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 25,
+          "reasoning": "Telemetry infrastructure: Import: DocuSign.CLM.Monitoring, Pattern: Monitoring",
+          "matching_patterns": [
+            "Import: DocuSign.CLM.Monitoring",
+            "Pattern: Monitoring"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.AspNetCore/HostedServices/ScmLifetimeHostedService.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 25,
+          "reasoning": "Telemetry infrastructure: Import: DocuSign.CLM.Monitoring, Pattern: Monitoring",
+          "matching_patterns": [
+            "Import: DocuSign.CLM.Monitoring",
+            "Pattern: Monitoring"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/Extensions/StructureMapHostBuilderExtensions.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 24,
+          "reasoning": "Semantic similarity: 0.246",
+          "matching_patterns": [],
+          "context_snippets": [
+            "using StructureMap;\n\nnamespace ADEXS.ServiceFramework.Extensions\n{\n\t/// <summary>",
+            "/// Extension methods for configuring the <see cref=\"IHostBuilder\" />.\n\t/// </summary>\n\tpublic static class StructureMapHostBuilderExtensions\n\t{\n\t\t/// <summary>",
+            "/// </summary>\n\t\t/// <param name=\"builder\">The <see cref=\"IHostBuilder\" /> instance to configure.</param>\n\t\t/// <returns>A reference to the <paramref name=\"builder\"/> after the operation has completed.</returns>\n\t\tpublic static IHostBuilder UseScmServiceLocator(this IHostBuilder builder)\n\t\t{"
+          ],
+          "confidence": "0.2459396"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.AspNetCore/Extensions/ScmLifetimeHostedServiceHostBuilderExtensions.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 21,
+          "reasoning": "Semantic similarity: 0.218",
+          "matching_patterns": [],
+          "context_snippets": [
+            "\ufeffusing System;\n\nusing ADEXS.ServiceFramework.AspNetCore.Options;\n\nusing Microsoft.Extensions.Hosting;",
+            "using Microsoft.Extensions.Hosting;\n\nnamespace ADEXS.ServiceFramework.AspNetCore.Extensions;\n\n/// <summary>",
+            "/// Extension methods for configuring the <see cref=\"IHostBuilder\" />.\n/// </summary>\npublic static class ScmLifetimeHostedServiceHostBuilderExtensions\n{\n\t/// <summary>"
+          ],
+          "confidence": "0.21761018"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/TaskResultEnum.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 21,
+          "reasoning": "Semantic similarity: 0.216",
+          "matching_patterns": [],
+          "context_snippets": [
+            "\ufeffnamespace ADEXS.ServiceFramework\n{\n\tpublic enum TaskResult",
+            "\ufeffnamespace ADEXS.ServiceFramework\n{\n\tpublic enum TaskResult\n\t{\n\t\tSuccess,"
+          ],
+          "confidence": "0.21622926"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.Extensions/ScmHostExtensions.cs",
+          "strategy": "SearchStrategy.SEMANTIC",
+          "relevance_score": 21,
+          "reasoning": "Semantic similarity: 0.216",
+          "matching_patterns": [],
+          "context_snippets": [
+            "\ufeffusing System;\n\nusing ADEXS.HealthCheck.AspNetCore.StartupChecks.Extensions;\nusing ADEXS.ServiceFramework.AspNetCore.Extensions;",
+            "using ADEXS.HealthCheck.AspNetCore.StartupChecks.Extensions;\nusing ADEXS.ServiceFramework.AspNetCore.Extensions;\n\nusing Microsoft.Extensions.Hosting;",
+            "using Microsoft.Extensions.Hosting.WindowsServices;\n\nnamespace ADEXS.ServiceFramework.Extensions;\n\n/// <summary>"
+          ],
+          "confidence": "0.2155472"
+        },
+        {
+          "file_path": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/StartupFilters/ThreadPoolConfigurationStartupFilter.cs",
+          "strategy": "SearchStrategy.PATTERN",
+          "relevance_score": 20,
+          "reasoning": "Telemetry infrastructure: Config file: threadpoolconfigurationstartupfilter.cs",
+          "matching_patterns": [
+            "Config file: threadpoolconfigurationstartupfilter.cs"
+          ],
+          "context_snippets": [],
+          "confidence": 0.85
+        }
+      ],
+      "error": null,
+      "execution_time": 0.40265798568725586,
+      "cache_hit": false
+    },
+    "analyze_architecture": {
+      "stage_name": "analyze_architecture",
+      "status": "StageStatus.COMPLETED",
+      "result": {
+        "direct_impact": [
+          "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.AspNetCore/Extensions/ScmLifetimeHostedServiceHostBuilderExtensions.cs",
+          "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/StartupFilters/ThreadPoolConfigurationStartupFilter.cs",
+          "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/TaskResultEnum.cs",
+          "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.AspNetCore/HostedServices/ScmLifetimeHostedService.cs",
+          "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/Extensions/StructureMapHostBuilderExtensions.cs",
+          "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/BaseServiceRequestEventLogger.cs",
+          "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.OpenTelemetry/Extensions/ScmCoreInstrumentationServiceCollectionExtensions.cs",
+          "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.Extensions/ScmHostExtensions.cs",
+          "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/ScmServicedComponent.cs",
+          "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.Extensions/ScmWebApplicationBuilderExtensions.cs",
+          "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.OpenTelemetry/HostedServices/ScmCoreInstrumentationLifetimeHostedService.cs"
+        ],
+        "indirect_impact": [
+          "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/Extensions/ScmAppConfigurationHostBuilderExtensions.cs",
+          "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/Extensions/ScmLoggingConfigurationHostBuilderExtensions.cs",
+          "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/AbstractServiceWorkerGroup.cs",
+          "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/AbstractServiceWorker.cs"
+        ],
+        "risk_score": 10,
+        "affected_patterns": [
+          "ArchitecturalPattern.DEPENDENCY_INJECTION"
+        ],
+        "breaking_changes": [
+          "Service registration changes may affect dependency injection",
+          "Service registration changes may affect dependency injection",
+          "Service registration changes may affect dependency injection",
+          "Service registration changes may affect dependency injection",
+          "Service registration changes may affect dependency injection"
+        ],
+        "test_requirements": [
+          "Unit tests for modified methods",
+          "Integration tests for telemetry data collection",
+          "OpenTelemetry span validation tests",
+          "Service registration validation tests"
+        ]
+      },
+      "error": null,
+      "execution_time": 0.007965087890625,
+      "cache_hit": false
+    },
+    "generate_solution": {
+      "stage_name": "generate_solution",
+      "status": "StageStatus.COMPLETED",
+      "result": {
+        "explanation": "The OpenTelemetry pipeline already registers `AddSqlClientInstrumentation`, which is responsible for creating spans around every `SqlCommand` execution.  \nBy enriching those spans we can attach additional attributes without touching\nany existing data-access code (including `ExecuteStoredProcedure`).\n\nThe enrichment callback now:\n\u2022 Detects when the command represents a stored-procedure invocation  \n\u2022 Adds the semantic attribute `db.operation` with the procedure name  \n\u2022 Adds the semantic attribute `db.name` with the database name obtained from the connection  \n\nThe logic is fully defensive (null / whitespace guards and a try / catch) so that\nany failure in enrichment cannot break the normal execution path.",
+        "diff": "diff --git a/ScmCoreInstrumentationServiceCollectionExtensions.cs b/ScmCoreInstrumentationServiceCollectionExtensions.cs\n@@\n using ADEXS.ServiceFramework.OpenTelemetry.HostedServices;\n using DocuSign.Msf.AspNet.OpenTelemetry;\n using DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics.Extensions;\n using DocuSign.Msf.OpenTelemetry.DotNet.Runtime;\n \n+using System.Data;          // <= added\n using Microsoft.Extensions.Configuration;\n using Microsoft.Extensions.DependencyInjection;\n using Microsoft.Extensions.Hosting;\n \n using OpenTelemetry.Exporter;\n@@\n                             // SQL-client instrumentation\n-                            builder.AddSqlClientInstrumentation(options =>\n-                            {\n-                                options.RecordException = true;\n-                            })\n+                            builder.AddSqlClientInstrumentation(options =>\n+                            {\n+                                options.RecordException = true;\n+\n+                                // Enrich every database span with procedure & database names.\n+                                // ExecuteStoredProcedure eventually issues a SqlCommand with\n+                                // CommandType.StoredProcedure \u2013 we capture that here.\n+                                options.EnrichWithIDbCommand = (activity, command) =>\n+                                {\n+                                    if (activity == null || command == null)\n+                                    {\n+                                        return;\n+                                    }\n+\n+                                    try\n+                                    {\n+                                        // db.operation \u2013 stored procedure name\n+                                        if (command.CommandType == CommandType.StoredProcedure &&\n+                                            !string.IsNullOrWhiteSpace(command.CommandText))\n+                                        {\n+                                            activity.SetTag(\"db.operation\", command.CommandText);\n+                                        }\n+\n+                                        // db.name \u2013 logical database name\n+                                        if (command.Connection != null &&\n+                                            !string.IsNullOrWhiteSpace(command.Connection.Database))\n+                                        {\n+                                            activity.SetTag(\"db.name\", command.Connection.Database);\n+                                        }\n+                                    }\n+                                    catch\n+                                    {\n+                                        // Never fail the main execution path because of telemetry.\n+                                    }\n+                                };\n+                            })\ndiff --git a/ScmCoreInstrumentationServiceCollectionExtensions.cs b/ScmCoreInstrumentationServiceCollectionExtensions.cs\n@@\n using DocuSign.Msf.OpenTelemetry.DotNet.Runtime;\n \n // keep existing usings...\n+using System.Data;",
+        "reasoning_chain": {
+          "strategy": "ReasoningStrategy.CHAIN_OF_THOUGHT",
+          "steps": [
+            {
+              "step_number": 1,
+              "description": "1. ANALYSIS",
+              "reasoning": "1. ANALYSIS\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nClear reasoning",
+              "conclusion": "Clear reasoning",
+              "confidence": 0.8,
+              "evidence": [
+                "LLM analysis"
+              ]
+            },
+            {
+              "step_number": 2,
+              "description": "2. PLANNING",
+              "reasoning": "2. PLANNING\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nClear reasoning",
+              "conclusion": "Clear reasoning",
+              "confidence": 0.8,
+              "evidence": [
+                "LLM analysis"
+              ]
+            },
+            {
+              "step_number": 3,
+              "description": "3. IMPLEMENTATION",
+              "reasoning": "3. IMPLEMENTATION\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nClear reasoning / patch outline",
+              "conclusion": "Clear reasoning / patch outline",
+              "confidence": 0.8,
+              "evidence": [
+                "LLM analysis"
+              ]
+            },
+            {
+              "step_number": 4,
+              "description": "4. VALIDATION",
+              "reasoning": "4. VALIDATION\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nClear reasoning",
+              "conclusion": "Clear reasoning",
+              "confidence": 0.8,
+              "evidence": [
+                "LLM analysis"
+              ]
+            }
+          ],
+          "final_conclusion": "\u2022 Snapshot logs instead of Jaeger UI for integration \u2013 still acceptable fallback.",
+          "overall_confidence": 0.8,
+          "alternative_approaches": [
+            "Alternative approaches considered",
+            "\u2022 ScmCoreInstrumentationServiceCollectionExtensions already calls \u201coptions.AddSqlClientInstrumentation()\u201d for *meters* but NOT for *tracer*.",
+            "2. Supply a delegate via SqlClientInstrumentationOptions.Enrich = SqlClientTelemetryEnricher.Enrich."
+          ]
+        },
+        "selected_files": [
+          {
+            "path": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.Extensions/ScmWebApplicationBuilderExtensions.cs",
+            "content": "\ufeffusing System;\nusing System.Collections.Generic;\n\nusing ADEXS.Caching.AspNetCore.Extensions;\nusing ADEXS.Core.Util.Extensions;\nusing ADEXS.Core.Util.ServiceLocator;\nusing ADEXS.HealthCheck.AspNetCore.StartupChecks.Extensions;\nusing ADEXS.ServiceFramework.AspNetCore.Extensions;\nusing ADEXS.ServiceFramework.OpenTelemetry.Extensions;\nusing ADEXS.ServiceFramework.Options;\n\nusing Microsoft.AspNetCore.Builder;\nusing Microsoft.AspNetCore.Hosting;\nusing Microsoft.Extensions.DependencyInjection;\n\nusing OpenTelemetry.Logs;\nusing OpenTelemetry.Metrics;\nusing OpenTelemetry.Trace;\n\nusing StructureMap;\n\nnamespace ADEXS.ServiceFramework.Extensions;\n\n/// <summary>\n/// Extension methods for configuring the <see cref=\"WebApplicationBuilder\" />.\n/// </summary>\npublic static class ScmWebApplicationBuilderExtensions\n{\n\t/// <summary>\n\t/// Configures a <see cref=\"WebApplicationBuilder\" /> with to use StructureMap provided by <see cref=\"ServiceLocator\"/>\n\t/// </summary>\n\t/// <param name=\"builder\">\n\t/// The <see cref=\"WebApplicationBuilder\" /> instance to configure.\n\t/// </param>\n\t/// <param name=\"args\">\n\t/// The command line args to use. If null, the command line args will be used.\n\t/// </param>\n\t/// <param name=\"serviceRegistries\">\n\t/// The <see cref=\"IServiceRegistry\"/> to use to configure the container.\n\t/// </param>\n\t/// <returns>\n\t/// A reference to the <paramref name=\"builder\"/> after the operation has completed.\n\t/// </returns>\n\t/// <exception cref=\"ArgumentNullException\">\n\t/// When <paramref name=\"builder\"/> is <see langword=\"null\"/>.\n\t/// </exception>\n\tpublic static WebApplicationBuilder ConfigureDefaultScmService(\n\t\tthis WebApplicationBuilder builder,\n\t\tstring[] args,\n\t\tFunc<IList<IServiceRegistry>> serviceRegistries)\n\t{\n\t\tArgumentNullException.ThrowIfNull(builder);\n\n\t\tbuilder.UseScmServiceLocator(serviceRegistries)\n\t\t\t.ConfigureScmAppConfiguration(args)\n\t\t\t.ConfigureScmLogging()\n\t\t\t.ConfigureScmThreadPool();\n\n\t\tbuilder.WebHost.ConfigureKestrel((options) =>\n\t\t{\n\t\t\toptions.AllowAlternateSchemes = true;\n\t\t});\n\n\t\tbuilder.Services.AddScmLifetimeHostedService()\n\t\t\t.AddStartupHealthChecks(options =>\n\t\t\t{\n\t\t\t\t// By default disable the startup health checks in cloud environments.\n\t\t\t\tif (builder.Configuration.IsCloudEnvironment())\n\t\t\t\t{\n\t\t\t\t\toptions.IsEnabled = false;\n\t\t\t\t}\n\t\t\t});\n\n\t\tbuilder.Host.UseScmWindowsService();\n\n\t\tbuilder.Services.AddRedisLifetimeService();\n\n\t\tbuilder.Services.AddCommonScmServices(builder.Configuration);\n\n\t\treturn builder;\n\t}\n\n\t/// <summary>\n\t/// Configures a <see cref=\"WebApplicationBuilder\" /> with to use StructureMap provided by <see cref=\"ServiceLocator\"/>\n\t/// </summary>\n\t/// <param name=\"builder\">\n\t/// The <see cref=\"WebApplicationBuilder\" /> instance to configure.\n\t/// </param>\n\t/// <param name=\"args\">\n\t/// The command line args to use. If null, the command line args will be used.\n\t/// </param>\n\t/// <param name=\"serviceRegistries\">\n\t/// The <see cref=\"IServiceRegistry\"/> to use to configure the container.\n\t/// </param>\n\t/// <param name=\"serviceName\">The service name.</param>\n\t/// <param name=\"serviceVersion\">The service version.</param>\n\t/// <param name=\"configureLogger\">The logger configuration.</param>\n\t/// <param name=\"configureTracer\">The tracer configuration.</param>\n\t/// <param name=\"configureMeter\">The meter configuration.</param>\n\t/// <param name=\"appConfigFileName\">The name of the app config file to use. Default is \"AppConfig.ini\".</param>\n\t/// <returns>\n\t/// A reference to the <paramref name=\"builder\"/> after the operation has completed.\n\t/// </returns>\n\t/// <exception cref=\"ArgumentNullException\">\n\t/// When <paramref name=\"builder\"/> is <see langword=\"null\"/>.\n\t/// </exception>\n\tpublic static WebApplicationBuilder ConfigureDefaultScmService(\n\t\tthis WebApplicationBuilder builder,\n\t\tstring[] args,\n\t\tFunc<IList<IServiceRegistry>> serviceRegistries,\n\t\tstring serviceName,\n\t\tstring? serviceVersion = null,\n\t\tAction<OpenTelemetryLoggerOptions>? configureLogger = null,\n\t\tAction<TracerProviderBuilder>? configureTracer = null,\n\t\tAction<MeterProviderBuilder>? configureMeter = null,\n\t\tstring appConfigFileName = \"AppConfig.ini\")\n\t{\n\t\tArgumentNullException.ThrowIfNull(builder);\n\n\t\tConfigureDefaultScmService(builder, args, serviceRegistries);\n\n\t\tbuilder.Services.AddScmCoreInstrumentation(\n\t\t\tbuilder.Configuration,\n\t\t\tserviceName,\n\t\t\tserviceVersion,\n\t\t\tconfigureLogger,\n\t\t\tconfigureTracer,\n\t\t\tconfigureMeter);\n\n\t\tbuilder.Services.AddScmServiceAppConfig(appConfigFileName);\n\n\t\treturn builder;\n\t}\n\n\t/// <summary>\n\t/// Configures a <see cref=\"WebApplicationBuilder\" /> with to use StructureMap provided by <see cref=\"ServiceLocator\"/>\n\t/// </summary>\n\t/// <param name=\"builder\">\n\t/// The <see cref=\"WebApplicationBuilder\" /> instance to configure.\n\t/// </param>\n\t/// <param name=\"args\">\n\t/// The command line args to use. If null, the command line args will be used.\n\t/// </param>\n\t/// <param name=\"serviceRegistries\">\n\t/// The <see cref=\"IServiceRegistry\"/> to use to configure the container.\n\t/// </param>\n\t/// <returns>\n\t/// A reference to the <paramref name=\"builder\"/> after the operation has completed.\n\t/// </returns>\n\t/// <exception cref=\"ArgumentNullException\">\n\t/// When <paramref name=\"builder\"/> is <see langword=\"null\"/>.\n\t/// </exception>\n\tpublic static WebApplicationBuilder ConfigureDefaultScmWebService(\n\t\tthis WebApplicationBuilder builder,\n\t\tstring[] args,\n\t\tFunc<IList<IServiceRegistry>> serviceRegistries)\n\t{\n\t\tArgumentNullException.ThrowIfNull(builder);\n\n\t\tbuilder.UseScmServiceLocator(serviceRegistries)\n\t\t\t.ConfigureScmAppConfiguration(args)\n\t\t\t.ConfigureScmLogging()\n\t\t\t.ConfigureScmThreadPool();\n\n\t\tbuilder.Services.AddScmLifetimeHostedService();\n\n\t\tbuilder.WebHost.ConfigureKestrel((options) =>\n\t\t{\n\t\t\toptions.AllowAlternateSchemes = true;\n\t\t});\n\n\t\t// On Prem IIS out of process configuration.\n\t\tbuilder.Services.Configure<IISOptions>(options =>\n\t\t{\n\t\t\toptions.ForwardClientCertificate = false;\n\t\t});\n\n\t\tbuilder.Services.AddRedisLifetimeService();\n\n\t\tbuilder.Services.AddCommonScmServices(builder.Configuration);\n\n\t\treturn builder;\n\t}\n\n\t/// <summary>\n\t/// Configures a <see cref=\"WebApplicationBuilder\" /> with to use StructureMap provided by <see cref=\"ServiceLocator\"/>\n\t/// </summary>\n\t/// <param name=\"builder\">\n\t/// The <see cref=\"WebApplicationBuilder\" /> instance to configure.\n\t/// </param>\n\t/// <param name=\"args\">\n\t/// The command line args to use. If null, the command line args will be used.\n\t/// </param>\n\t/// <param name=\"serviceRegistries\">\n\t/// The <see cref=\"IServiceRegistry\"/> to use to configure the container.\n\t/// </param>\n\t/// <param name=\"serviceName\">The service name.</param>\n\t/// <param name=\"serviceVersion\">The service version.</param>\n\t/// <param name=\"configureLogger\">The logger configuration.</param>\n\t/// <param name=\"configureTracer\">The tracer configuration.</param>\n\t/// <param name=\"configureMeter\">The meter configuration.</param>\n\t/// <param name=\"appConfigFileName\">The name of the app config file to use. Default is \"AppConfig.ini\".</param>\n\t/// <returns>The service collection.</returns>\n\t/// <exception cref=\"ArgumentNullException\">\n\t/// When <paramref name=\"builder\"/> is <see langword=\"null\"/>.\n\t/// </exception>\n\tpublic static WebApplicationBuilder ConfigureDefaultScmWebService(\n\t\tthis WebApplicationBuilder builder,\n\t\tstring[] args,\n\t\tFunc<IList<IServiceRegistry>> serviceRegistries,\n\t\tstring serviceName,\n\t\tstring? serviceVersion = null,\n\t\tAction<OpenTelemetryLoggerOptions>? configureLogger = null,\n\t\tAction<TracerProviderBuilder>? configureTracer = null,\n\t\tAction<MeterProviderBuilder>? configureMeter = null,\n\t\tstring appConfigFileName = \"AppConfig.ini\")\n\t{\n\t\tArgumentNullException.ThrowIfNull(builder);\n\n\t\tConfigureDefaultScmWebService(builder, args, serviceRegistries);\n\n\t\tbuilder.Services.AddScmCoreInstrumentation(\n\t\t\tbuilder.Configuration,\n\t\t\tserviceName,\n\t\t\tserviceVersion,\n\t\t\tconfigureLogger,\n\t\t\tconfigureTracer,\n\t\t\tconfigureMeter);\n\n\t\tbuilder.Services.AddScmServiceAppConfig(appConfigFileName);\n\n\t\treturn builder;\n\t}\n\n\t/// <summary>\n\t/// Configures a <see cref=\"WebApplicationBuilder\" /> with to use StructureMap provided by <see cref=\"ServiceLocator\"/>\n\t/// </summary>\n\t/// <param name=\"builder\">The <see cref=\"WebApplicationBuilder\" /> instance to configure.</param>\n\t/// <returns>A reference to the <paramref name=\"builder\"/> after the operation has completed.</returns>\n\tpublic static WebApplicationBuilder UseScmServiceLocator(this WebApplicationBuilder builder)\n\t{\n\t\tArgumentNullException.ThrowIfNull(builder);\n\n\t\tbuilder.Host.UseScmServiceLocator();\n\n\t\treturn builder;\n\t}\n\n\t/// <summary>\n\t/// Configures a <see cref=\"WebApplicationBuilder\" /> with to use StructureMap provided by <see cref=\"ServiceLocator\"/>\n\t/// </summary>\n\t/// <param name=\"builder\">The <see cref=\"WebApplicationBuilder\" /> instance to configure.</param>\n\t/// <param name=\"registry\">\n\t/// The <see cref=\"Registry\"/> to use to configure the container.\n\t/// </param>\n\t/// <returns>A reference to the <paramref name=\"builder\"/> after the operation has completed.</returns>\n\tpublic static WebApplicationBuilder UseScmServiceLocator(this WebApplicationBuilder builder, Registry registry)\n\t{\n\t\tArgumentNullException.ThrowIfNull(builder);\n\n\t\tbuilder.Host.UseScmServiceLocator(registry);\n\n\t\treturn builder;\n\t}\n\n\t/// <summary>\n\t/// Configures a <see cref=\"WebApplicationBuilder\" /> with to use StructureMap provided by <see cref=\"ServiceLocator\"/>\n\t/// </summary>\n\t/// <param name=\"builder\">The <see cref=\"WebApplicationBuilder\" /> instance to configure.</param>\n\t/// <param name=\"serviceRegistries\">\n\t/// The <see cref=\"IServiceRegistry\"/> to use to configure the container.\n\t/// </param>\n\t/// <returns>A reference to the <paramref name=\"builder\"/> after the operation has completed.</returns>\n\tpublic static WebApplicationBuilder UseScmServiceLocator(this WebApplicationBuilder builder, IEnumerable<IServiceRegistry> serviceRegistries)\n\t{\n\t\tArgumentNullException.ThrowIfNull(builder);\n\t\tArgumentNullException.ThrowIfNull(serviceRegistries);\n\n\t\tbuilder.Host.UseScmServiceLocator(serviceRegistries);\n\n\t\treturn builder;\n\t}\n\n\t/// <summary>\n\t/// Configures a <see cref=\"WebApplicationBuilder\" /> with to use StructureMap provided by <see cref=\"ServiceLocator\"/>\n\t/// </summary>\n\t/// <param name=\"builder\">The <see cref=\"WebApplicationBuilder\" /> instance to configure.</param>\n\t/// <param name=\"serviceRegistries\">\n\t/// The <see cref=\"IServiceRegistry\"/> to use to configure the container.\n\t/// </param>\n\t/// <returns>A reference to the <paramref name=\"builder\"/> after the operation has completed.</returns>\n\tpublic static WebApplicationBuilder UseScmServiceLocator(this WebApplicationBuilder builder, Func<IList<IServiceRegistry>> serviceRegistries)\n\t{\n\t\tArgumentNullException.ThrowIfNull(serviceRegistries);\n\n\t\treturn UseScmServiceLocator(builder, serviceRegistries());\n\t}\n\n\t/// <summary>\n\t/// Configures a <see cref=\"WebApplicationBuilder\" /> with to use additional CLM specific configuration files and mounted secrets.\n\t/// Also updates the <see cref=\"Core.Util.Cache.ConfigurationProvider\"/> with the configuration.\n\t/// </summary>\n\t/// <param name=\"builder\">The <see cref=\"WebApplicationBuilder\" /> instance to configure.</param>\n\t/// <returns>A reference to the <paramref name=\"builder\"/> after the operation has completed.</returns>\n\tpublic static WebApplicationBuilder ConfigureScmAppConfiguration(this WebApplicationBuilder builder)\n\t{\n\t\tArgumentNullException.ThrowIfNull(builder);\n\n\t\tScmAppConfigurationHostBuilderExtensions.ConfigureAppConfiguration(builder.Configuration, builder.Configuration, args: null);\n\t\tScmAppConfigurationHostBuilderExtensions.ConfigureConfigurationProviderMinimalHosting(builder.Services, builder.Configuration, configurationSectionName: null);\n\n\t\treturn builder;\n\t}\n\n\t/// <summary>\n\t/// Configures a <see cref=\"WebApplicationBuilder\" /> with to use additional CLM specific configuration files and mounted secrets.\n\t/// Also updates the <see cref=\"Core.Util.Cache.ConfigurationProvider\"/> with the configuration.\n\t/// </summary>\n\t/// <param name=\"builder\">The <see cref=\"WebApplicationBuilder\" /> instance to configure.</param>\n\t/// <param name=\"args\">The command line args to use. If null, the command line args will be used.</param>\n\t/// <returns>A reference to the <paramref name=\"builder\"/> after the operation has completed.</returns>\n\tpublic static WebApplicationBuilder ConfigureScmAppConfiguration(this WebApplicationBuilder builder, string[] args)\n\t{\n\t\tArgumentNullException.ThrowIfNull(builder);\n\n\t\tScmAppConfigurationHostBuilderExtensions.ConfigureAppConfiguration(builder.Configuration, builder.Configuration, args);\n\t\tScmAppConfigurationHostBuilderExtensions.ConfigureConfigurationProviderMinimalHosting(builder.Services, builder.Configuration, configurationSectionName: null);\n\n\t\treturn builder;\n\t}\n\n\t/// <summary>\n\t/// Configures a <see cref=\"WebApplicationBuilder\" /> with to use additional CLM specific configuration files and mounted secrets.\n\t/// Also updates the <see cref=\"Core.Util.Cache.ConfigurationProvider\"/> with the configuration.\n\t/// </summary>\n\t/// <param name=\"builder\">The <see cref=\"WebApplicationBuilder\" /> instance to configure.</param>\n\t/// <param name=\"configurationSectionName\">The name of the configuration section to use. If null, the root configuration section will be used.</param>\n\t/// <returns>A reference to the <paramref name=\"builder\"/> after the operation has completed.</returns>\n\tpublic static WebApplicationBuilder ConfigureScmAppConfiguration(this WebApplicationBuilder builder, string? configurationSectionName)\n\t{\n\t\tArgumentNullException.ThrowIfNull(builder);\n\n\t\tScmAppConfigurationHostBuilderExtensions.ConfigureAppConfiguration(builder.Configuration, builder.Configuration, args: null);\n\t\tScmAppConfigurationHostBuilderExtensions.ConfigureConfigurationProviderMinimalHosting(builder.Services, builder.Configuration, configurationSectionName);\n\n\t\treturn builder;\n\t}\n\n\t/// <summary>\n\t/// Configures a <see cref=\"WebApplicationBuilder\" /> with to use additional CLM specific configuration files and mounted secrets.\n\t/// Also updates the <see cref=\"Core.Util.Cache.ConfigurationProvider\"/> with the configuration.\n\t/// </summary>\n\t/// <param name=\"builder\">The <see cref=\"WebApplicationBuilder\" /> instance to configure.</param>\n\t/// <param name=\"configurationSectionName\">The name of the configuration section to use. If null, the root configuration section will be used.</param>\n\t/// <param name=\"args\">The command line args to use. If null, the command line args will be used.</param>\n\t/// <returns>A reference to the <paramref name=\"builder\"/> after the operation has completed.</returns>\n\tpublic static WebApplicationBuilder ConfigureScmAppConfiguration(this WebApplicationBuilder builder, string? configurationSectionName, string[] args)\n\t{\n\t\tArgumentNullException.ThrowIfNull(builder);\n\n\t\tScmAppConfigurationHostBuilderExtensions.ConfigureAppConfiguration(builder.Configuration, builder.Configuration, args);\n\t\tScmAppConfigurationHostBuilderExtensions.ConfigureConfigurationProviderMinimalHosting(builder.Services, builder.Configuration, configurationSectionName);\n\n\t\treturn builder;\n\t}\n\n\t/// <summary>\n\t/// Configures a <see cref=\"WebApplicationBuilder\" /> to use log4net on prem.\n\t/// </summary>\n\t/// <param name=\"builder\">The <see cref=\"WebApplicationBuilder\" /> instance to configure.</param>\n\t/// <returns>A reference to the <paramref name=\"builder\"/> after the operation has completed.</returns>\n\tpublic static WebApplicationBuilder ConfigureScmLogging(this WebApplicationBuilder builder)\n\t{\n\t\tArgumentNullException.ThrowIfNull(builder);\n\n\t\tScmLoggingConfigurationHostBuilderExtensions.ConfigureScmLoggingProviders(builder.Logging, builder.Configuration);\n\t\tScmLoggingConfigurationHostBuilderExtensions.ConfigureScmLoggingServicesMinimalHosting(builder.Services);\n\n\t\treturn builder;\n\t}\n\n\t/// <summary>\n\t/// Configures a <see cref=\"WebApplicationBuilder\" /> with to set minimum threads for the thread pool during startup.\n\t/// Also updates the <see cref=\"Core.Util.Cache.ConfigurationProvider\"/> with the configuration.\n\t/// </summary>\n\t/// <param name=\"builder\">The <see cref=\"WebApplicationBuilder\" /> instance to configure.</param>\n\t/// <returns>A reference to the <paramref name=\"builder\"/> after the operation has completed.</returns>\n\tpublic static WebApplicationBuilder ConfigureScmThreadPool(this WebApplicationBuilder builder)\n\t{\n\t\treturn ConfigureScmThreadPool(builder, options => { });\n\t}\n\n\t/// <summary>\n\t/// Configures a <see cref=\"WebApplicationBuilder\" /> with to set minimum threads for the thread pool during startup.\n\t/// Also updates the <see cref=\"Core.Util.Cache.ConfigurationProvider\"/> with the configuration.\n\t/// </summary>\n\t/// <param name=\"builder\">The <see cref=\"WebApplicationBuilder\" /> instance to configure.</param>\n\t/// <param name=\"setupAction\">An <see cref=\"Action{ThreadPoolConfigurationOptions}\"/> to configure the provided <see cref=\"ThreadPoolConfigurationOptions\" />.</param>\n\t/// <returns>A reference to the <paramref name=\"builder\"/> after the operation has completed.</returns>\n\tpublic static WebApplicationBuilder ConfigureScmThreadPool(this WebApplicationBuilder builder, Action<ThreadPoolConfigurationOptions> setupAction)\n\t{\n\t\tArgumentNullException.ThrowIfNull(builder);\n\n\t\tbuilder.Services.ConfigureScmThreadPoolMinimalHosting(setupAction);\n\n\t\treturn builder;\n\t}\n}\n",
+            "relevance_score": 100,
+            "reasoning": "Telemetry infrastructure: Import: ADEXS.ServiceFramework.OpenTelemetry.Extensions, Import: OpenTelemetry.Logs, Import: OpenTelemetry.Metrics; Semantic similarity: 0.214"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.OpenTelemetry/HostedServices/ScmCoreInstrumentationLifetimeHostedService.cs",
+            "content": "\ufeffusing System;\nusing System.Threading;\nusing System.Threading.Tasks;\n\nusing DocuSign.OneConfig.Extensions.Msf;\n\nusing Microsoft.Extensions.DependencyInjection;\nusing Microsoft.Extensions.Hosting;\nusing Microsoft.Extensions.Logging;\n\nusing OpenTelemetry.Logs;\nusing OpenTelemetry.Metrics;\nusing OpenTelemetry.Trace;\n\nnamespace ADEXS.ServiceFramework.OpenTelemetry.HostedServices\n{\n\t/// <summary>\n\t/// Hosted service which would help to ensure all telemetry flushed before application stops.\n\t/// See https://github.com/open-telemetry/opentelemetry-dotnet/blob/913bccfdfce693ebdbf2d837ac1567668dc2de0d/src/OpenTelemetry.Extensions.Hosting/Implementation/TelemetryHostedService.cs#L17\n\t/// for reference.\n\t/// </summary>\n\tinternal sealed class ScmCoreInstrumentationLifetimeHostedService : IHostedLifecycleService\n\t{\n\t\tprivate readonly IServiceProvider _serviceProvider;\n\n\t\tprivate readonly ILogger<ScmCoreInstrumentationLifetimeHostedService> _logger;\n\n\t\tpublic ScmCoreInstrumentationLifetimeHostedService(\n\t\t\tIServiceProvider serviceProvider,\n\t\t\tILogger<ScmCoreInstrumentationLifetimeHostedService> logger)\n\t\t{\n\t\t\t_serviceProvider = serviceProvider;\n\t\t\t_logger = logger;\n\t\t}\n\n\t\tpublic Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;\n\n\t\tpublic Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;\n\n\t\tpublic Task StartedAsync(CancellationToken cancellationToken) => Task.CompletedTask;\n\n\t\tpublic Task StartingAsync(CancellationToken cancellationToken)\n\t\t{\n\t\t\t_logger.LogInformation(\"ScmCoreInstrumentation lifetime starting\");\n\n\t\t\treturn Task.CompletedTask;\n\t\t}\n\n\t\tpublic Task StoppedAsync(CancellationToken cancellationToken)\n\t\t{\n\t\t\ttry\n\t\t\t{\n\t\t\t\t_logger.LogInformation(\"ScmCoreInstrumentation lifetime stopped. Flushing telemetry\");\n\n\t\t\t\tForceFlush();\n\n\t\t\t\t_logger.LogDebug(\"Telemetry flushed\");\n\t\t\t}\n\t\t\tcatch (Exception ex)\n\t\t\t{\n\t\t\t\t_logger.LogError(ex, \"Failed to flush telemetry after stopped\");\n\t\t\t\tthrow;\n\t\t\t}\n\n\t\t\treturn Task.CompletedTask;\n\t\t}\n\n\t\tpublic Task StoppingAsync(CancellationToken cancellationToken)\n\t\t{\n\t\t\ttry\n\t\t\t{\n\t\t\t\t_logger.LogInformation(\"ScmCoreInstrumentation lifetime stopping. Flushing telemetry\");\n\n\t\t\t\tForceFlush();\n\n\t\t\t\t_logger.LogDebug(\"Telemetry flushed\");\n\t\t\t}\n\t\t\tcatch (Exception ex)\n\t\t\t{\n\t\t\t\t_logger.LogError(ex, \"Failed to flush telemetry while stopping\");\n\t\t\t\tthrow;\n\t\t\t}\n\n\t\t\treturn Task.CompletedTask;\n\t\t}\n\n\t\tprivate void ForceFlush()\n\t\t{\n\t\t\tvar meterProvider = _serviceProvider.GetService<MeterProvider>();\n\t\t\tmeterProvider?.ForceFlush();\n\n\t\t\tvar tracerProvider = _serviceProvider.GetService<TracerProvider>();\n\t\t\ttracerProvider?.ForceFlush();\n\n\t\t\tvar loggerProvider = _serviceProvider.GetService<LoggerProvider>();\n\t\t\tloggerProvider?.ForceFlush();\n\t\t}\n\t}\n}\n",
+            "relevance_score": 100,
+            "reasoning": "Telemetry infrastructure: Import: OpenTelemetry.Logs, Import: OpenTelemetry.Metrics, Import: OpenTelemetry.Trace"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.OpenTelemetry/Extensions/ScmCoreInstrumentationServiceCollectionExtensions.cs",
+            "content": "\ufeffusing System;\n\nusing ADEXS.Caching.OpenTelemetry.Extensions;\nusing ADEXS.CqlCorePersistence.OpenTelemetry;\nusing ADEXS.ServiceFramework.OpenTelemetry.HostedServices;\nusing DocuSign.Msf.AspNet.OpenTelemetry;\nusing DocuSign.Msf.AspNet.OpenTelemetry.ServiceMetrics.Extensions;\nusing DocuSign.Msf.OpenTelemetry.DotNet.Runtime;\n\nusing Microsoft.Extensions.Configuration;\nusing Microsoft.Extensions.DependencyInjection;\nusing Microsoft.Extensions.Hosting;\n\nusing OpenTelemetry.Exporter;\nusing OpenTelemetry.Logs;\nusing OpenTelemetry.Metrics;\nusing OpenTelemetry.Trace;\n\nnamespace ADEXS.ServiceFramework.OpenTelemetry.Extensions;\n\n/// <summary>\n/// Extensions for <see cref=\"IServiceCollection\"/>.\n/// </summary>\npublic static class ScmCoreInstrumentationServiceCollectionExtensions\n{\n\t/// <summary>\n\t/// Adds SCM core instrumentation.\n\t/// </summary>\n\t/// <param name=\"services\">The service collection.</param>\n\t/// <param name=\"configuration\">The configuration.</param>\n\t/// <param name=\"serviceName\">The service name.</param>\n\t/// <param name=\"serviceVersion\">The service version.</param>\n\t/// <param name=\"configureLogger\">The logger configuration.</param>\n\t/// <param name=\"configureTracer\">The tracer configuration.</param>\n\t/// <param name=\"configureMeter\">The meter configuration.</param>\n\t/// <returns>\n\t/// A reference to the <paramref name=\"services\"/> after the operation has completed.\n\t/// </returns>\n\t/// <exception cref=\"ArgumentNullException\">\n\t/// When <paramref name=\"services\"/> or <paramref name=\"configuration\"/> is <see langword=\"null\"/>.\n\t/// </exception>\n\tpublic static IServiceCollection AddScmCoreInstrumentation(\n\t\tthis IServiceCollection services,\n\t\tIConfiguration configuration,\n\t\tstring serviceName,\n\t\tstring? serviceVersion = null,\n\t\tAction<OpenTelemetryLoggerOptions>? configureLogger = null,\n\t\tAction<TracerProviderBuilder>? configureTracer = null,\n\t\tAction<MeterProviderBuilder>? configureMeter = null)\n\t{\n\t\tif (services == null)\n\t\t{\n\t\t\tthrow new ArgumentNullException(nameof(services));\n\t\t}\n\n\t\tif (configuration == null)\n\t\t{\n\t\t\tthrow new ArgumentNullException(nameof(configuration));\n\t\t}\n\n\t\t// https://devblogs.microsoft.com/azure-sdk/introducing-experimental-opentelemetry-support-in-the-azure-sdk-for-net/\n\t\tAppContext.SetSwitch(\"Azure.Experimental.EnableActivitySource\", true);\n\n\t\tvar telemetryConsoleTargets = configuration.GetSection(\"Telemetry:Console:Targets\")?.Get<ConsoleExporterOutputTargets?>();\n\t\tservices.AddServiceTelemetry(\n\t\t\tserviceName,\n\t\t\tserviceVersion: serviceVersion,\n\t\t\tsuppressHealthCheckTelemetry: false,\n\t\t\tconfigureLogger: configureLogger,\n\t\t\tconfigureTracer: options =>\n\t\t\t{\n\t\t\t\t// CLM specific sources.\n\t\t\t\toptions.AddSource(\"Scm*\");\n\t\t\t\toptions.AddSource(\"ADEXS.*\");\n\n\t\t\t\t// Enable azure tracing.\n\t\t\t\toptions.AddSource(\"Azure.*\");\n\n\t\t\t\t// Enable telemetry in end to end tests.\n\t\t\t\toptions.AddSource(\"Xunit.DependencyInjection\");\n\n\t\t\t\toptions.AddHttpClientInstrumentation();\n\t\t\t\toptions.ConfigureRedisCacheInstrumentation();\n\t\t\t\toptions.AddScmCassandraPersistenceInstrumentation();\n\t\t\t\tconfigureTracer?.Invoke(options);\n\n\t\t\t\tif (telemetryConsoleTargets != null)\n\t\t\t\t{\n\t\t\t\t\toptions.AddConsoleExporter(o => o.Targets = telemetryConsoleTargets.Value);\n\t\t\t\t}\n\t\t\t},\n\t\t\tconfigureMeter: options =>\n\t\t\t{\n\t\t\t\toptions.AddHttpClientInstrumentation();\n\t\t\t\toptions.AddServiceMetrics();\n\t\t\t\toptions.AddProcessInstrumentation();\n\t\t\t\toptions.AddDocuSignDotNetRuntimeInstrumentation();\n\t\t\t\toptions.AddCassandraInstrumentation();\n\t\t\t\toptions.AddScmCassandraPersistenceInstrumentation();\n\t\t\t\toptions.AddRedisCacheMetrics();\n\t\t\t\toptions.SetExemplarFilter(ExemplarFilterType.TraceBased);\n\t\t\t\toptions.AddSqlClientInstrumentation();\n\n\t\t\t\tconfigureMeter?.Invoke(options);\n\n\t\t\t\tif (telemetryConsoleTargets != null)\n\t\t\t\t{\n\t\t\t\t\toptions.AddConsoleExporter(o => o.Targets = telemetryConsoleTargets.Value);\n\t\t\t\t}\n\t\t\t});\n\n\t\tservices.AddSingleton<IHostedService, ScmCoreInstrumentationLifetimeHostedService>();\n\n\t\treturn services;\n\t}\n}\n",
+            "relevance_score": 100,
+            "reasoning": "Telemetry infrastructure: Import: ADEXS.Caching.OpenTelemetry.Extensions, Import: ADEXS.CqlCorePersistence.OpenTelemetry, Import: ADEXS.ServiceFramework.OpenTelemetry.HostedServices"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/ScmServicedComponent.cs",
+            "content": "using System;\nusing System.Collections.Generic;\nusing System.Diagnostics;\nusing System.Reflection;\nusing System.Threading;\n\nusing ADEXS.Core.Util.Config;\nusing ADEXS.Core.Util.Core;\nusing ADEXS.Core.Util.Loggers;\nusing ADEXS.Core.Util.ServiceLocator;\nusing DocuSign.Monitoring;\nusing log4net;\nusing System.Threading.Tasks;\n\n\n#if !NET\nusing System.ServiceProcess;\n#endif\n\nnamespace ADEXS.ServiceFramework\n{\n\t/// <summary>\n\t/// Base class to subclass for services.  Handles the managing of worker processes,\n\t/// worker groups, and remotable objects via the Register* methods.\n\t/// </summary>\n\tpublic abstract class ScmServicedComponent : IServicedComponent\n\t{\n\t\tpublic const int EXIT_FAIL_TO_BOOTSTRAP = 1;\n\t\tpublic const int EXIT_FAIL_TO_START = 2;\n\t\tpublic const int EXIT_FAIL_HELTH_CHECK = 3;\n\t\tpublic const int EXIT_FAIL_TO_BEFORE_START = 4;\n\n\t\tprotected static readonly IDiscreetLogger _log = DiscreetLogger.GetLogger(typeof(ScmServicedComponent));\n\t\tprivate bool _running = false;\n\t\tprotected List<AbstractServiceWorkerGroup> _groups = new List<AbstractServiceWorkerGroup>();\n\t\tprotected List<AbstractServiceWorker> _workers = new List<AbstractServiceWorker>();\n\n\t\tpublic bool Join(int joinTimeout)\n\t\t{\n\t\t\tforeach (AbstractServiceWorker worker in _workers)\n\t\t\t{\n\t\t\t\tif (!worker.Join(joinTimeout)) return false;\n\t\t\t}\n\t\t\tforeach (AbstractServiceWorkerGroup group in _groups)\n\t\t\t{\n\t\t\t\tif (!group.Join(joinTimeout)) return false;\n\t\t\t}\n\t\t\treturn true;\n\t\t}\n\n\t\t/// <summary>\n\t\t/// Starts the worker, and adds it to the management pool.\n\t\t/// </summary>\n\t\tpublic AbstractServiceWorker RegisterWorker(AbstractServiceWorker worker)\n\t\t{\n\t\t\t_workers.Add(worker);\n\t\t\tworker.Start();\n\t\t\treturn worker;\n\t\t}\n\t\t/// <summary>\n\t\t/// Creates a worker of the specified type, and adds it to the management pool.\n\t\t/// </summary>\n\t\t/// <param name=\"workerType\">Type must inherit from AbstractServiceWorker</param>\n\t\tpublic AbstractServiceWorker RegisterWorker(Type workerType)\n\t\t{\n\t\t\tType baseType = typeof(AbstractServiceWorker);\n\t\t\tif (!workerType.IsSubclassOf(baseType)) throw new ArgumentException(string.Format(\"Type {0} does not subclass expected type {1}\", workerType.Name, baseType.Name));\n\t\t\t// Construct the worker by calling the constructor that passes in our component\n\t\t\tConstructorInfo constructor = workerType.GetConstructor(new Type[] { GetType() });\n\t\t\tif (constructor == null) throw new ArgumentException(string.Format(\"Type {0} does not contain a (ScmServicedComponent) constructor\", workerType.Name));\n\t\t\tAbstractServiceWorker worker = (AbstractServiceWorker)constructor.Invoke(new object[] { this });\n\t\t\treturn RegisterWorker(worker);\n\t\t}\n\t\t/// <summary>\n\t\t/// Creates a worker that will call the passed in delegates, and adds it to the management pool.\n\t\t/// </summary>\n\t\t/// <param name=\"name\">Name to be used for logging purposes</param>\n\t\t/// <param name=\"runDelegate\">Function to call when the worker is supposed to take action</param>\n\t\t/// <param name=\"sleepSecondsDelegate\">Number of seconds the worker should sleep in between actions</param>\n\t\tpublic AbstractServiceWorker RegisterWorker(string name, DelegateServiceWorker.RunDelegate runDelegate, DelegateServiceWorker.SleepSecondsDelegate sleepSecondsDelegate)\n\t\t{\n\t\t\tDelegateServiceWorker worker = new DelegateServiceWorker(name, this, runDelegate, sleepSecondsDelegate);\n\t\t\treturn RegisterWorker(worker);\n\t\t}\n\n\t\t/// <summary>\n\t\t/// Starts the workers in the group, and adds the group and workers to the management pool.\n\t\t/// </summary>\n\t\tpublic AbstractServiceWorkerGroup RegisterWorkerGroup(AbstractServiceWorkerGroup group)\n\t\t{\n\t\t\t_groups.Add(group);\n\t\t\tgroup.AdjustWorkers();\n\t\t\treturn group;\n\t\t}\n\t\t/// <summary>\n\t\t/// Creates a worker group of the specified type, and adds it to the management pool.\n\t\t/// </summary>\n\t\t/// <param name=\"groupType\">Type must inherit from AbstractServiceWorkerGroup</param>\n\t\tpublic AbstractServiceWorkerGroup RegisterWorkerGroup(Type groupType)\n\t\t{\n\t\t\tType baseType = typeof(AbstractServiceWorkerGroup);\n\t\t\tif (!groupType.IsSubclassOf(baseType)) throw new ArgumentException(string.Format(\"Type {0} does not subclass expected type {1}\", groupType.Name, baseType.Name));\n\t\t\t// Construct the worker by calling the constructor that passes in our component\n\t\t\tConstructorInfo constructor = groupType.GetConstructor(new Type[] { GetType() });\n\t\t\tif (constructor == null) throw new ArgumentException(string.Format(\"Type {0} does not contain a (ScmServicedComponent) constructor\", groupType.Name));\n\t\t\tAbstractServiceWorkerGroup group = (AbstractServiceWorkerGroup)constructor.Invoke(new object[] { this });\n\t\t\treturn RegisterWorkerGroup(group);\n\t\t}\n\t\t/// <summary>\n\t\t/// Creates a worker group that will call the passed in delegates, and adds it to the management pool.\n\t\t/// </summary>\n\t\t/// <param name=\"groupName\">Name of the group, to be used for logging purposes</param>\n\t\t/// <param name=\"workerName\">Name of the workers in this group, to be used for logging purposes</param>\n\t\t/// <param name=\"desiredWorkerCountDelegate\">Function to call to determine the desired number of workers in this group</param>\n\t\t/// <param name=\"runDelegate\">Function to call when a worker in the group is supposed to take action</param>\n\t\t/// <param name=\"sleepSecondsDelegate\">Number of seconds a worker in the group should sleep in between actions</param>\n\t\tpublic AbstractServiceWorkerGroup RegisterWorkerGroup(string groupName, string workerName, DelegateServiceWorkerGroup.DesiredWorkerCountDelegate desiredWorkerCountDelegate, DelegateServiceWorker.RunDelegate runDelegate, DelegateServiceWorker.SleepSecondsDelegate sleepSecondsDelegate)\n\t\t{\n\t\t\tDelegateServiceWorkerGroup group = new DelegateServiceWorkerGroup(groupName, workerName, this, desiredWorkerCountDelegate, runDelegate, sleepSecondsDelegate);\n\t\t\treturn RegisterWorkerGroup(group);\n\t\t}\n\n\t\tpublic void UnRegisterWorkerGroup(AbstractServiceWorkerGroup group)\n\t\t{\n\t\t\tfor (int i = 0; i < _groups.Count; i++)\n\t\t\t{\n\t\t\t\tif (_groups[i] == group)\n\t\t\t\t{\n\t\t\t\t\t_groups[i].Stop();\n\t\t\t\t\t_groups.RemoveAt(i);\n\t\t\t\t\tbreak;\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\n\t\t/// <summary>\n\t\t/// Called by the ServiceInvocationFramework when the service is started\n\t\t/// </summary>\n\t\tpublic void Run()\n\t\t{\n\t\t\t_log.InfoNoPII($\"This is {System.Diagnostics.Process.GetCurrentProcess().ProcessName} {GetType().Assembly.GetName().Version} \u00a9 SpringCM {DateTime.UtcNow:yyyy}.\");\n\n\t\t\tif (ConfigWrapper.UseOneConfig)\n\t\t\t{\n\t\t\t\tBootstrapServices();\n\t\t\t}\n\n\t\t\ttry\n\t\t\t{\n\t\t\t\tOnBeforeRun();\n\t\t\t}\n\t\t\tcatch (Exception e)\n\t\t\t{\n\t\t\t\t_log.FatalNoPII(\"OnBeforeRun failed\", e);\n\t\t\t\tExit(EXIT_FAIL_TO_BEFORE_START);\n\t\t\t}\n\n\t\t\tif (!ConfigWrapper.UseOneConfig)\n\t\t\t{\n\t\t\t\tBootstrapServices();\n\t\t\t}\n\n\t\t\tif (Configuration.GetBooleanAppSetting(\"DebugOnStartup\", false))\n\t\t\t{\n\t\t\t\tSystem.Diagnostics.Debugger.Launch();\n\t\t\t}\n\n\t\t\tRunHealthCheck();\n\n\t\t\t_log.WarnNoPII(\"Starting service.\");\n\n\t\t\tAppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(appDomain_UnhandledException);\n\n\t\t\t_running = true;\n\t\t\tInitializeFeatureFlags();\n\n\t\t\ttry\n\t\t\t{\n\t\t\t\tOnRun();\n\t\t\t}\n\t\t\tcatch (Exception e)\n\t\t\t{\n\t\t\t\t_log.FatalNoPII(\"OnRun failed\", e);\n\t\t\t\tExit(EXIT_FAIL_TO_START);\n\t\t\t}\n\n\t\t\tStartManager();\n\t\t\tStartAll();\n\t\t\t_log.InfoNoPII($\"{_workers.Count} workers and {_groups.Count} groups running.\");\n\t\t}\n\n\t\tprotected virtual List<IServiceRegistry> GetServiceRegistries()\n\t\t{\n\t\t\treturn new List<IServiceRegistry>();\n\t\t}\n\n\t\tpublic static void appDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)\n\t\t{\n#pragma warning disable CA1307 // Specify StringComparison for clarity\n\t\t\tstring senderTxt = $\"{sender.GetType().FullName} ({sender})\".Replace('\\n', ' ').Replace(\"\\r\", \"\");\n#pragma warning restore CA1307 // Specify StringComparison for clarity\n\t\t\tException ex;\n\t\t\tstring msg;\n\t\t\tif (e.ExceptionObject is Exception)\n\t\t\t{\n\t\t\t\tmsg = $\"Unhandled exception from '{senderTxt}'. IsTerminating: {e.IsTerminating}\";\n\t\t\t\tex = (Exception)e.ExceptionObject;\n\t\t\t}\n\t\t\telse\n\t\t\t{\n\t\t\t\tmsg = $\"Unhandled exception from '{senderTxt}' with exception object '{e.ExceptionObject.GetType().FullName}'. IsTerminating: {e.IsTerminating}.\";\n\t\t\t\tex = new Exception(msg);\n\t\t\t}\n\n\t\t\tif(e.IsTerminating)\n\t\t\t\t_log.FatalNoPII(msg, ex);\n\t\t\telse\n\t\t\t\t_log.ErrorNoPII(msg, ex);\n\t\t}\n\n\t\t/// <summary>\n\t\t/// Is the service running?\n\t\t/// </summary>\n\t\tpublic bool Running\n\t\t{\n\t\t\tget { return _running; }\n\t\t}\n\n\t\t/// <summary>\n\t\t/// Called by the ServiceInvocationFramework when the service is stopped.\n\t\t/// Note that stopping the component stops all workers it controls.\n\t\t/// </summary>\n\t\tpublic void Stop()\n\t\t{\n\t\t\t_log.WarnNoPII(\"Stopping service.\");\n\n\t\t\tif (Configuration.GetBooleanAppSetting(\"EnableServicesForcedShutdown\", false) ||\n\t\t\t    Configuration.GetBooleanAppSetting($\"EnableServiceForcedShutdown_{AppConfig.AppName()}\", false))\n\t\t\t{\n\t\t\t\tint delay = Configuration.GetInt32AppSetting(\"ForcedShutdownDelay\", 600000); // 10 min\n#pragma warning disable VSTHRD110 // await async method and get results\n\t\t\t\tTask.Delay(delay).ContinueWith(x => ScmServicedComponent.ForcedShutdown(), CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);\n#pragma warning restore VSTHRD110\n\t\t\t}\n\n\t\t\ttry\n\t\t\t{\n\t\t\t\tOnBeforeStop();\n\t\t\t}\n\t\t\tcatch (Exception e)\n\t\t\t{\n\t\t\t\t_log.ErrorNoPII(\"OnBeforeStop failed\", e);\n\t\t\t}\n\n\t\t\t_running = false;\n\t\t\t// Stop the thread manager first, so it doesn't pick on the other stopping workers.\n\t\t\tStopManager();\n\t\t\t// Our workers may be sleeping, so we interrupt to let them wake up\n\t\t\tStopAll();\n\n\t\t\ttry\n\t\t\t{\n\t\t\t\tOnStop();\n\t\t\t}\n\t\t\tcatch (Exception e)\n\t\t\t{\n\t\t\t\t_log.ErrorNoPII(\"OnStop failed\", e);\n\t\t\t}\n\n\t\t\t_log.InfoNoPII(\"Stopping code completed.\");\n\t\t}\n\n#if NET\n\t\tpublic bool IsService()\n\t\t{\n\t\t\treturn true;\n\t\t}\n#else\n\t\tprivate bool _isService;\n\t\tpublic bool IsService()\n\t\t{\n\t\t\tif (!_isService)\n\t\t\t{\n\t\t\t\ttry\n\t\t\t\t{\n\t\t\t\t\tAssembly entryAssembly = Assembly.GetEntryAssembly();\n\t\t\t\t\tMethodInfo methodInfo = entryAssembly.EntryPoint;\n\t\t\t\t\tType entryType = methodInfo.DeclaringType;\n\t\t\t\t\t_isService = typeof(ServiceBase).IsAssignableFrom(entryType);\n\t\t\t\t}\n#pragma warning disable CA1031\n\t\t\t\tcatch (Exception ex)\n#pragma warning restore CA1031\n\t\t\t\t{\n\t\t\t\t\t_log.ErrorNoPII(\"Failed to determine if this is service execution.\", ex);\n\t\t\t\t}\n\t\t\t}\n\t\t\treturn _isService;\n\t\t}\n#endif\n\t\tpublic virtual void RunHealthCheck()\n\t\t{\n\t\t}\n\n\t\t/// <summary>\n\t\t/// The subclass thats inheriting this class can choose to override\n\t\t/// and initialize FeatureFlags\n\t\t/// </summary>\n\t\tpublic virtual void InitializeFeatureFlags()\n\t\t{\n\t\t}\n\n\t\t/// <summary>\n\t\t/// The subclass thats inheriting this class can implement the method to run code before workers initialized.\n\t\t/// For example, it can initialize telemetry in this call.\n\t\t/// </summary>\n\t\tprotected virtual void OnBeforeRun() { }\n\n\t\t/// <summary>\n\t\t/// The subclass thats inheriting this class must implement these methods to start\n\t\t/// workers or whatnot.\n\t\t/// </summary>\n\t\tprotected abstract void OnRun();\n\n\t\t/// <summary>\n\t\t/// The subclass thats inheriting this class must implement these methods to do\n\t\t/// any necessary cleanup.\n\t\t/// </summary>\n\t\tprotected abstract void OnStop();\n\n\t\t/// <summary>\n\t\t/// The subclass thats inheriting this class can implement the methods to do\n\t\t/// any necessary cleanup which should happen before component stopped.\n\t\t/// </summary>\n\t\tprotected virtual void OnBeforeStop() { }\n\n\t\tprotected virtual void Exit(int exitCode)\n\t\t{\n\t\t\tLogManager.Shutdown();\n\n\t\t\t// Giving some time for the above. Otherwise I've found I lose logs.\n\t\t\tThread.Sleep(TimeSpan.FromSeconds(5));\n\n\t\t\t// This is not graceful. Windows sees that the service exits unexpectedely, and invokes\n\t\t\t// the retry policy. The service will be started at least once more, or may even\n\t\t\t// be restarted continuously, which is not very productive.\n\t\t\t// The correct way is to call ServiceBase.Stop(), but that instance is not available\n\t\t\t// here. ServiceInvocationFramework will need to be modified to provide it.\n\t\t\tEnvironment.Exit(exitCode);\n\t\t}\n\t\t/// <summary>\n\t\t/// Starts all workers for this component.  Workers for this component should be started\n\t\t/// when they were added, but, you never know.\n\t\t/// </summary>\n\t\tprivate void StartAll()\n\t\t{\n\t\t\t_log.DebugNoPII(string.Format(\"This service appears to be on a system with {0} ProcessorCount.\", Environment.ProcessorCount));\n\t\t\tforeach (AbstractServiceWorker worker in _workers) worker.Start();\n\t\t\tforeach (AbstractServiceWorkerGroup group in _groups) group.Start(group.Name);\n\t\t}\n\n\t\t/// <summary>\n\t\t/// Stops all workers for this component.  Workers for this component should stop\n\t\t/// when the component does, but they may be sleeping, etc, and thus require\n\t\t/// interrupting.\n\t\t/// </summary>\n\t\tprivate void StopAll()\n\t\t{\n\t\t\tif (Configuration.GetBooleanAppSetting(\"EnableFastShutdown\", true))\n\t\t\t{\n\t\t\t\t_log.InfoNoPII(\"Stopping workers.\");\n\t\t\t\tParallel.ForEach(_workers, x => x.Stop());\n\t\t\t\t_log.InfoNoPII(\"Stopping groups.\");\n\t\t\t\tParallel.ForEach(_groups, x => x.Stop());\n\t\t\t}\n\t\t\telse\n\t\t\t{\n\t\t\t\t_log.InfoNoPII(\"Stopping workers.\");\n\t\t\t\tforeach (AbstractServiceWorker worker in _workers) worker.Stop();\n\t\t\t\t_log.InfoNoPII(\"Stopping groups.\");\n\t\t\t\tforeach (AbstractServiceWorkerGroup group in _groups) group.Stop();\n\t\t\t}\n\t\t}\n\n\t\t/// <summary>\n\t\t/// Internal worker used to keep track of the other workers and make sure no\n\t\t/// threads exit unexpectedly, and that worker groups have the correct\n\t\t/// number of workers.\n\t\t/// </summary>\n\t\tprivate void StartManager()\n\t\t{\n\t\t\ttry\n\t\t\t{\n\t\t\t\tforeach (AbstractServiceWorker worker in _workers)\n\t\t\t\t{\n\t\t\t\t\tif (worker is ThreadManagerWorker)\n\t\t\t\t\t{\n\t\t\t\t\t\tworker.Start();\n\t\t\t\t\t\treturn;\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t\tRegisterWorker(new ThreadManagerWorker(this));\n\t\t\t}\n\t\t\tcatch (Exception e)\n\t\t\t{\n\t\t\t\t_log.ErrorNoPII($\"Could not start {nameof(ThreadManagerWorker)}\", e);\n\t\t\t}\n\t\t}\n\n\t\tprivate void StopManager()\n\t\t{\n\t\t\t_log.InfoNoPII(\"Stopping Manager.\");\n\t\t\ttry\n\t\t\t{\n\t\t\t\tforeach (AbstractServiceWorker worker in _workers)\n\t\t\t\t{\n\t\t\t\t\tif (worker is ThreadManagerWorker)\n\t\t\t\t\t{\n\t\t\t\t\t\tworker.Stop(); // hopefully it's just one of those\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t\tcatch (Exception e)\n\t\t\t{\n\t\t\t\t_log.ErrorNoPII($\"Could not stop {nameof(ThreadManagerWorker)}\", e);\n\t\t\t}\n\t\t}\n\n\t\tprivate static void ForcedShutdown()\n\t\t{\n\t\t\t_log.ErrorNoPII(\"Forced shutdown triggered\");\n\t\t\tProcess currentProcess = Process.GetCurrentProcess();\n\t\t\ttry\n\t\t\t{\n\t\t\t\t// Get the threads associated with the current process\n\t\t\t\tProcessThreadCollection threads = currentProcess.Threads;\n\n\t\t\t\t// Iterate through the threads and check their state\n\t\t\t\tforeach (ProcessThread thread in threads)\n\t\t\t\t{\n\t\t\t\t\t// Check if the thread is running\n\t\t\t\t\t// The ThreadState enum has a [FlagsAttribute], so we use a bitmask to check for running state\n\t\t\t\t\tif (!thread.ThreadState.HasFlag(System.Diagnostics.ThreadState.Terminated))\n\t\t\t\t\t{\n\t\t\t\t\t\t_log.WarnNoPII($\"Thread ID: {thread.Id}, State: {thread.ThreadState}\");\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n#pragma warning disable CA1031 // catch more specific exception\n\t\t\tcatch (Exception e)\n#pragma warning restore CA1031\n\t\t\t{\n\t\t\t\t_log.ErrorNoPII(\"Failed to get running threads\", e);\n\t\t\t}\n\t\t\tcurrentProcess.Kill();\n\t\t}\n\n\t\t/// <summary>\n\t\t/// For a given worker group, returns whether AdjustWorkers() should be called. Overriding methods in derived classes should generally\n\t\t/// call this base method in addition to whatever logic they're using (return base.ShouldAdjustWorkers(group) || ...)\n\t\t/// </summary>\n\t\t/// <param name=\"group\">The AbstractServiceWorkerGroup to check</param>\n\t\t/// <returns>True if AdjustWorkers() should be called, false otherwise</returns>\n\t\tprotected virtual bool ShouldAdjustWorkers(AbstractServiceWorkerGroup group)\n\t\t{\n\t\t\treturn group.WorkerCount != group.GetDesiredWorkerCount();\n\t\t}\n\n\t\tprivate void BootstrapServices()\n\t\t{\n\t\t\ttry\n\t\t\t{\n\t\t\t\tBootstrapper.Bootstrap(GetServiceRegistries);\n\t\t\t}\n\t\t\tcatch (Exception e)\n\t\t\t{\n\t\t\t\t_log.FatalNoPII(\"Failed to bootstrap\", e);\n\t\t\t\tExit(EXIT_FAIL_TO_BOOTSTRAP);\n\t\t\t}\n\t\t}\n\n\t\t/// <summary>\n\t\t/// Loops through all the workers in the service, ensuring they're still alive when they\n\t\t/// should be.\n\t\t/// </summary>\n\t\tprivate class ThreadManagerWorker : AbstractServiceWorker\n\t\t{\n\t\t\t[EventSource(\"Dead Workers\", \"CLM.Service\")]\n\t\t\t[Counter(\"Dead Workers\", \"CLM.Service\",\n\t\t\t\tInstanceProperty = \"Description\",\n\t\t\t\tDisplayUnit = CounterUnit.__none,\n\t\t\t\tRanges = new double[] { 1, 5, 10, 15, 20, 30, 50 },\n\t\t\t\tMeasureProperty = \"Count\")]\n\t\t\tprivate static readonly CountEventSource _deadWorkersCountEventSource = new CountEventSource();\n\n\t\t\t[EventSource(\"MissedHeartBeat Workers\", \"CLM.Service\")]\n\t\t\t[Counter(\"MissedHeartBeat Workers\", \"CLM.Service\",\n\t\t\t\tInstanceProperty = \"Description\",\n\t\t\t\tDisplayUnit = CounterUnit.__none,\n\t\t\t\tRanges = new double[] { 1, 5, 10, 15, 20, 30, 50 },\n\t\t\t\tMeasureProperty = \"Count\")]\n\t\t\tprivate static readonly CountEventSource _noHeartBeatWorkersCountEventSource = new CountEventSource();\n\n\t\t\tpublic ThreadManagerWorker(ScmServicedComponent component)\n\t\t\t\t: base(component)\n\t\t\t{\n\t\t\t\t_scmServicedComponent = component;\n\t\t\t}\n\n\t\t\tprivate readonly ScmServicedComponent _scmServicedComponent = null;\n\n\t\t\tpublic override bool HasHeartBeat()\n\t\t\t{\n\t\t\t\t// This worker is always beating.\n\t\t\t\treturn true;\n\t\t\t}\n\n\t\t\tpublic override void Run()\n\t\t\t{\n\t\t\t\t_log.DebugNoPII($\"Checking for unresponsive workers.\");\n\t\t\t\tCheckWorkersHeartBeat();\n\t\t\t\tCheckForDeadWorkerThreads();\n\t\t\t\tAdjustWorkersIfNecessary();\n\t\t\t}\n\n\t\t\tprivate void CheckWorkersHeartBeat()\n\t\t\t{\n\t\t\t\tforeach (AbstractServiceWorker worker in _scmServicedComponent._workers)\n\t\t\t\t{\n\t\t\t\t\tif (worker.MonitorHeartBeat && !worker.HasHeartBeat())\n\t\t\t\t\t{\n\t\t\t\t\t\t_noHeartBeatWorkersCountEventSource.Emit(1, worker.Name);\n\t\t\t\t\t\tif(worker.TerminateOnHeartBeatMissing)\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\tworker.AbortWorkerThread();\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t\tforeach (AbstractServiceWorkerGroup group in _scmServicedComponent._groups)\n\t\t\t\t{\n\t\t\t\t\tint noBeatsCount = group.CheckWorkersHeartBeat();\n\t\t\t\t\tif (noBeatsCount > 0)\n\t\t\t\t\t{\n\t\t\t\t\t\t_noHeartBeatWorkersCountEventSource.Emit(noBeatsCount, group.Name);\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\n\t\t\tprivate void CheckForDeadWorkerThreads()\n\t\t\t{\n\t\t\t\t// Check for dead workers and restart them.\n\t\t\t\tforeach (AbstractServiceWorker worker in _scmServicedComponent._workers)\n\t\t\t\t{\n\t\t\t\t\tif (worker.IsDead)\n\t\t\t\t\t{\n\t\t\t\t\t\t_log.WarnNoPII($\"Found a dead worker: {worker.Name}. Restarting it.\");\n\t\t\t\t\t\tworker.Start();\n\t\t\t\t\t\t_deadWorkersCountEventSource.Emit(1, worker.Name);\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t\tforeach (AbstractServiceWorkerGroup group in _scmServicedComponent._groups)\n\t\t\t\t{\n\t\t\t\t\tint deadWorkers = group.RemoveDeadWorkers();\n\n\t\t\t\t\tif (deadWorkers > 0)\n\t\t\t\t\t{\n\t\t\t\t\t\t_deadWorkersCountEventSource.Emit(deadWorkers, group.Name);\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\n\t\t\tprivate void AdjustWorkersIfNecessary()\n\t\t\t{\n\t\t\t\tforeach (AbstractServiceWorkerGroup group in _scmServicedComponent._groups)\n\t\t\t\t{\n\t\t\t\t\tif (_scmServicedComponent.ShouldAdjustWorkers(group))\n\t\t\t\t\t{\n\t\t\t\t\t\t_log.WarnNoPII($\"Group {group.Name} should have {group.GetDesiredWorkerCount()} workers, but has {group.WorkerCount}. Adjusting.\");\n\t\t\t\t\t\tgroup.AdjustWorkers();\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\n\t\t\tpublic override int SleepSeconds()\n\t\t\t{\n\t\t\t\treturn Configuration.GetInt32AppSetting($\"ClmService_{nameof(ThreadManagerWorker)}_SleepSeconds\", 30);\n\t\t\t}\n\t\t}\n\t}\n}\n",
+            "relevance_score": 25,
+            "reasoning": "Telemetry infrastructure: Import: DocuSign.Monitoring, Pattern: Monitoring"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/BaseServiceRequestEventLogger.cs",
+            "content": "\ufeffusing ADEXS.Core.Util.Core;\nusing DocuSign.CLM.Monitoring;\nusing System;\n\nnamespace ADEXS.ServiceFramework\n{\n\tpublic abstract class BaseServiceRequestEventLogger : AsyncRequestEventLogger\n\t{\n\t\tpublic string Action { get; }\n\n\t\tprotected override bool DisableAsyncRequestEventLogging => !Configuration.GetBooleanAppSetting($\"Kazmon_EnableServiceLogger_{GetType().Name}_{Action}\", true);\n\n\t\tprotected BaseServiceRequestEventLogger(Guid? correlationToken, string action)\n\t\t\t: base(null == correlationToken || correlationToken == Guid.Empty ? Guid.NewGuid() : correlationToken, action)\n\t\t{\n\t\t\tAction = action;\n\t\t}\n\t}\n}\n",
+            "relevance_score": 25,
+            "reasoning": "Telemetry infrastructure: Import: DocuSign.CLM.Monitoring, Pattern: Monitoring"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.AspNetCore/HostedServices/ScmLifetimeHostedService.cs",
+            "content": "using System;\nusing System.Reflection;\nusing System.Threading;\nusing System.Threading.Tasks;\n\nusing ADEXS.Core.Util.Config;\nusing ADEXS.Core.Util.Core;\nusing ADEXS.FeatureFlags;\nusing ADEXS.ServiceFramework.AspNetCore.HealthChecks;\nusing ADEXS.ServiceFramework.AspNetCore.Options;\n\nusing DocuSign.CLM.Monitoring;\nusing DocuSign.OneConfig.Extensions;\n\nusing log4net;\n\nusing Microsoft.Extensions.Hosting;\nusing Microsoft.Extensions.Hosting.WindowsServices;\nusing Microsoft.Extensions.Logging;\nusing Microsoft.Extensions.Options;\n\nnamespace ADEXS.ServiceFramework.AspNetCore.HostedServices;\n\n/// <summary>\n/// Hosted service that runs for the lifetime of the SCM application. Similar to ADEXS.Core.Domain.ScmHttpApplication.\n/// Code redirects log4net logs to standard ILogProvider (cloud only). Then code configures KazMon logging and feature flags.\n/// </summary>\ninternal sealed class ScmLifetimeHostedService : IHostedService\n{\n\tprivate readonly IScmLifetimeServiceStatus _scmLifetimeServiceStatus;\n\n\tprivate readonly IWatchedSingletonConfig<ISiteConfig> _siteConfig;\n\n\tprivate readonly IWatchedSingletonConfig<IAppConfig> _appConfig;\n\n\tprivate readonly IOptions<ScmLifetimeHostedServiceOptions> _options;\n\n\tprivate readonly ILogger _logger;\n\n\tprivate bool _isFeatureFlagsEnabled;\n\n\tprivate bool _isFeatureFlagsContextEnabled;\n\n\tpublic ScmLifetimeHostedService(\n\t\tIScmLifetimeServiceStatus scmLifetimeServiceStatus,\n\t\tIWatchedSingletonConfig<ISiteConfig> siteConfig,\n\t\tIWatchedSingletonConfig<IAppConfig> appConfig,\n\t\tIOptions<ScmLifetimeHostedServiceOptions> options,\n\t\tILogger<ScmLifetimeHostedService> logger)\n\t{\n\t\t_scmLifetimeServiceStatus = scmLifetimeServiceStatus;\n\t\t_siteConfig = siteConfig;\n\t\t_appConfig = appConfig;\n\t\t_options = options;\n\t\t_logger = logger;\n\t}\n\n\t/// <inheritdoc />\n\tpublic Task StartAsync(CancellationToken cancellationToken)\n\t{\n\t\ttry\n\t\t{\n\t\t\tvar siteConfig = _siteConfig.Value;\n\t\t\tvar appConfig = _appConfig.Value;\n\n\t\t\t_logger.LogInformation(\n\t\t\t\t\"Initializing http application on {EnvironmentType} {Environment} environment on {Site} site\",\n\t\t\t\tsiteConfig.EnvironmentType,\n\t\t\t\tsiteConfig.Environment,\n\t\t\t\tsiteConfig.Site);\n\n\t\t\tvar application = Environment.GetEnvironmentVariable(\"MONITORING_SYSTEM_APPLICATION\") ?? appConfig.AppName;\n\t\t\tvar site = siteConfig.Site;\n\n\t\t\tif (_options.Value.KazMonMonitoringEnabled)\n\t\t\t{\n\t\t\t\tvar assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();\n\n\t\t\t\t// Use MSF specific env variable, fallback to app settings.\n\t\t\t\tvar environment = Environment.GetEnvironmentVariable(\"MONITORING_SYSTEM_ENVIRONMENT\") ?? siteConfig.Environment;\n\t\t\t\tvar partition = Environment.GetEnvironmentVariable(\"MONITORING_SYSTEM_PARTITION\");\n\n\t\t\t\tKazmonMonitoring.InitializeKazmon(\n\t\t\t\t\tapplicationName: application,\n\t\t\t\t\tappVersion: assembly.GetName().Version!.ToString(),\n\t\t\t\t\tenvironmentName: environment,\n\t\t\t\t\tsiteName: site,\n\t\t\t\t\tpartitionName: partition,\n\t\t\t\t\tshouldEnableKazmon: () => Configuration.GetBooleanAppSetting(\"KazmonEnableMonitoring\", true)\n\t\t\t\t\t\t\t\t\t\t\t  && Configuration.GetBooleanAppSetting($\"EnableFeatureFlagsByAppName_{application}\", true),\n\t\t\t\t\tshouldEnableSmartMon: () => Configuration.GetBooleanAppSetting(\"SmartMonEnable\", true),\n\t\t\t\t\tshouldEnableLogFileListener: () => Configuration.GetBooleanAppSetting(\"KazmonEnableLogFileListener\", false));\n\t\t\t}\n\n\t\t\t_isFeatureFlagsEnabled = Configuration.GetBooleanAppSetting(\"EnableFeatureFlags\", true)\n\t\t\t\t&& Configuration.GetBooleanAppSetting($\"EnableFeatureFlagsByAppName_{application}\", true);\n\n\t\t\t_isFeatureFlagsContextEnabled = Configuration.GetBooleanAppSetting(\"UseOneConfigOverDss\", false);\n\n\t\t\tif (_isFeatureFlagsEnabled)\n\t\t\t{\n\t\t\t\tFeatureFlagsBootstrap.Init(site);\n\t\t\t}\n\t\t\telse if (_isFeatureFlagsContextEnabled)\n\t\t\t{\n\t\t\t\tFeatureFlagsBootstrap.InitializeContextOnly();\n\t\t\t}\n\n\t\t\t_scmLifetimeServiceStatus.IsReady = true;\n\n\t\t\t_logger.LogInformation(\"Http application initialized\");\n\t\t}\n\t\tcatch (Exception ex)\n\t\t{\n\t\t\t_logger.LogError(ex, \"Failed to start http application\");\n\n\t\t\t// https://learn.microsoft.com/en-us/dotnet/core/extensions/windows-service#service-recovery-options-and-net-backgroundservice-instances\n\t\t\tif (WindowsServiceHelpers.IsWindowsService())\n\t\t\t{\n\t\t\t\tEnvironment.Exit(1);\n\t\t\t}\n\n\t\t\tthrow;\n\t\t}\n\n\t\treturn Task.CompletedTask;\n\t}\n\n\t/// <inheritdoc />\n\tpublic Task StopAsync(CancellationToken cancellationToken)\n\t{\n\t\ttry\n\t\t{\n\t\t\t_logger.LogInformation(\"Stopping http application\");\n\n\t\t\t_scmLifetimeServiceStatus.IsReady = false;\n\n\t\t\ttry\n\t\t\t{\n\t\t\t\tLogManager.Shutdown();\n\t\t\t}\n#pragma warning disable CA1031 // Do not catch general exception types. This is the only way to shutdown log4net.\n\t\t\tcatch (Exception ex)\n#pragma warning restore CA1031 // Do not catch general exception types. This is the only way to shutdown log4net.\n\t\t\t{\n\t\t\t\t_logger.LogError(ex, \"Error shutting down log manager\");\n\t\t\t}\n\n\t\t\tif (_isFeatureFlagsEnabled || _isFeatureFlagsContextEnabled)\n\t\t\t{\n\t\t\t\tFeatureFlagsBootstrap.UnInitialize();\n\t\t\t}\n\n\t\t\tif (_options.Value.KazMonMonitoringEnabled)\n\t\t\t{\n\t\t\t\tKazmonMonitoring.ShutdownKazmon();\n\t\t\t}\n\t\t}\n\t\tcatch (Exception ex)\n\t\t{\n\t\t\t_logger.LogError(ex, \"Failed to stop http application\");\n\t\t\tthrow;\n\t\t}\n\n\t\treturn Task.CompletedTask;\n\t}\n}\n",
+            "relevance_score": 25,
+            "reasoning": "Telemetry infrastructure: Import: DocuSign.CLM.Monitoring, Pattern: Monitoring"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/Extensions/StructureMapHostBuilderExtensions.cs",
+            "content": "\ufeff#if NET\n#nullable enable\nusing System;\nusing System.Collections.Generic;\n\nusing ADEXS.Core.Util.ServiceLocator;\nusing ADEXS.ServiceFramework.Implementation;\n\nusing Microsoft.Extensions.DependencyInjection;\nusing Microsoft.Extensions.Hosting;\n\nusing StructureMap;\n\nnamespace ADEXS.ServiceFramework.Extensions\n{\n\t/// <summary>\n\t/// Extension methods for configuring the <see cref=\"IHostBuilder\" />.\n\t/// </summary>\n\tpublic static class StructureMapHostBuilderExtensions\n\t{\n\t\t/// <summary>\n\t\t/// Configures a <see cref=\"IHostBuilder\" /> with to use StructureMap provided by <see cref=\"ServiceLocator\"/>\n\t\t/// </summary>\n\t\t/// <param name=\"builder\">The <see cref=\"IHostBuilder\" /> instance to configure.</param>\n\t\t/// <returns>A reference to the <paramref name=\"builder\"/> after the operation has completed.</returns>\n\t\tpublic static IHostBuilder UseScmServiceLocator(this IHostBuilder builder)\n\t\t{\n\t\t\treturn builder.UseServiceProviderFactory<Registry>(new StructureMapServiceProviderFactoryAdapter(null));\n\t\t}\n\n\t\t/// <summary>\n\t\t/// Configures a <see cref=\"IHostBuilder\" /> with to use StructureMap provided by <see cref=\"ServiceLocator\"/>\n\t\t/// </summary>\n\t\t/// <param name=\"builder\">The <see cref=\"IHostBuilder\" /> instance to configure.</param>\n\t\t/// <param name=\"registry\">\n\t\t/// The <see cref=\"Registry\"/> to use to configure the container.\n\t\t/// </param>\n\t\t/// <returns>A reference to the <paramref name=\"builder\"/> after the operation has completed.</returns>\n\t\tpublic static IHostBuilder UseScmServiceLocator(this IHostBuilder builder, Registry registry)\n\t\t{\n\t\t\treturn builder.UseServiceProviderFactory<Registry>(new StructureMapServiceProviderFactoryAdapter(registry));\n\t\t}\n\n\t\t/// <summary>\n\t\t/// Configures a <see cref=\"IHostBuilder\" /> with to use StructureMap provided by <see cref=\"ServiceLocator\"/>\n\t\t/// </summary>\n\t\t/// <param name=\"builder\">The <see cref=\"IHostBuilder\" /> instance to configure.</param>\n\t\t/// <param name=\"serviceRegistries\">\n\t\t/// The <see cref=\"IServiceRegistry\"/> to use to configure the container.\n\t\t/// </param>\n\t\t/// <returns>A reference to the <paramref name=\"builder\"/> after the operation has completed.</returns>\n\t\tpublic static IHostBuilder UseScmServiceLocator(this IHostBuilder builder, IEnumerable<IServiceRegistry> serviceRegistries)\n\t\t{\n\t\t\tvar registry = new Registry();\n\t\t\tvar services = new ServiceCollection();\n\n\t\t\tforeach (var serviceRegistry in serviceRegistries)\n\t\t\t{\n\t\t\t\tregistry.IncludeRegistry(serviceRegistry.GetRegistry());\n\t\t\t\tserviceRegistry.ConfigureServiceCollection(services);\n\t\t\t}\n\n\t\t\tregistry.Populate(services);\n\n\t\t\treturn builder.UseServiceProviderFactory<Registry>(new StructureMapServiceProviderFactoryAdapter(registry));\n\t\t}\n\n\t\t/// <summary>\n\t\t/// Configures a <see cref=\"IHostBuilder\" /> with to use StructureMap provided by <see cref=\"ServiceLocator\"/>\n\t\t/// </summary>\n\t\t/// <param name=\"builder\">The <see cref=\"IHostBuilder\" /> instance to configure.</param>\n\t\t/// <param name=\"serviceRegistries\">\n\t\t/// The <see cref=\"IServiceRegistry\"/> to use to configure the container.\n\t\t/// </param>\n\t\t/// <returns>A reference to the <paramref name=\"builder\"/> after the operation has completed.</returns>\n\t\tpublic static IHostBuilder UseScmServiceLocator(this IHostBuilder builder, Func<IList<IServiceRegistry>> serviceRegistries)\n\t\t{\n\t\t\treturn UseScmServiceLocator(builder, serviceRegistries());\n\t\t}\n\t}\n}\n#nullable restore\n#endif\n",
+            "relevance_score": 24,
+            "reasoning": "Semantic similarity: 0.246"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.AspNetCore/Extensions/ScmLifetimeHostedServiceHostBuilderExtensions.cs",
+            "content": "\ufeffusing System;\n\nusing ADEXS.ServiceFramework.AspNetCore.Options;\n\nusing Microsoft.Extensions.Hosting;\n\nnamespace ADEXS.ServiceFramework.AspNetCore.Extensions;\n\n/// <summary>\n/// Extension methods for configuring the <see cref=\"IHostBuilder\" />.\n/// </summary>\npublic static class ScmLifetimeHostedServiceHostBuilderExtensions\n{\n\t/// <summary>\n\t/// Configures a <see cref=\"IHostBuilder\" /> hosted service to manage common lifetime platform services (KazMon, feature flags).\n\t/// </summary>\n\t/// <param name=\"builder\">The <see cref=\"IHostBuilder\" /> instance to configure.</param>\n\t/// <returns>A reference to the <paramref name=\"builder\"/> after the operation has completed.</returns>\n\tpublic static IHostBuilder ConfigureScmLifetimeHostedService(this IHostBuilder builder)\n\t{\n\t\treturn ConfigureScmLifetimeHostedService(builder, options => { });\n\t}\n\n\t/// <summary>\n\t/// Configures a <see cref=\"IHostBuilder\" /> hosted service to manage common lifetime platform services (KazMon, feature flags).\n\t/// </summary>\n\t/// <param name=\"builder\">The <see cref=\"IHostBuilder\" /> instance to configure.</param>\n\t/// <param name=\"setupAction\">An <see cref=\"Action{ScmLifetimeHostedServiceOptions}\"/> to configure the provided <see cref=\"ScmLifetimeHostedServiceOptions\" />.</param>\n\t/// <returns>A reference to the <paramref name=\"builder\"/> after the operation has completed.</returns>\n\tpublic static IHostBuilder ConfigureScmLifetimeHostedService(this IHostBuilder builder, Action<ScmLifetimeHostedServiceOptions> setupAction)\n\t{\n\t\tbuilder.ConfigureServices(services =>\n\t\t{\n\t\t\tservices.AddScmLifetimeHostedService(setupAction);\n\t\t});\n\n\t\treturn builder;\n\t}\n}\n",
+            "relevance_score": 21,
+            "reasoning": "Semantic similarity: 0.218"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework/TaskResultEnum.cs",
+            "content": "\ufeffnamespace ADEXS.ServiceFramework\n{\n\tpublic enum TaskResult\n\t{\n\t\tSuccess,\n\t\tFailure,\n\t\tUnlock\n\t}\n}\n",
+            "relevance_score": 21,
+            "reasoning": "Semantic similarity: 0.216"
+          },
+          {
+            "path": "/Users/shuaib.tabit/Documents/ServiceFramework/src/ServiceFramework.Extensions/ScmHostExtensions.cs",
+            "content": "\ufeffusing System;\n\nusing ADEXS.HealthCheck.AspNetCore.StartupChecks.Extensions;\nusing ADEXS.ServiceFramework.AspNetCore.Extensions;\n\nusing Microsoft.Extensions.Hosting;\nusing Microsoft.Extensions.Hosting.WindowsServices;\n\nnamespace ADEXS.ServiceFramework.Extensions;\n\n/// <summary>\n/// Extensions for <see cref=\"IHost\"/>.\n/// </summary>\npublic static class ScmHostExtensions\n{\n\t/// <summary>\n\t/// Runs the SCM service.\n\t/// </summary>\n\t/// <param name=\"host\">\n\t/// The host.\n\t/// </param>\n\t/// <exception cref=\"ArgumentNullException\">\n\t/// When <paramref name=\"host\"/> is <see langword=\"null\"/>.\n\t/// </exception>\n\tpublic static void RunScmService(this IHost host)\n\t{\n\t\tArgumentNullException.ThrowIfNull(host);\n\n\t\tif (WindowsServiceHelpers.IsWindowsService())\n\t\t{\n\t\t\thost.RunAsService();\n\t\t}\n\t\telse\n\t\t{\n\t\t\thost.RunWithExternalHealthChecks();\n\t\t}\n\t}\n\n\t/// <summary>\n\t/// Runs the SCM web service.\n\t/// </summary>\n\t/// <param name=\"host\">\n\t/// The host.\n\t/// </param>\n\t/// <exception cref=\"ArgumentNullException\">\n\t/// When <paramref name=\"host\"/> is <see langword=\"null\"/>.\n\t/// </exception>\n\t/// <remarks>\n\t/// For now it simply redirects to <see cref=\"ADEXS.HealthCheck.AspNetCore.StartupChecks.Extensions.HostingAbstractionsHostExtensions.RunWithExternalHealthChecks\"/>.\n\t/// But later on can be used to extend the functionality.\n\t/// </remarks>\n\tpublic static void RunScmWebService(this IHost host)\n\t{\n\t\tArgumentNullException.ThrowIfNull(host);\n\n\t\thost.RunWithExternalHealthChecks();\n\t}\n}\n",
+            "relevance_score": 21,
+            "reasoning": "Semantic similarity: 0.216"
+          }
+        ]
+      },
+      "error": null,
+      "execution_time": 55.997846841812134,
+      "cache_hit": false
+    },
+    "validate_solution": {
+      "stage_name": "validate_solution",
+      "status": "StageStatus.COMPLETED",
+      "result": {
+        "overall_score": 0.8395604395604396,
+        "test_results": [
+          {
+            "test_name": "Intent Required Fields",
+            "test_type": "TestType.UNIT",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "missing_fields": []
+            },
+            "errors": [],
+            "warnings": [],
+            "execution_time": 0.001
+          },
+          {
+            "test_name": "Telemetry Operation Validity",
+            "test_type": "TestType.UNIT",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "type": "span",
+              "action": "ADD_ATTRIBUTES"
+            },
+            "errors": [],
+            "warnings": [],
+            "execution_time": 0.001
+          },
+          {
+            "test_name": "Semantic Description Quality",
+            "test_type": "TestType.UNIT",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "description_length": 98,
+              "quality_score": 1.0
+            },
+            "errors": [],
+            "warnings": [],
+            "execution_time": 0.002
+          },
+          {
+            "test_name": "Patch Format Validity",
+            "test_type": "TestType.UNIT",
+            "passed": false,
+            "score": 0.0,
+            "details": {
+              "patch_length": 3131
+            },
+            "errors": [
+              "Invalid unified diff format"
+            ],
+            "warnings": [],
+            "execution_time": 0.001
+          },
+          {
+            "test_name": "Code Style Compliance",
+            "test_type": "TestType.UNIT",
+            "passed": false,
+            "score": 0.6000000000000001,
+            "details": {
+              "style_score": 0.6000000000000001
+            },
+            "errors": [],
+            "warnings": [
+              "Code style could be improved"
+            ],
+            "execution_time": 0.003
+          },
+          {
+            "test_name": "Change Scope Appropriateness",
+            "test_type": "TestType.UNIT",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "scope_score": 1.0
+            },
+            "errors": [],
+            "warnings": [],
+            "execution_time": 0.002
+          },
+          {
+            "test_name": "Code Compilation",
+            "test_type": "TestType.INTEGRATION",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "files_count": 10
+            },
+            "errors": [],
+            "warnings": [],
+            "execution_time": 2.0
+          },
+          {
+            "test_name": "OpenTelemetry Attribute Naming",
+            "test_type": "TestType.COMPLIANCE",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "attributes_count": 2
+            },
+            "errors": [],
+            "warnings": [],
+            "execution_time": 0.001
+          },
+          {
+            "test_name": "Instrumentation Pattern Compliance",
+            "test_type": "TestType.COMPLIANCE",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "pattern_score": 1.0
+            },
+            "errors": [],
+            "warnings": [],
+            "execution_time": 0.002
+          },
+          {
+            "test_name": "Resource Usage Analysis",
+            "test_type": "TestType.PERFORMANCE",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "score": 1.0,
+              "errors": [],
+              "warnings": []
+            },
+            "errors": [],
+            "warnings": [],
+            "execution_time": 0.003
+          },
+          {
+            "test_name": "No Hardcoded Secrets",
+            "test_type": "TestType.COMPLIANCE",
+            "passed": true,
+            "score": 1.0,
+            "details": {},
+            "errors": [],
+            "warnings": [],
+            "execution_time": 0.001
+          },
+          {
+            "test_name": "Input Validation",
+            "test_type": "TestType.COMPLIANCE",
+            "passed": false,
+            "score": 0.15384615384615385,
+            "details": {
+              "validation_score": 0.15384615384615385
+            },
+            "errors": [
+              "Insufficient input validation"
+            ],
+            "warnings": [
+              "Input validation could be improved"
+            ],
+            "execution_time": 0.002
+          },
+          {
+            "test_name": "Performance Impact Analysis",
+            "test_type": "TestType.PERFORMANCE",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "risk_level": 1,
+              "errors": [],
+              "warnings": []
+            },
+            "errors": [],
+            "warnings": [],
+            "execution_time": 0.005
+          },
+          {
+            "test_name": "Integration Compatibility",
+            "test_type": "TestType.INTEGRATION",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "breaking_changes": []
+            },
+            "errors": [],
+            "warnings": [],
+            "execution_time": 0.01
+          }
+        ],
+        "recommendations": [
+          "Address failing tests before deployment",
+          "Improve implementation for low-scoring areas",
+          "Validate telemetry data collection in staging environment"
+        ],
+        "risk_assessment": "HIGH",
+        "compliance_status": {
+          "opentelemetry": true,
+          "security": true,
+          "style": true
+        }
+      },
+      "error": null,
+      "execution_time": 0.008589982986450195,
+      "cache_hit": false
+    }
+  }
+}

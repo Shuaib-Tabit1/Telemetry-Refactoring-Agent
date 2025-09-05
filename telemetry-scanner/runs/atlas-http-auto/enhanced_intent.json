@@ -1,0 +1,195 @@
+{
+  "basic_intent": {
+    "issue_category": "INSTRUMENTATION",
+    "static_analysis_query": {
+      "find_method_call": "SetTag"
+    },
+    "semantic_description": "Add HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION tags to existing HTTP server spans in the CLM web application.",
+    "search_keywords": [
+      "HTTP_REFERER",
+      "HTTP_RESPONSE_REDIRECT_LOCATION",
+      "Activity.SetTag",
+      "OpenTelemetry",
+      "ASP.NET middleware"
+    ],
+    "telemetry_operation": {
+      "type": "span",
+      "target_name": "clm-web incoming HTTP request span",
+      "action": "ADD_ATTRIBUTES",
+      "attributes_to_add": [
+        {
+          "name": "HTTP_REFERER",
+          "value_source": "Request.Headers[\"Referer\"]"
+        },
+        {
+          "name": "HTTP_RESPONSE_REDIRECT_LOCATION",
+          "value_source": "Response.Headers[\"Location\"]"
+        }
+      ],
+      "new_span_name": null,
+      "new_metric_details": {}
+    }
+  },
+  "enhanced_analysis": {
+    "confidence": "high",
+    "operation_type": "multi_file",
+    "complexity_score": 4,
+    "estimated_files": 3,
+    "validation_issues": [],
+    "suggestions": [],
+    "sub_tasks": [
+      {
+        "order": 1,
+        "action": "codebase_discovery",
+        "title": "Locate existing OpenTelemetry configuration and span enrichment logic",
+        "description": "Search the CLM solution for OpenTelemetry bootstrap code, middleware, or helper methods that already call Activity.SetTag/SetAttribute. Confirm where the HTTP-server Activity is created or enriched.",
+        "tasks": [
+          "grep or VSCode search for \u201cActivitySource\u201d , \u201cSetTag(\u201d , \u201cAddTag(\u201d in src/ and shared libraries",
+          "Open Startup.cs / Program.cs for `AddOpenTelemetry...` registration",
+          "Open any *Telemetry*Extensions.cs or *Enrichment* middleware"
+        ],
+        "expected_files": [
+          "Startup.cs / Program.cs",
+          "OpenTelemetryConfigExtensions.cs",
+          "HttpRequestEnrichmentMiddleware.cs (if exists)"
+        ],
+        "validation_criteria": "Exact line numbers / file paths documented in the engineering notes wiki"
+      },
+      {
+        "order": 2,
+        "action": "design_enrichment_strategy",
+        "title": "Choose enrichment injection point",
+        "description": "Decide whether to 1) augment an existing enrichment middleware, 2) create a new lightweight middleware, or 3) register an OpenTelemetry ActivityEnrichment callback. The chosen solution must have access to BOTH HttpContext.Request and HttpContext.Response before the response headers are flushed.",
+        "deliverable": "1-page ADR (architecture decision record) added to /docs/adr/023-http-redirect-telemetry.md",
+        "dependencies": [
+          1
+        ],
+        "validation_criteria": "ADR approved by at least one senior dev and an SRE representative"
+      },
+      {
+        "order": 3,
+        "action": "implementation",
+        "title": "Code changes \u2013 add attributes",
+        "description": "Implement the enrichment logic in the decided location.",
+        "code_snippet": [
+          "var referer = context.Request.Headers[\"Referer\"].FirstOrDefault();",
+          "if (!string.IsNullOrEmpty(referer)) activity.SetTag(\"HTTP_REFERER\", referer);",
+          "",
+          "context.Response.OnStarting(() => {",
+          "   if (IsRedirectStatusCode(context.Response.StatusCode))",
+          "   {",
+          "       var location = context.Response.Headers[\"Location\"].FirstOrDefault();",
+          "       if (!string.IsNullOrEmpty(location)) activity.SetTag(\"HTTP_RESPONSE_REDIRECT_LOCATION\", location);",
+          "   }",
+          "   return Task.CompletedTask;",
+          "});"
+        ],
+        "non_functional": [
+          "Null / empty checks",
+          "Non-allocating string helpers for perf",
+          "Guard for duplicate tags"
+        ],
+        "dependencies": [
+          2
+        ],
+        "expected_files_modified": [
+          "TelemetryEnrichmentMiddleware.cs (new or updated)",
+          "Startup.cs (if new middleware needs registration)"
+        ],
+        "validation_criteria": "Solution builds locally; unit tests pass"
+      },
+      {
+        "order": 4,
+        "action": "unit_and_component_tests",
+        "title": "Automated test coverage",
+        "description": "Add unit tests for middleware using TestServer. Simulate: a) normal 200 response, b) 302 redirect with Location header. Assert Activity.Current contains the new tags with expected values or is absent when headers missing.",
+        "expected_files_added": [
+          "TelemetryEnrichmentMiddlewareTests.cs"
+        ],
+        "dependencies": [
+          3
+        ],
+        "validation_criteria": "`dotnet test` succeeds in CI with >90% line coverage on middleware"
+      },
+      {
+        "order": 5,
+        "action": "local_manual_validation",
+        "title": "Run clm-web locally and inspect spans",
+        "description": "Launch the site with OTLP exporter pointing to Jaeger or console exporter. Trigger redirect pages (/clm/Documents/BrowseDocuments.aspx and SSO flow) and verify tags appear in the trace viewer.",
+        "dependencies": [
+          3
+        ],
+        "validation_criteria": "Screenshots attached to ticket showing both HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION present"
+      },
+      {
+        "order": 6,
+        "action": "performance_regression_test",
+        "title": "Benchmark middleware impact",
+        "description": "Use k6 or BenchmarkDotNet to run 1k rps for 5 minutes on local build with and without enrichment. Confirm <1% latency delta and negligible alloc increase (<2 KB per request).",
+        "dependencies": [
+          3
+        ],
+        "validation_criteria": "Perf report uploaded; thresholds met"
+      },
+      {
+        "order": 7,
+        "action": "pull_request_and_review",
+        "title": "Open PR, request review, and merge",
+        "description": "Create PR with implementation, tests, ADR, and changelog entry. Request reviewers from Observability and CLM teams.",
+        "dependencies": [
+          4,
+          5,
+          6
+        ],
+        "validation_criteria": "PR approved and merged; all pipelines green"
+      },
+      {
+        "order": 8,
+        "action": "deploy_to_demo",
+        "title": "CI/CD rollout \u2013 Demo environment",
+        "description": "Promote clm-web build to Demo. Monitor deployment dashboard for errors.",
+        "dependencies": [
+          7
+        ],
+        "validation_criteria": "Deployment succeeded, no new exceptions in Application Insights"
+      },
+      {
+        "order": 9,
+        "action": "post_deploy_validation",
+        "title": "Kusto query verification",
+        "description": "Run the expected Kusto query in the ticket to confirm attributes are present for new spans in Demo.",
+        "kusto_query": "OtlpSpanEvents | where Environment == \"Demo\" | where url_path == \"/clm/Documents/BrowseDocuments.aspx\" | where http_status_code > 200 | project Timestamp, url_path, http_status_code, HTTP_REFERER, HTTP_RESPONSE_REDIRECT_LOCATION",
+        "dependencies": [
+          8
+        ],
+        "validation_criteria": "Query returns rows with non-null HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION"
+      },
+      {
+        "order": 10,
+        "action": "staged_rollout_to_all_envs",
+        "title": "Gradual release to QA, Stage, then Prod",
+        "description": "Repeat deploy + Kusto validation for each environment with 30-minute soak time. Flag off via feature toggle if issues appear.",
+        "dependencies": [
+          9
+        ],
+        "validation_criteria": "100% traffic in Prod sees new tags with zero increase in error rate"
+      },
+      {
+        "order": 11,
+        "action": "documentation_and_knowledge_share",
+        "title": "Update runbooks & wiki",
+        "description": "Document the new attributes, example Kusto queries, and troubleshooting steps in Observability runbook.",
+        "dependencies": [
+          10
+        ],
+        "validation_criteria": "Runbook section 'HTTP Redirect Telemetry' published"
+      }
+    ],
+    "contextual_hints": [
+      "Find the single place (or create one) in the ASP.NET middleware pipeline where both the request and response objects are available and the Activity is still in scope",
+      "Ensure the enrichment executes for all code paths, including synchronous and asynchronous redirects (Response.Redirect, 302 from MVC, etc.)",
+      "Unit-/integration-testing redirect scenarios in local dev or CI to verify the attribute shows up in the exporter",
+      "Keeping attribute names consistent with OpenTelemetry semantic conventions while respecting existing internal naming patterns"
+    ]
+  }
+}

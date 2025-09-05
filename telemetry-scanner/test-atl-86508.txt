@@ -1,0 +1,18 @@
+Database Stored Procedure name is missing in Span Attribute
+
+When looking at CLM telemetry data in Jaeger, we can see that when stored procedures are executed via ExecuteStoredProcedure method, the span doesn't include the actual stored procedure name in the db.operation or db.name attributes.
+
+This makes it difficult to:
+1. Identify which stored procedures are being called
+2. Track performance of specific stored procedures  
+3. Debug issues related to specific database operations
+
+Expected behavior:
+- The span should include db.operation attribute with the stored procedure name
+- The span should include db.name attribute with the database name
+
+Current behavior:
+- Spans only show generic database operation information
+- Stored procedure names are missing from telemetry data
+
+Please enhance the ExecuteStoredProcedure instrumentation to include these attributes.

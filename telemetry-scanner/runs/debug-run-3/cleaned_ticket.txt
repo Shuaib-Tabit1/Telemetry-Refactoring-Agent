@@ -1,0 +1,64 @@
+## OpenTelemetry Span Attributes Missing - HTTP Redirect Tracking
+
+**Summary:** Add missing HTTP_REFERER and HTTP_RESPONSE_REDIRECT_LOCATION attributes to CLM web application spans
+
+**Problem Description:**
+Our OpenTelemetry spans in the CLM (Contract Lifecycle Management) web application are missing critical HTTP attributes needed for debugging redirect flows and investigating user journey issues. Specifically:
+
+1. **Missing Attribute**: `HTTP_REFERER` - The referring page URL that led to the current request
+2. **Missing Attribute**: `HTTP_RESPONSE_REDIRECT_LOCATION` - The destination URL when a 302/redirect response occurs
+
+**Business Impact:**
+- Cannot trace user navigation flows through CLM application
+- Difficult to investigate redirect-related issues and errors
+- Missing context for 302 responses that redirect to error pages
+
+**Technical Details:**
+
+**Target Application:** CLM Web Application (clm-web)
+**Environment:** Demo (but affects all environments)
+**Specific Pages Affected:**
+- `/clm/Documents/BrowseDocuments.aspx`
+- `/clm/SSO/SSOEndpoint.ashx` 
+- Any page that handles redirects (HTTP 302 responses)
+
+**Expected Kusto Query Results:**
+After fix, this query should show the missing attributes:
+```kusto
+OtlpSpanEvents
+| where Environment == "Demo"
+| where url_path == "/clm/Documents/BrowseDocuments.aspx"
+| where http_status_code > 200
+| project Timestamp, url_path, http_status_code, HTTP_REFERER, HTTP_RESPONSE_REDIRECT_LOCATION
+```
+
+**Implementation Requirements:**
+
+1. **Add HTTP_REFERER attribute** to all incoming HTTP requests
+   - Source: `Request.Headers["Referer"]` or `HttpContext.Request.Headers.Referer`
+   - Add to span as: `activity.SetTag("HTTP_REFERER", refererValue)`
+
+2. **Add HTTP_RESPONSE_REDIRECT_LOCATION attribute** for redirect responses
+   - Source: `Response.Headers["Location"]` when status code is 301/302/303/307/308
+   - Add to span as: `activity.SetTag("HTTP_RESPONSE_REDIRECT_LOCATION", locationValue)`
+
+**Files to Look For:**
+- CLM web application middleware or request handling code
+- ASP.NET request pipeline components
+- OpenTelemetry instrumentation configuration
+- Files containing "ActivitySource", "SetTag", or "AddTag" method calls
+- Middleware files that handle HTTP requests/responses
+- Look for existing telemetry code in CLM-related projects
+
+**Acceptance Criteria:**
+- [ ] HTTP_REFERER attribute captured from incoming request headers
+- [ ] HTTP_RESPONSE_REDIRECT_LOCATION attribute captured for 302+ responses  
+- [ ] Attributes visible in OtlpSpanEvents Kusto table
+- [ ] No performance degradation from additional attribute collection
+- [ ] Proper null/empty value handling for missing headers
+
+**Technical Notes:**
+- Follow existing OpenTelemetry patterns in the codebase
+- Ensure attribute names match exactly: "HTTP_REFERER" and "HTTP_RESPONSE_REDIRECT_LOCATION"
+- Add attributes to HTTP request spans, not separate spans
+- Handle edge cases where headers might be missing or empty

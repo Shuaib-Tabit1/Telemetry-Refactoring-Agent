@@ -1,0 +1,18 @@
+{
+  "selected_files": [
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/DetectTypeProcessor.Trace.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/VideoInfoProcessor.Trace.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/DetectTypeService/DetectTypeProcessor.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/MessageWorkerService/DispatchedWorker.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Engine/WorkflowInstance.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/Web.Common/Helpers/BaseApiHandler.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WebNet/Middlewares/LogAsyncRequestHttpMiddleware.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/AtlasDataManipulationService/Startup.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/REST.WebServices/Global.asax.cs",
+    "/Users/shuaib.tabit/Documents/Atlas/src/WINS/Helpers/InstanceStateChangedHelper.cs"
+  ],
+  "selection_reasoning": "These four files are the only ones in the candidate list that sit in the HTTP-server path and can enrich the \u201cincoming_http_request\u201d span; the other six files are processors, workers, or workflow helpers that never see HttpContext and therefore cannot supply HTTP_REFERER or redirect-location information.",
+  "patch_reasoning": "are finalised (middleware) and immediately after we add the Location header in",
+  "diff_length": 1099,
+  "explanation_length": 2061
+}

@@ -1,0 +1,17 @@
+2025-08-28 14:45:42,838 - scanner.pipeline_orchestrator - INFO - Stage ticket_processing: Starting (attempt 1)
+2025-08-28 14:45:42,839 - scanner.pipeline_orchestrator - INFO - Stage ticket_processing: Completed in 0.00s
+2025-08-28 14:45:42,839 - scanner.pipeline_orchestrator - INFO - Stage intent_extraction: Starting (attempt 1)
+2025-08-28 14:45:52,765 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-28 14:45:57,891 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-28 14:46:13,953 - httpx - INFO - HTTP Request: POST https://docusign-observability-openai-service.openai.azure.com/openai/deployments/o3/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-28 14:46:13,955 - scanner.pipeline_orchestrator - INFO - Stage intent_extraction: Completed in 31.12s
+2025-08-28 14:46:13,956 - scanner.pipeline_orchestrator - INFO - Stage project_parsing: Starting (attempt 1)
+2025-08-28 14:46:13,966 - scanner.pipeline_orchestrator - INFO - Stage project_parsing: Completed in 0.01s
+2025-08-28 14:46:13,967 - scanner.pipeline_orchestrator - INFO - Stage graph_building: Starting (attempt 1)
+2025-08-28 14:46:14,113 - scanner.pipeline_orchestrator - WARNING - Stage graph_building: Attempt 1 failed: 'str' object has no attribute 'exists'
+2025-08-28 14:46:15,114 - scanner.pipeline_orchestrator - INFO - Stage graph_building: Starting (attempt 2)
+2025-08-28 14:46:15,236 - scanner.pipeline_orchestrator - WARNING - Stage graph_building: Attempt 2 failed: 'str' object has no attribute 'exists'
+2025-08-28 14:46:17,237 - scanner.pipeline_orchestrator - INFO - Stage graph_building: Starting (attempt 3)
+2025-08-28 14:46:17,389 - scanner.pipeline_orchestrator - WARNING - Stage graph_building: Attempt 3 failed: 'str' object has no attribute 'exists'
+2025-08-28 14:46:21,391 - scanner.pipeline_orchestrator - INFO - Stage graph_building: Starting (attempt 4)
+2025-08-28 14:46:21,539 - scanner.pipeline_orchestrator - WARNING - Stage graph_building: Attempt 4 failed: 'str' object has no attribute 'exists'

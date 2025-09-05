@@ -1,0 +1,12 @@
+{
+  "total_search_results": 82,
+  "promising_files_found": 20,
+  "final_files_selected": 1,
+  "strategy_used": "direct",
+  "selection_efficiency": "1.2%",
+  "files_selected": [
+    "/Users/shuaib.tabit/Documents/Atlas/src/Core.Domain/Utilities/ActivityEnricher.cs"
+  ],
+  "diff_length": 777,
+  "explanation_length": 1335
+}
