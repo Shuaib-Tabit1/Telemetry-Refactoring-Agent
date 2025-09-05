@@ -42,38 +42,6 @@ public record CodeGraph(List<CodeSymbol> Symbols);
 
 class Program
 {
-    // static async Task<int> Main(string[] args)
-    // {
-    //     // Create simple argument parsing to avoid System.CommandLine version issues
-    //     string? solutionPath = null;
-    //     string outputPath = "codegraph.json";
-
-    //     for (int i = 0; i < args.Length; i++)
-    //     {
-    //         if (args[i] == "--repo-path" && i + 1 < args.Length)
-    //         {
-    //             solutionPath = args[i + 1];
-    //             i++;
-    //         }
-    //         else if (args[i] == "--output-file" && i + 1 < args.Length)
-    //         {
-    //             outputPath = args[i + 1];
-    //             i++;
-    //         }
-    //     }
-
-    //     if (string.IsNullOrEmpty(solutionPath))
-    //     {
-    //         Console.Error.WriteLine("Error: --repo-path is required");
-    //         Console.Error.WriteLine("Usage: CodeGraphBuilder --repo-path <solution-path> [--output-file <output-path>]");
-    //         return 1;
-    //     }
-
-    //     // Build the code graph
-    //     await BuildGraph(solutionPath, outputPath);
-    //     return 0;
-    // }
-
     static async Task<int> Main(string[] args)
     {
         // Option for the index command
@@ -181,7 +149,6 @@ class Program
                 }
             }
 
-            // The rest of the analysis logic is the same...
             foreach (var project in solution.Projects)
             {
                 Console.Error.WriteLine($"Processing project symbols: {project.Name}");

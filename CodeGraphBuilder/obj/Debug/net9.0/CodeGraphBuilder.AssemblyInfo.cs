@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CodeGraphBuilder")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b6844a13608aaa294e811dcf056d3aae86fd47fc")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+fca26519f2e660a239f380e2b98ef2a92e356583")]
 [assembly: System.Reflection.AssemblyProductAttribute("CodeGraphBuilder")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CodeGraphBuilder")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
